@@ -1,0 +1,44 @@
+import type { AgentManifest } from "@/lib/agents/contract";
+
+export const drumMachineManifest: AgentManifest = {
+  name: "drum machine",
+  slug: "drum-machine",
+  level: 1,
+  origin: "installed",
+  description: "Sequence one-shots with probability, conditions, and polyrhythm.",
+  route: "/tools/drum-machine",
+  instrument: {
+    type: "sample",
+    workflow: "drum-machine",
+    document: "pattern",
+    usesSamples: true,
+    usesSynthesis: false,
+  },
+  capabilities: ["sequence", "mutatePattern", "polyrhythm", "recordOutput"],
+  inputs: {
+    samples: ["break", "loop", "oneshot", "fx"],
+    bpm: true,
+    globalBpm: true,
+    globalKey: true,
+    scaleSearch: true,
+    prompt: true,
+    description: false,
+    referenceAgent: false,
+    requiredAnalysis: ["global.true_peak_dbfs", "rhythm.onsets_s", "envelope.attack_ms", "slices"],
+  },
+  musicContext: {
+    globalBpm: true,
+    globalKey: true,
+    scaleSearch: true,
+  },
+  outputs: {
+    pattern: true,
+    synthScene: false,
+    audio: true,
+    recording: true,
+    files: false,
+    manifest: false,
+  },
+  autonomy: "assist",
+  status: "enabled",
+};

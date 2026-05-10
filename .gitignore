@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/.audit/typecheck/
 
 # next.js
 /.next/

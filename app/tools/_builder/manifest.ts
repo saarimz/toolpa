@@ -1,0 +1,44 @@
+import type { AgentManifest } from "@/lib/agents/contract";
+
+export const toolBuilderManifest = {
+  name: "tool-builder",
+  slug: "_builder",
+  level: 2,
+  origin: "installed",
+  description: "Generates new L1 music tools from a natural-language description.",
+  route: "/build",
+  instrument: {
+    type: "builder",
+    workflow: "tool-builder",
+    document: "files",
+    usesSamples: false,
+    usesSynthesis: false,
+  },
+  capabilities: ["generateTool", "verifyTool", "registerTool"],
+  inputs: {
+    samples: [],
+    bpm: false,
+    globalBpm: false,
+    globalKey: false,
+    scaleSearch: false,
+    prompt: false,
+    description: true,
+    referenceAgent: true,
+    requiredAnalysis: [],
+  },
+  musicContext: {
+    globalBpm: false,
+    globalKey: false,
+    scaleSearch: false,
+  },
+  outputs: {
+    pattern: false,
+    synthScene: false,
+    audio: false,
+    recording: false,
+    files: true,
+    manifest: true,
+  },
+  autonomy: "driven",
+  status: "enabled",
+} satisfies AgentManifest;
