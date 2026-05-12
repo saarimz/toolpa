@@ -22,7 +22,9 @@ export const GeneratedToolAuditEntrySchema = z.object({
   enabled: z.boolean(),
   hasDocumentOutput: z.boolean(),
   hasGlobalContext: z.boolean(),
+  hasAudioGateTest: z.boolean(),
   hasManifestFile: z.boolean(),
+  hasOfflineRenderer: z.boolean(),
   hasPromptInput: z.boolean(),
   hasRenderableOutput: z.boolean(),
   hasRouteFile: z.boolean(),
@@ -101,7 +103,9 @@ function createEntry(
   const fileStatus = options.checkFiles
     ? getGeneratedToolFileStatus(manifest, options.rootDir ?? process.cwd())
     : {
+        hasAudioGateTest: true,
         hasManifestFile: true,
+        hasOfflineRenderer: true,
         hasRouteFile: true,
         hasTests: true,
         registryMatchesManifest: true,
@@ -115,7 +119,9 @@ function createEntry(
       manifest.musicContext.globalBpm ||
       manifest.musicContext.globalKey ||
       manifest.musicContext.scaleSearch,
+    hasAudioGateTest: fileStatus.hasAudioGateTest,
     hasManifestFile: fileStatus.hasManifestFile,
+    hasOfflineRenderer: fileStatus.hasOfflineRenderer,
     hasPromptInput: manifest.inputs.prompt,
     hasRenderableOutput:
       manifest.outputs.audio ||
@@ -217,6 +223,24 @@ function createEntryIssues(entry: GeneratedToolAuditEntry): GeneratedToolAuditIs
     });
   }
 
+  if (!entry.hasOfflineRenderer) {
+    issues.push({
+      detail: `${entry.slug} is missing app/tools/${entry.slug}/render.ts for offline audio verification.`,
+      id: `${entry.slug}:offline-renderer`,
+      severity: "error",
+      slug: entry.slug,
+    });
+  }
+
+  if (!entry.hasAudioGateTest) {
+    issues.push({
+      detail: `${entry.slug} is missing app/tools/${entry.slug}/render.audio.test.ts for the browser audio gate.`,
+      id: `${entry.slug}:audio-gate-test`,
+      severity: "error",
+      slug: entry.slug,
+    });
+  }
+
   if (!entry.registryMatchesManifest) {
     issues.push({
       detail: `${entry.slug} registry metadata does not match the in-tree manifest.`,
@@ -252,6 +276,8 @@ function isEntryReady(entry: GeneratedToolAuditEntry) {
     entry.routeMatchesSlug &&
     (entry.hasGlobalContext || entry.instrumentType === "builder") &&
     entry.hasManifestFile &&
+    entry.hasOfflineRenderer &&
+    entry.hasAudioGateTest &&
     entry.hasRouteFile &&
     entry.hasTests &&
     entry.registryMatchesManifest
@@ -272,8 +298,12 @@ function countBy(
 function getGeneratedToolFileStatus(manifest: AgentManifest, rootDir: string) {
   const toolRoot = join(rootDir, "app", "tools", manifest.slug);
   const manifestPath = join(toolRoot, "manifest.ts");
+  const offlineRendererPath = join(toolRoot, "render.ts");
   const routePath = join(toolRoot, "page.tsx");
+  const audioGateTestPath = join(toolRoot, "render.audio.test.ts");
+  const hasAudioGateTest = existsSync(audioGateTestPath);
   const hasManifestFile = existsSync(manifestPath);
+  const hasOfflineRenderer = existsSync(offlineRendererPath);
   const hasRouteFile = existsSync(routePath);
   const hasTests = hasTestFile(toolRoot);
   let registryMatchesManifest = hasManifestFile;
@@ -296,7 +326,9 @@ function getGeneratedToolFileStatus(manifest: AgentManifest, rootDir: string) {
   }
 
   return {
+    hasAudioGateTest,
     hasManifestFile,
+    hasOfflineRenderer,
     hasRouteFile,
     hasTests,
     registryMatchesManifest,

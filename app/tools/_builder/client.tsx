@@ -347,7 +347,7 @@ export function ToolBuilderClient({
                       {editSlug ?? currentSlug}
                     </span>
                     . The editor reads the existing tool, edits only that tool directory,
-                    then reruns manifest, typecheck, test, and registry gates.
+                    then reruns manifest, static, typecheck, test, audio, and registry gates.
                   </div>
                 ) : null}
                 <label className="block text-xs text-zinc-500">

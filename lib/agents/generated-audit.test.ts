@@ -106,6 +106,8 @@ export const generatedBreakManifest = {
       "utf8",
     );
     writeFileSync(join(toolRoot, "page.tsx"), "export default function Page() { return null; }\n");
+    writeFileSync(join(toolRoot, "render.ts"), "export async function renderOffline() { return null; }\n");
+    writeFileSync(join(toolRoot, "render.audio.test.ts"), "import { it } from 'vitest'; it('renders audio', () => {});\n");
     writeFileSync(join(toolRoot, "client.test.tsx"), "import { it } from 'vitest'; it('works', () => {});\n");
 
     const audit = createGeneratedToolAudit(
@@ -119,7 +121,9 @@ export const generatedBreakManifest = {
     });
     expect(audit.entries[0]).toMatchObject({
       hasDocumentOutput: true,
+      hasAudioGateTest: true,
       hasManifestFile: true,
+      hasOfflineRenderer: true,
       hasRouteFile: true,
       hasTests: true,
       registryMatchesManifest: true,
@@ -159,6 +163,8 @@ export const generatedBreakManifest = {
       "missing-tool:manifest-file",
       "missing-tool:route-file",
       "missing-tool:tests",
+      "missing-tool:offline-renderer",
+      "missing-tool:audio-gate-test",
       "missing-tool:registry-mismatch",
     ]);
   });

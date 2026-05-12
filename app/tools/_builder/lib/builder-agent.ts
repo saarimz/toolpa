@@ -164,8 +164,7 @@ export async function runBuilderAgent(
     throw new Error(registration.reason);
   }
 
-  emit({ type: "verification", name: "typecheck", passed: registration.typecheck.passed });
-  emit({ type: "verification", name: "tests", passed: registration.tests.passed });
+  emitVerificationFromRegistration(registration, emit);
   emit({
     type: "complete",
     manifest: registration.manifest,
@@ -207,7 +206,7 @@ export async function runBuilderToolLoopAgent(
     model: getGatewayModel(input.model),
     instructions: [
       "You are the L2 tool-builder agent inside ai-daw-tools.",
-      "Use the builder tools to read a reference tool, read the shared schemas, instantiate a skeleton, edit only inside the generated tool directory, validate the manifest, run typecheck, run tests, and register only after the gates pass.",
+      "Use the builder tools to read a reference tool, read the shared schemas, instantiate a skeleton, edit only inside the generated tool directory, validate the manifest, run the static audit, run typecheck, run tests, run the audio gate, and register only after the gates pass.",
       "Call readToolList early to browse every existing L1 tool — manifests, document types, instrument types — before you commit to a shape. Read multiple reference tools when the request blends domains.",
       "The manifest instrument field is mandatory semantics: sample tools use Pattern and sample upload/picker workflows; synth tools use SynthScene and global key/scale workflows; effect tools transform audio streams.",
       "Generated musical instruments should opt into musicContext.globalBpm, musicContext.globalKey, and musicContext.scaleSearch unless there is a clear reason to stay local.",
@@ -215,7 +214,7 @@ export async function runBuilderToolLoopAgent(
       "If builderSpecialization is present, treat it as a hard domain contract: targetInstrumentType, targetDocument, targetWorkflow, templateKit, constraints, and verificationGates must shape the generated tool.",
       "Generated instruments should expose AudioOutputRecorder from components/audio-output-recorder and declare recordOutput plus outputs.recording when they can produce live audio.",
       "If a requested feature requires shared lib changes or dependencies, do not write outside the sandbox. Explain the breach as a feature request instead.",
-      "When runToolTypecheck or runToolTests fails, read its stderr, edit the offending file, and re-run the verification. Treat failures as feedback signals to iterate on, not terminal errors.",
+      "When runToolStaticAudit, runToolTypecheck, runToolTests, or runToolAudioGate fails, read its output, edit the offending file, and re-run the verification. Treat failures as feedback signals to iterate on, not terminal errors.",
       "Aim for prompts that mention concrete musical and document-level vocabulary (slot, pitchCents, tuningRef, voices, envelopes) so generated tools produce documents that actually validate against the shared schemas.",
     ].join("\n"),
     stopWhen: stepCountIs(input.maxSteps ?? 30),
@@ -388,8 +387,8 @@ export async function runBuilderEditAgent(
       "Do NOT instantiate a skeleton. Do not create a new tool. The slug is fixed.",
       "Always run readToolFiles({ slug }) and readToolList() before editing anything so your changes match the current shape.",
       "Use editToolFile to overwrite specific files inside the tool directory. The sandbox enforces the boundary.",
-      "After every meaningful edit run runToolTypecheck and runToolTests. If they fail, read stderr, fix the offending file, and re-run.",
-      "Only call registerTool once manifest, typecheck, and tests all pass. registerTool will overwrite the existing registry entry.",
+      "After every meaningful edit run runToolStaticAudit, runToolTypecheck, runToolTests, and runToolAudioGate. If they fail, read output, fix the offending file, and re-run.",
+      "Only call registerTool once manifest, static audit, typecheck, tests, and audio gate all pass. registerTool will overwrite the existing registry entry.",
       "If a requested change requires shared lib changes or new dependencies, do not write outside the sandbox; surface a feature-request breach instead.",
       "Preserve declared instrument type, document, and workflow unless the requested change is explicitly about changing them.",
     ].join("\n"),
@@ -445,6 +444,16 @@ function emitVerificationFromRegistration(
   registration: Awaited<ReturnType<typeof registerTool>>,
   emit: (chunk: BuilderStreamChunk) => void,
 ) {
+  if ("staticAudit" in registration && registration.staticAudit) {
+    emit({
+      type: "verification",
+      name: "static",
+      passed: registration.staticAudit.passed,
+      stdout: registration.staticAudit.stdout,
+      stderr: registration.staticAudit.stderr,
+    });
+  }
+
   if ("typecheck" in registration && registration.typecheck) {
     emit({
       type: "verification",
@@ -462,6 +471,16 @@ function emitVerificationFromRegistration(
       passed: registration.tests.passed,
       stdout: registration.tests.stdout,
       stderr: registration.tests.stderr,
+    });
+  }
+
+  if ("audioGate" in registration && registration.audioGate) {
+    emit({
+      type: "verification",
+      name: "audio-gate",
+      passed: registration.audioGate.passed,
+      stdout: registration.audioGate.stdout,
+      stderr: registration.audioGate.stderr,
     });
   }
 }

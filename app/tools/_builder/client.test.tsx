@@ -274,12 +274,22 @@ describe("ToolBuilderClient", () => {
         },
         {
           type: "verification",
+          name: "static",
+          passed: true,
+        },
+        {
+          type: "verification",
           name: "typecheck",
           passed: true,
         },
         {
           type: "verification",
           name: "tests",
+          passed: true,
+        },
+        {
+          type: "verification",
+          name: "audio-gate",
           passed: true,
         },
         {
@@ -302,7 +312,7 @@ describe("ToolBuilderClient", () => {
 
     const monitor = screen.getByLabelText("builder run monitor");
     await waitFor(() => {
-      expect(within(monitor).getByText("9/9 gates")).toBeInTheDocument();
+      expect(within(monitor).getByText("11/11 gates")).toBeInTheDocument();
     });
     expect(within(monitor).getAllByText("complete").length).toBeGreaterThan(0);
     expect(within(monitor).getByText(/Open the dashboard/)).toBeInTheDocument();

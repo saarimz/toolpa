@@ -7,8 +7,10 @@ export type BuilderProgressStageId =
   | "sandbox"
   | "skeleton"
   | "manifest"
+  | "static"
   | "typecheck"
   | "tests"
+  | "audio-gate"
   | "registry";
 
 export type BuilderProgressStatus =
@@ -75,6 +77,11 @@ const STAGE_DEFINITIONS: Array<Omit<BuilderProgressStage, "status" | "evidence">
     description: "The generated AgentManifest evaluates and passes schema validation.",
   },
   {
+    id: "static",
+    label: "static audit passed",
+    description: "Generated files satisfy sandbox, client-boundary, and render-contract rules.",
+  },
+  {
     id: "typecheck",
     label: "typecheck passed",
     description: "Scoped TypeScript verification passes for the generated tool.",
@@ -83,6 +90,11 @@ const STAGE_DEFINITIONS: Array<Omit<BuilderProgressStage, "status" | "evidence">
     id: "tests",
     label: "tests passed",
     description: "Scoped Vitest verification passes for the generated tool.",
+  },
+  {
+    id: "audio-gate",
+    label: "audio gate passed",
+    description: "Browser OfflineAudioContext render proves audible, finite, unclipped output.",
   },
   {
     id: "registry",
@@ -167,8 +179,10 @@ export function buildBuilderProgress(
       mark("skeleton", "passed");
       mark("manifest", "passed", chunk.manifest.slug);
       if (chunk.registered) {
+        mark("static", "passed");
         mark("typecheck", "passed");
         mark("tests", "passed");
+        mark("audio-gate", "passed");
         mark("registry", "passed", `${chunk.manifest.slug} registered`);
       } else {
         mark("registry", "passed", `${chunk.manifest.slug} generated without registry write`);
@@ -262,15 +276,27 @@ function applyToolCallProgress(
     return;
   }
 
+  if (name === "runToolStaticAudit") {
+    mark("static", resultHasBoolean(result, "passed", true) ? "passed" : "failed", verificationResultEvidence(result));
+    return;
+  }
+
   if (name === "runToolTests") {
     mark("tests", resultHasBoolean(result, "passed", true) ? "passed" : "failed", verificationResultEvidence(result));
     return;
   }
 
+  if (name === "runToolAudioGate") {
+    mark("audio-gate", resultHasBoolean(result, "passed", true) ? "passed" : "failed", verificationResultEvidence(result));
+    return;
+  }
+
   if (name === "registerTool") {
     mark("registry", resultHasBoolean(result, "registered", true) ? "passed" : "failed", resultString(result, "reason") ?? "registration attempted");
-    applyNestedVerification(mark, result, "typecheck");
-    applyNestedVerification(mark, result, "tests");
+    applyNestedVerification(mark, result, "staticAudit", "static");
+    applyNestedVerification(mark, result, "typecheck", "typecheck");
+    applyNestedVerification(mark, result, "tests", "tests");
+    applyNestedVerification(mark, result, "audioGate", "audio-gate");
   }
 }
 
@@ -281,14 +307,15 @@ function applyNestedVerification(
     evidence?: string,
   ) => void,
   result: unknown,
-  key: "typecheck" | "tests",
+  key: "audioGate" | "staticAudit" | "typecheck" | "tests",
+  stageId: BuilderProgressStageId,
 ) {
   if (!isRecord(result) || !isRecord(result[key])) {
     return;
   }
 
   const nested = result[key];
-  mark(key, nested.passed === true ? "passed" : "failed", verificationResultEvidence(nested));
+  mark(stageId, nested.passed === true ? "passed" : "failed", verificationResultEvidence(nested));
 }
 
 function resolveRunStatus({

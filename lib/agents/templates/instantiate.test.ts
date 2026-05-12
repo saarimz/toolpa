@@ -31,6 +31,8 @@ describe("instantiateToolSkeleton", () => {
       "app/tools/vocal-stutter/manifest.ts",
       "app/tools/vocal-stutter/page.tsx",
       "app/tools/vocal-stutter/client.tsx",
+      "app/tools/vocal-stutter/render.ts",
+      "app/tools/vocal-stutter/render.audio.test.ts",
       "app/tools/vocal-stutter/lib/prompt.ts",
       "app/tools/vocal-stutter/__tests__/manifest.test.ts",
       "app/tools/vocal-stutter/client.test.tsx",
@@ -68,6 +70,12 @@ describe("instantiateToolSkeleton", () => {
     );
     expect(instance.files.get("app/tools/vocal-stutter/client.tsx")).toContain(
       "copyPatternJson",
+    );
+    expect(instance.files.get("app/tools/vocal-stutter/render.ts")).toContain(
+      "renderOffline",
+    );
+    expect(instance.files.get("app/tools/vocal-stutter/render.audio.test.ts")).toContain(
+      "analyzeAudioBuffer",
     );
     expect(instance.files.get("app/tools/vocal-stutter/client.test.tsx")).toContain(
       'vi.mock("@/components/sample-picker"',
@@ -128,6 +136,9 @@ describe("instantiateToolSkeleton", () => {
     expect(instance.files.get("app/tools/simple-synth/lib/prompt.ts")).toContain(
       "SynthScene",
     );
+    expect(instance.files.get("app/tools/simple-synth/render.ts")).toContain(
+      "renderSynthSceneToAudioBuffer",
+    );
   });
 
   it("renders a generated audio-stream effect skeleton for L2 effect requests", () => {
@@ -158,6 +169,9 @@ describe("instantiateToolSkeleton", () => {
     );
     expect(instance.files.get("app/tools/simple-effect/lib/prompt.ts")).toContain(
       "audio-stream",
+    );
+    expect(instance.files.get("app/tools/simple-effect/render.ts")).toContain(
+      "createDriveCurve",
     );
   });
 

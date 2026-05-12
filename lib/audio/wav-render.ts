@@ -15,6 +15,7 @@ import { resolveSample } from "@/lib/samples/resolver";
 
 export type RenderPatternWavOptions = {
   declickPreset?: DeclickPreset;
+  durationSec?: number;
   sampleRate?: number;
   sliceCount?: number;
   slicesBySampleId?: Map<string, SliceRegion[]>;
@@ -40,6 +41,7 @@ export async function renderPatternToAudioBuffer(
 
   const sampleRate = options.sampleRate ?? 44100;
   const totalDurationSec =
+    options.durationSec ??
     getStepDurationSec(pattern) * pattern.stepsPerBar * pattern.bars + 1;
   const context = new OfflineAudioContext(
     2,
@@ -58,6 +60,10 @@ export async function renderPatternToAudioBuffer(
     musicalContext: options.musicalContext,
     random: () => 0,
   })) {
+    if (event.timeSec >= totalDurationSec) {
+      continue;
+    }
+
     const sample = sampleMap.get(event.sampleId);
     if (!sample) {
       continue;

@@ -10,6 +10,8 @@ import {
   readSchema,
   readToolFiles,
   registerTool,
+  runToolAudioGate,
+  runToolStaticAudit,
   runToolTests,
   runToolTypecheck,
   validateGeneratedManifest,
@@ -97,15 +99,27 @@ describe("builder tools", () => {
     expect(await runToolTypecheck(runtime, { slug: "vocal-stutter" })).toMatchObject({
       passed: true,
     });
+    expect(runToolStaticAudit(runtime, { slug: "vocal-stutter" })).toMatchObject({
+      passed: true,
+    });
     expect(await runToolTests(runtime, { slug: "vocal-stutter" })).toMatchObject({
+      passed: true,
+    });
+    expect(await runToolAudioGate(runtime, { slug: "vocal-stutter" })).toMatchObject({
       passed: true,
     });
     expect(await registerTool(runtime, { slug: "vocal-stutter" })).toMatchObject({
       registered: true,
+      audioGate: { passed: true },
       manifest: { slug: "vocal-stutter" },
+      snapshot: { fileCount: expect.any(Number) },
+      staticAudit: { passed: true },
     });
     expect(commands).toContain(
       "pnpm exec tsc --noEmit -p .audit/typecheck/tsconfig.vocal-stutter.json",
+    );
+    expect(commands).toContain(
+      "pnpm exec vitest run --project audio app/tools/vocal-stutter/render.audio.test.ts",
     );
     expect(JSON.parse(readFileSync(registryPath, "utf8"))).toMatchObject({
       manifests: [{ slug: "vocal-stutter" }],

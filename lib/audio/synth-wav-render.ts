@@ -10,6 +10,7 @@ import {
 import { encodeAudioBufferToWav } from "@/lib/audio/wav-render";
 
 export type RenderSynthSceneWavOptions = {
+  durationSec?: number;
   maxDurationSec?: number;
   sampleRate?: number;
 };
@@ -33,8 +34,9 @@ export async function renderSynthSceneToAudioBuffer(
   const sampleRate = options.sampleRate ?? 44100;
   const sceneDurationSec = getSynthSceneDurationSec(scene);
   const renderDurationSec =
+    options.durationSec ??
     Math.min(sceneDurationSec, options.maxDurationSec ?? sceneDurationSec) +
-    getSynthReleaseTailSec(scene);
+      getSynthReleaseTailSec(scene);
   const context = new OfflineAudioContext(
     2,
     Math.ceil(renderDurationSec * sampleRate),

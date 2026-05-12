@@ -59,7 +59,7 @@ export type BuilderStreamChunk =
   | { type: "manifest"; manifest: z.infer<typeof AgentManifestSchema> }
   | {
       type: "verification";
-      name: "manifest" | "typecheck" | "tests";
+      name: "audio-gate" | "manifest" | "static" | "tests" | "typecheck";
       passed: boolean;
       stdout?: string;
       stderr?: string;

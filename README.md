@@ -83,6 +83,8 @@ Every generated L1 should have:
 
 - `app/tools/<slug>/manifest.ts`
 - `app/tools/<slug>/page.tsx`
+- `app/tools/<slug>/render.ts` exporting `renderOffline(document, durationSec)`
+- `app/tools/<slug>/render.audio.test.ts` exercising the browser audio gate
 - At least one colocated `*.test.ts` or `*.test.tsx`
 - A registry entry in `.audit/generated-tools.json`
 - A route matching `/tools/<slug>`
@@ -92,7 +94,9 @@ The generated audit is implemented in `lib/agents/generated-audit.ts`. With file
 checks enabled, it verifies that the registry and in-tree manifest agree on slug,
 route, name, instrument type, workflow, document type, and status. It also
 checks that the generated route is `/tools/<slug>` and that the manifest declares
-the output matching its saved document contract.
+the output matching its saved document contract. File checks also require the
+offline renderer and browser audio-gate test so generated tools prove audible,
+finite, unclipped output before they are considered dashboard-ready.
 
 The broader L1/L2 platform audit is implemented in
 `lib/agents/platform-hardening.ts`. It translates the web-audio reference set
@@ -132,11 +136,31 @@ The rebuild path is deterministic around the model output:
 2. `/build` preloads the registry manifest and opens the builder in rebuild mode.
 3. The client posts to `/api/build/edit`.
 4. `runBuilderEditAgent` applies the edit in the generated tool sandbox.
-5. The server validates the manifest, snapshots generated files, registers the
+5. The server validates the manifest, runs the static audit, typecheck, unit
+   tests, and browser audio gate, snapshots generated files, registers the
    updated tool, and streams verification chunks back to the UI.
 
 Registration is not left solely to the model. The server re-validates and
-re-registers after a successful edit when registration is enabled.
+re-registers after a successful edit when registration is enabled. The model can
+write files only through the sandbox; `.audit/generated-tools.json` is rewritten
+server-side from the validated manifest.
+
+## L2 Verification Gauntlet
+
+Generated registration is gated in `lib/agents/builder-tools.ts`:
+
+1. `validateManifest` parses `app/tools/<slug>/manifest.ts` through
+   `AgentManifestSchema`.
+2. `runToolStaticAudit` checks required files, the client boundary, disallowed
+   imports/storage/exfiltration primitives, module-level audio construction, and
+   placeholder output.
+3. `runToolTypecheck` runs a scoped per-tool `tsc --noEmit` config.
+4. `runToolTests` runs scoped Vitest unit coverage for the generated tool.
+5. `runToolAudioGate` runs `render.audio.test.ts` in the browser audio project,
+   which calls `renderOffline` and analyzes RMS, peak, NaN/Infinity, clipping,
+   and duration through `lib/audio/offline-analysis.ts`.
+6. `snapshotGeneratedTool` stores accepted generated files under
+   `.audit/snapshots/<slug>/` before the registry projection is updated.
 
 ## Audio Hardening Notes
 

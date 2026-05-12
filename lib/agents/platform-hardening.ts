@@ -55,7 +55,7 @@ export const WEB_AUDIO_REFERENCE_CONVENTIONS = [
     id: "builder-generated-tool-gates",
     source: "Tone.js, Web Synth, WAM-style plugin hosts",
     requirement:
-      "L2 builders must validate manifests, tests, registry metadata, and sandbox scope before a generated L1 becomes part of the suite.",
+      "L2 builders must validate manifests, static safety, tests, audio-gate output, registry metadata, and sandbox scope before a generated L1 becomes part of the suite.",
   },
 ] as const;
 

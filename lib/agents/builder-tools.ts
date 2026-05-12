@@ -21,6 +21,11 @@ import {
 } from "@/lib/agents/manifest-source";
 import { resolveToolFilePath } from "@/lib/agents/sandbox";
 import { instantiateToolSkeleton } from "@/lib/agents/templates/instantiate";
+import {
+  runGeneratedToolStaticAudit,
+  snapshotGeneratedTool,
+  type GeneratedToolSnapshotResult,
+} from "@/lib/agents/builder-verification";
 import { SampleRoleSchema } from "@/lib/samples/roles";
 
 export type BuilderToolTrace = {
@@ -82,14 +87,20 @@ export type RegisterToolResult =
   | {
       registered: false;
       reason: string;
+      audioGate?: BuilderVerificationResult;
       manifest?: AgentManifest;
+      snapshot?: GeneratedToolSnapshotResult;
+      staticAudit?: BuilderVerificationResult;
       typecheck?: BuilderVerificationResult;
       tests?: BuilderVerificationResult;
     }
   | {
       registered: true;
+      audioGate: BuilderVerificationResult;
       manifest: AgentManifest;
       registrySize: number;
+      snapshot: GeneratedToolSnapshotResult;
+      staticAudit: BuilderVerificationResult;
       typecheck: BuilderVerificationResult;
       tests: BuilderVerificationResult;
     };
@@ -145,10 +156,20 @@ export function createBuilderTools(runtime = createBuilderToolRuntime()) {
       inputSchema: z.object({ slug: z.string().min(1) }),
       execute: async (input) => runToolTypecheck(runtime, input),
     }),
+    runToolStaticAudit: tool({
+      description: "Run generated-tool static, sandbox, and render-contract audit.",
+      inputSchema: z.object({ slug: z.string().min(1) }),
+      execute: async (input) => runToolStaticAudit(runtime, input),
+    }),
     runToolTests: tool({
       description: "Run the generated tool's Vitest unit tests.",
       inputSchema: z.object({ slug: z.string().min(1) }),
       execute: async (input) => runToolTests(runtime, input),
+    }),
+    runToolAudioGate: tool({
+      description: "Run the generated tool's browser OfflineAudioContext audio gate.",
+      inputSchema: z.object({ slug: z.string().min(1) }),
+      execute: async (input) => runToolAudioGate(runtime, input),
     }),
     validateManifest: tool({
       description: "Validate the generated manifest against AgentManifestSchema.",
@@ -194,10 +215,20 @@ export function createBuilderEditTools(runtime = createBuilderToolRuntime()) {
       inputSchema: z.object({ slug: z.string().min(1) }),
       execute: async (input) => runToolTypecheck(runtime, input),
     }),
+    runToolStaticAudit: tool({
+      description: "Run generated-tool static, sandbox, and render-contract audit.",
+      inputSchema: z.object({ slug: z.string().min(1) }),
+      execute: async (input) => runToolStaticAudit(runtime, input),
+    }),
     runToolTests: tool({
       description: "Run the edited tool's Vitest unit tests.",
       inputSchema: z.object({ slug: z.string().min(1) }),
       execute: async (input) => runToolTests(runtime, input),
+    }),
+    runToolAudioGate: tool({
+      description: "Run the edited tool's browser OfflineAudioContext audio gate.",
+      inputSchema: z.object({ slug: z.string().min(1) }),
+      execute: async (input) => runToolAudioGate(runtime, input),
     }),
     validateManifest: tool({
       description: "Validate the edited manifest against AgentManifestSchema.",
@@ -345,6 +376,18 @@ export async function runToolTypecheck(
   return recordTrace(runtime, "runToolTypecheck", { slug }, toVerificationResult(result));
 }
 
+export function runToolStaticAudit(
+  runtime: BuilderToolRuntime,
+  { slug }: { slug: string },
+): BuilderVerificationResult {
+  return recordTrace(
+    runtime,
+    "runToolStaticAudit",
+    { slug },
+    runGeneratedToolStaticAudit({ rootDir: runtime.rootDir, slug }),
+  );
+}
+
 export async function runToolTests(
   runtime: BuilderToolRuntime,
   { slug }: { slug: string },
@@ -358,6 +401,52 @@ export async function runToolTests(
   });
 
   return recordTrace(runtime, "runToolTests", { slug }, toVerificationResult(result));
+}
+
+export async function runToolAudioGate(
+  runtime: BuilderToolRuntime,
+  { slug }: { slug: string },
+): Promise<BuilderVerificationResult> {
+  const renderPath = join(
+    /* turbopackIgnore: true */ runtime.rootDir,
+    "app",
+    "tools",
+    slug,
+    "render.ts",
+  );
+  const audioTestPath = join(
+    /* turbopackIgnore: true */ runtime.rootDir,
+    "app",
+    "tools",
+    slug,
+    "render.audio.test.ts",
+  );
+  if (!existsSync(/* turbopackIgnore: true */ renderPath)) {
+    return recordTrace(runtime, "runToolAudioGate", { slug }, {
+      command: "audio-gate",
+      passed: false,
+      stderr: "",
+      stdout: `app/tools/${slug}/render.ts is required for the audio gate`,
+    });
+  }
+  if (!existsSync(/* turbopackIgnore: true */ audioTestPath)) {
+    return recordTrace(runtime, "runToolAudioGate", { slug }, {
+      command: "audio-gate",
+      passed: false,
+      stderr: "",
+      stdout: `app/tools/${slug}/render.audio.test.ts is required for the audio gate`,
+    });
+  }
+
+  const result = await runCommand(runtime, {
+    command: "pnpm",
+    args: ["exec", "vitest", "run", "--project", "audio", `app/tools/${slug}/render.audio.test.ts`],
+    cwd: runtime.rootDir,
+    signal: runtime.abortSignal,
+    timeoutMs: runtime.commandTimeoutMs,
+  });
+
+  return recordTrace(runtime, "runToolAudioGate", { slug }, toVerificationResult(result));
 }
 
 export function validateGeneratedManifest(
@@ -397,12 +486,23 @@ export async function registerTool(
     });
   }
 
+  const staticAudit = runToolStaticAudit(runtime, { slug });
+  if (!staticAudit.passed) {
+    return recordTrace(runtime, "registerTool", { slug }, {
+      registered: false,
+      reason: "static audit failed",
+      manifest: manifestResult.manifest,
+      staticAudit,
+    });
+  }
+
   const typecheck = await runToolTypecheck(runtime, { slug });
   if (!typecheck.passed) {
     return recordTrace(runtime, "registerTool", { slug }, {
       registered: false,
       reason: "typecheck failed",
       manifest: manifestResult.manifest,
+      staticAudit,
       typecheck,
     });
   }
@@ -413,20 +513,38 @@ export async function registerTool(
       registered: false,
       reason: "tests failed",
       manifest: manifestResult.manifest,
+      staticAudit,
       typecheck,
       tests,
     });
   }
 
+  const audioGate = await runToolAudioGate(runtime, { slug });
+  if (!audioGate.passed) {
+    return recordTrace(runtime, "registerTool", { slug }, {
+      audioGate,
+      registered: false,
+      reason: "audio gate failed",
+      manifest: manifestResult.manifest,
+      staticAudit,
+      tests,
+      typecheck,
+    });
+  }
+
+  const snapshot = snapshotGeneratedTool({ rootDir: runtime.rootDir, slug });
   const manifests = writeGeneratedAgentManifest({
     manifest: manifestResult.manifest,
     path: runtime.generatedRegistryPath,
   });
 
   return recordTrace(runtime, "registerTool", { slug }, {
+    audioGate,
     registered: true,
     manifest: manifestResult.manifest,
     registrySize: manifests.length,
+    snapshot,
+    staticAudit,
     typecheck,
     tests,
   });

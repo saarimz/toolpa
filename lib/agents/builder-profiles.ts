@@ -76,6 +76,7 @@ const COMMON_IMPLEMENTATION_STEPS = [
 
 const COMMON_VERIFICATION_GATES = [
   "Generated tool tests cover prompt input, document export, audio playback, and recording controls.",
+  "Generated L1s include render.ts plus render.audio.test.ts so the browser OfflineAudioContext audio gate can prove audible, finite output.",
   "Generated registry metadata matches the in-tree manifest before registration completes.",
   "Sandbox verification proves generated writes stay inside app/tools/<generated-slug>/ and .audit/generated-tools.json.",
   "Audio starts only from an explicit user gesture and keeps a recordable output path.",
