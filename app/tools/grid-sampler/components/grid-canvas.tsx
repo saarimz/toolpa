@@ -2,10 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import {
+  getPatternStepAgency,
+  getPatternStepAgencyClassName,
+  PatternStepAgencyBadge,
+  usePatternStepAgency,
+} from "@/components/pattern-step-agency";
 import { Button } from "@/components/ui/button";
 import { SamplePicker } from "@/components/sample-picker";
 import { cn } from "@/lib/utils";
-import { auditionIntelligenceSamplerSlice } from "@/app/tools/intelligence-sampler/lib/play";
+import { auditionSamplePlaybackSlice } from "@/lib/audio/sample-playback";
 import {
   getGridDimensions,
   getTraversalCellAtStep,
@@ -35,6 +41,7 @@ export function GridCanvas() {
   const paintCell = useGridSamplerStore((state) => state.paintCell);
   const setSelectedCell = useGridSamplerStore((state) => state.setSelectedCell);
   const dimensions = getGridDimensions(sliceCount);
+  const agencyEvents = usePatternStepAgency("grid-sampler-pattern");
   const currentCellSlot =
     currentStepIndex === null
       ? null
@@ -115,6 +122,12 @@ export function GridCanvas() {
           const bars = getCellWaveBars(cell.slot);
           const traversalPosition = (traversalPositions.get(cell.slot) ?? cell.slot) + 1;
           const nextActive = !cell.active;
+          const agencyEvent = getPatternStepAgency(agencyEvents, {
+            patternId: "grid-sampler-pattern",
+            slot: cell.slot,
+            stepIndex: traversalPosition - 1,
+            trackId: "grid",
+          });
 
           return (
             <button
@@ -138,7 +151,7 @@ export function GridCanvas() {
                   window.clearTimeout(auditionTimerRef.current);
                 }
                 auditionTimerRef.current = window.setTimeout(() => {
-                  void auditionIntelligenceSamplerSlice(sourceSampleId, cell.slot, { sliceCount });
+                  void auditionSamplePlaybackSlice(sourceSampleId, cell.slot, { sliceCount });
                 }, 320);
               }}
               onPointerLeave={() => {
@@ -153,29 +166,31 @@ export function GridCanvas() {
               className={cn(
                 "relative h-10 overflow-hidden border text-[10px] transition duration-150",
                 cell.active
-                  ? "border-cyan-300/50 bg-cyan-300 text-zinc-950"
+                  ? "border-zinc-200/50 bg-zinc-100 text-zinc-950"
                   : "border-zinc-800 bg-zinc-950 text-zinc-700 hover:bg-zinc-900",
                 current &&
-                  "z-10 scale-[1.04] border-fuchsia-100 bg-fuchsia-200/20 text-fuchsia-50 shadow-[0_0_0_1px_rgba(244,114,182,0.95),0_0_18px_rgba(217,70,239,0.85),0_0_40px_rgba(34,211,238,0.35)]",
+                  "z-10 scale-[1.04] border-zinc-100 bg-white/20 text-zinc-50 shadow-[0_0_0_1px_rgba(245,245,245,0.95),0_0_18px_rgba(245,245,245,0.85),0_0_40px_rgba(245,245,245,0.35)]",
                 selectedCell === cell.slot &&
                   !current &&
-                  "outline outline-1 outline-cyan-100",
+                  "outline outline-1 outline-zinc-100",
                 ghosted && "border-dashed",
+                getPatternStepAgencyClassName(agencyEvent),
               )}
             >
+              <PatternStepAgencyBadge event={agencyEvent} />
               {current ? (
                 <>
                   <span
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(244,114,182,0.46),rgba(34,211,238,0.16)_46%,transparent_76%)]"
+                    className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,245,245,0.46),rgba(245,245,245,0.16)_46%,transparent_76%)]"
                   />
                   <span
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 border border-fuchsia-100/90 shadow-[inset_0_0_12px_rgba(244,114,182,0.75)]"
+                    className="pointer-events-none absolute inset-0 border border-zinc-100/90 shadow-[inset_0_0_12px_rgba(245,245,245,0.75)]"
                   />
                   <span
                     aria-hidden="true"
-                    className="pointer-events-none absolute right-1 top-1 size-1.5 animate-pulse rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.95),0_0_18px_rgba(34,211,238,0.85)]"
+                    className="pointer-events-none absolute right-1 top-1 size-1.5 animate-pulse rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.95),0_0_18px_rgba(245,245,245,0.85)]"
                   />
                 </>
               ) : null}

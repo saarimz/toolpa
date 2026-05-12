@@ -76,8 +76,11 @@ describe("GlobalMusicControls", () => {
   });
 
   it("shows a scoped overlay while BPM and swing are being generated", async () => {
-    vi.spyOn(globalThis, "fetch").mockImplementation(
-      () => new Promise<Response>(() => undefined),
+    let resolveFetch!: (response: Response) => void;
+    vi.spyOn(globalThis, "fetch").mockReturnValue(
+      new Promise<Response>((resolve) => {
+        resolveFetch = resolve;
+      }),
     );
 
     render(<GlobalMusicControls />);
@@ -92,11 +95,29 @@ describe("GlobalMusicControls", () => {
     expect(screen.getByRole("status")).toHaveTextContent(
       "Prompting the LLM for genre-aware tempo and groove.",
     );
+
+    resolveFetch(
+      Response.json({
+        selected: {
+          bpm: 124,
+          swing: 0.06,
+          rationale: "Resolved test tempo.",
+        },
+        alternatives: [],
+        querySummary: "test",
+      }),
+    );
+    await waitFor(() => {
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    });
   });
 
   it("shows a scoped overlay while root and scale are being generated", async () => {
-    vi.spyOn(globalThis, "fetch").mockImplementation(
-      () => new Promise<Response>(() => undefined),
+    let resolveFetch!: (response: Response) => void;
+    vi.spyOn(globalThis, "fetch").mockReturnValue(
+      new Promise<Response>((resolve) => {
+        resolveFetch = resolve;
+      }),
     );
 
     render(<GlobalMusicControls />);
@@ -111,5 +132,20 @@ describe("GlobalMusicControls", () => {
     expect(screen.getByRole("status")).toHaveTextContent(
       "Prompting the LLM for a matching root and scale.",
     );
+
+    resolveFetch(
+      Response.json({
+        selected: {
+          tonic: "C",
+          scaleId: "dorian",
+          rationale: "Resolved test scale.",
+        },
+        alternatives: [],
+        querySummary: "test",
+      }),
+    );
+    await waitFor(() => {
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    });
   });
 });

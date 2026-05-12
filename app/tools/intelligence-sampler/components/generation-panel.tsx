@@ -10,10 +10,13 @@ import { readGenerateStream } from "@/lib/ai/client-stream";
 import { PatternSchema } from "@/lib/pattern/schema";
 import { useIntelligenceSamplerStore } from "@/app/tools/intelligence-sampler/store";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
+import { usePromptParamState } from "@/lib/tools/use-prompt-param";
 
 export function GenerationPanel() {
   const abortRef = useRef<AbortController | null>(null);
-  const [vibe, setVibe] = useState("chopped source pattern with sparse anchors and off-grid texture");
+  const [vibe, setVibe] = usePromptParamState(
+    "chopped source pattern with sparse anchors and off-grid texture",
+  );
   const [streamText, setStreamText] = useState("");
   const [promptText, setPromptText] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -259,7 +262,7 @@ export function GenerationPanel() {
         <label className="block text-xs text-zinc-500">
           generation prompt
           <textarea
-            className="mt-2 h-24 w-full resize-none rounded-sm border border-zinc-700 bg-zinc-950 p-3 text-xs text-zinc-100 outline-none focus:border-cyan-300 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
+            className="mt-2 h-24 w-full resize-none rounded-sm border border-zinc-700 bg-zinc-950 p-3 text-xs text-zinc-100 outline-none focus:border-zinc-200 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
             value={vibe}
             disabled={promptLocked}
             onChange={(event) => setVibe(event.target.value)}
@@ -270,7 +273,7 @@ export function GenerationPanel() {
             <span className="text-xs text-zinc-500">suggestions</span>
             <button
               type="button"
-              className="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-cyan-200 disabled:opacity-40"
+              className="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-200 disabled:opacity-40"
               disabled={suggestionControlsLocked}
               onClick={() => void refreshSuggestions()}
             >
@@ -288,7 +291,7 @@ export function GenerationPanel() {
               <button
                 key={suggestion}
                 type="button"
-                className="max-w-full rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1.5 text-left text-xs leading-5 text-cyan-100 hover:border-cyan-200 hover:bg-cyan-300/20 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-950 disabled:text-zinc-600"
+                className="max-w-full rounded-full border border-zinc-200/30 bg-white/10 px-3 py-1.5 text-left text-xs leading-5 text-zinc-100 hover:border-zinc-200 hover:bg-white/20 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-950 disabled:text-zinc-600"
                 disabled={suggestionControlsLocked}
                 onClick={() => setVibe(suggestion)}
               >
@@ -337,7 +340,7 @@ export function GenerationPanel() {
               type="checkbox"
               checked={liveRegeneration}
               onChange={(event) => setLiveRegeneration(event.target.checked)}
-              className="accent-cyan-300"
+              className="accent-zinc-200"
             />
             live regen
           </label>
@@ -349,7 +352,7 @@ export function GenerationPanel() {
               <button
                 key={ghost.id}
                 type="button"
-                className="mr-2 mt-2 border border-zinc-800 px-2 py-1 text-zinc-500 hover:border-cyan-300 hover:text-cyan-100"
+                className="mr-2 mt-2 border border-zinc-800 px-2 py-1 text-zinc-500 hover:border-zinc-200 hover:text-zinc-100"
                 onClick={() => setPattern(ghost)}
               >
                 {ghost.name}
@@ -363,7 +366,7 @@ export function GenerationPanel() {
         <pre className="overflow-auto border border-zinc-800 bg-black p-3 text-[11px] leading-5 text-zinc-500">
           {promptText || "prompt stream will appear here"}
         </pre>
-        <pre className="mt-2 overflow-auto border border-zinc-800 bg-black p-3 text-[11px] leading-5 text-cyan-100">
+        <pre className="mt-2 overflow-auto border border-zinc-800 bg-black p-3 text-[11px] leading-5 text-zinc-100">
           {[
             toolCalls.length > 0 ? `tool calls\n${toolCalls.join("\n")}` : "",
             streamText || "pattern json / visible rationale will appear here",
@@ -391,10 +394,10 @@ function GenerationStatus({
     return (
       <div
         aria-live="polite"
-        className="mb-3 border border-cyan-300/30 bg-cyan-300/10 p-3 text-xs"
+        className="mb-3 border border-zinc-200/30 bg-white/10 p-3 text-xs"
       >
-        <div className="mb-2 flex items-center gap-2 text-cyan-100">
-          <span className="inline-block size-2 animate-pulse rounded-full bg-cyan-300" />
+        <div className="mb-2 flex items-center gap-2 text-zinc-100">
+          <span className="inline-block size-2 animate-pulse rounded-full bg-zinc-100" />
           generating pattern
         </div>
         <div className="grid gap-2 text-zinc-400 sm:grid-cols-3">

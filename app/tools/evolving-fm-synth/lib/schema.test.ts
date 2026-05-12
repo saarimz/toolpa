@@ -21,6 +21,38 @@ describe("evolving fm synth schema", () => {
     });
     expect(scene.voices).toHaveLength(5);
     expect(scene.voices.every((voice) => voice.patch.partials.length >= 4)).toBe(true);
+    expect(scene.voices.every((voice) => voice.patch.rootWaveform === "wavetable")).toBe(
+      true,
+    );
+  });
+
+  it("backfills older patch data to the wavetable root waveform", () => {
+    const scene = createDefaultSynthScene();
+    const legacyScene = {
+      ...scene,
+      voices: scene.voices.map((voice) => ({
+        ...voice,
+        patch: {
+          partials: voice.patch.partials,
+          modulationIndex: voice.patch.modulationIndex,
+          harmonicity: voice.patch.harmonicity,
+          modulationType: voice.patch.modulationType,
+          detuneCents: voice.patch.detuneCents,
+          attack: voice.patch.attack,
+          decay: voice.patch.decay,
+          sustain: voice.patch.sustain,
+          release: voice.patch.release,
+          modulationAttack: voice.patch.modulationAttack,
+          modulationRelease: voice.patch.modulationRelease,
+        },
+      })),
+    };
+
+    const parsed = SynthSceneSchema.parse(legacyScene);
+
+    expect(parsed.voices.every((voice) => voice.patch.rootWaveform === "wavetable")).toBe(
+      true,
+    );
   });
 
   it("normalizes keys and converts MIDI note names", () => {

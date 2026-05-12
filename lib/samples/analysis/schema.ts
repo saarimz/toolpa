@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { SampleRoleSchema } from "@/lib/samples/roles";
 
-export const SAMPLE_ANALYSIS_SCHEMA_VERSION = 1 as const;
+export const SAMPLE_ANALYSIS_SCHEMA_VERSION = 2 as const;
 
 export const StatsSchema = z.object({
   mean: z.number(),
@@ -38,6 +38,21 @@ export const LlmDescriptorsSchema = z.object({
 });
 
 export type LlmDescriptors = z.infer<typeof LlmDescriptorsSchema>;
+
+export const TagScoreSchema = z.object({
+  label: z.string().min(1),
+  score: z.number().min(0).max(1),
+});
+
+export type TagScore = z.infer<typeof TagScoreSchema>;
+
+export const ModelTagsSchema = z.object({
+  musicnn: z.array(TagScoreSchema).default([]),
+  voice_present_prob: z.number().min(0).max(1).default(0),
+  model_id: z.string().min(1).optional(),
+});
+
+export type ModelTags = z.infer<typeof ModelTagsSchema>;
 
 export const SampleAnalysisSchema = z.object({
   schema_version: z.literal(SAMPLE_ANALYSIS_SCHEMA_VERSION),
@@ -90,6 +105,7 @@ export const SampleAnalysisSchema = z.object({
   beats: z.array(SliceFeaturesSchema).default([]),
   role: SampleRoleSchema.nullable(),
   role_confidence: z.number().min(0).max(1),
+  tags: ModelTagsSchema.nullable().default(null),
   llm_descriptors: LlmDescriptorsSchema.nullable(),
   pipeline_version: z.string().min(1),
   analyzed_at: z.number().int().nonnegative(),
@@ -119,6 +135,8 @@ export const ANALYSIS_PATHS = [
   "slices",
   "beats",
   "role",
+  "tags.musicnn",
+  "tags.voice_present_prob",
   "llm_descriptors",
 ] as const;
 

@@ -174,7 +174,7 @@ export function GlobalMusicControls() {
     <section className="mb-5 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3 border border-zinc-800 bg-zinc-950 p-3">
         <div className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-zinc-500">
-          <SlidersHorizontal className="size-4 text-cyan-300" />
+          <SlidersHorizontal className="size-4 text-zinc-200" />
           global music context
         </div>
         <div className="text-xs text-zinc-500">
@@ -194,7 +194,7 @@ export function GlobalMusicControls() {
 
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-zinc-500">
-              <Gauge className="size-4 text-cyan-300" />
+              <Gauge className="size-4 text-zinc-200" />
               bpm + swing
             </div>
             <div className="text-xs text-zinc-500">
@@ -220,7 +220,7 @@ export function GlobalMusicControls() {
               />
               <button
                 type="button"
-                className="h-9 shrink-0 rounded-sm border border-cyan-300/50 px-3 text-xs text-cyan-100 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-700"
+                className="h-9 shrink-0 rounded-sm border border-zinc-200/50 px-3 text-xs text-zinc-100 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-700"
                 disabled={isTempoSearching}
                 onClick={() => void runTempoSuggestion()}
               >
@@ -230,8 +230,8 @@ export function GlobalMusicControls() {
           </div>
 
           {tempoChoice ? (
-            <div className="mt-3 border border-cyan-300/20 bg-cyan-300/5 p-2 text-xs text-zinc-300">
-              <div className="text-cyan-100">
+            <div className="mt-3 border border-zinc-200/20 bg-white/5 p-2 text-xs text-zinc-300">
+              <div className="text-zinc-100">
                 {tempoChoice.selected.bpm} BPM /{" "}
                 {formatSwingPercent(tempoChoice.selected.swing)} swing
               </div>
@@ -287,7 +287,7 @@ export function GlobalMusicControls() {
                 swing amount ({formatSwingPercent(context.swing)})
               </span>
               <input
-                className="w-full accent-cyan-300"
+                className="w-full accent-zinc-200"
                 type="range"
                 min={0}
                 max={0.5}
@@ -309,7 +309,7 @@ export function GlobalMusicControls() {
 
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-zinc-500">
-              <Music2 className="size-4 text-cyan-300" />
+              <Music2 className="size-4 text-zinc-200" />
               root + scale
             </div>
             <div className="text-xs text-zinc-500">
@@ -335,7 +335,7 @@ export function GlobalMusicControls() {
               />
               <button
                 type="button"
-                className="h-9 shrink-0 rounded-sm border border-cyan-300/50 px-3 text-xs text-cyan-100 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-700"
+                className="h-9 shrink-0 rounded-sm border border-zinc-200/50 px-3 text-xs text-zinc-100 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-700"
                 disabled={isAgentSearching}
                 onClick={() => void runAgenticScaleSearch()}
               >
@@ -393,7 +393,7 @@ export function GlobalMusicControls() {
                   type="button"
                   className={`rounded-sm border px-2 py-1 text-left text-xs transition ${
                     result.scale.id === context.key.scaleId
-                      ? "border-cyan-300 text-cyan-100"
+                      ? "border-zinc-200 text-zinc-100"
                       : "border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-100"
                   }`}
                   onClick={() => {
@@ -410,8 +410,8 @@ export function GlobalMusicControls() {
           </div>
 
           {agentChoice ? (
-            <div className="mt-3 border border-cyan-300/20 bg-cyan-300/5 p-2 text-xs text-zinc-300">
-              <div className="text-cyan-100">
+            <div className="mt-3 border border-zinc-200/20 bg-white/5 p-2 text-xs text-zinc-300">
+              <div className="text-zinc-100">
                 {agentChoice.selected.tonic}{" "}
                 {getScaleDefinition(agentChoice.selected.scaleId)?.name ??
                   agentChoice.selected.scaleId}

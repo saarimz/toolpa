@@ -29,6 +29,42 @@ describe("evolving fm synth agent", () => {
     );
   });
 
+  it("uses explicit root waveform prompt controls for the FM carrier", () => {
+    const sineScene = generateSynthSceneFromPrompt({
+      prompt: "sine root FM bass pattern in C minor",
+      seed: 222,
+    });
+    const sawScene = generateSynthSceneFromPrompt({
+      prompt: "saw root FM chord stabs in C minor",
+      seed: 223,
+    });
+
+    expect(sineScene.voices.every((voice) => voice.patch.rootWaveform === "sine")).toBe(
+      true,
+    );
+    expect(sawScene.voices.every((voice) => voice.patch.rootWaveform === "sawtooth")).toBe(
+      true,
+    );
+    expect(sineScene.metadata.rationale).toContain("Carrier root starts from sine");
+  });
+
+  it("preserves selected root waveforms when evolving without a new root prompt", () => {
+    const scene = createDefaultSynthScene();
+    const patched = {
+      ...scene,
+      voices: scene.voices.map((voice) => ({
+        ...voice,
+        patch: { ...voice.patch, rootWaveform: "square" as const },
+      })),
+    };
+
+    const evolved = evolveSynthScene(patched, "make it more ancient and constantly evolving");
+
+    expect(evolved.voices.every((voice) => voice.patch.rootWaveform === "square")).toBe(
+      true,
+    );
+  });
+
   it("evolves from a previous scene without losing prompt rationale", () => {
     const first = createDefaultSynthScene();
     const evolved = evolveSynthScene(first, "make it more ancient and constantly evolving");
@@ -78,9 +114,12 @@ describe("evolving fm synth agent", () => {
   it("builds a prompt contract for gateway-backed generation", () => {
     const scene = createDefaultSynthScene();
 
-    expect(buildEvolvingFmSynthSystemPrompt()).toContain("wavetable partials");
+    expect(buildEvolvingFmSynthSystemPrompt()).toContain("FM carrier root waveform");
     expect(buildEvolvingFmSynthPrompt({ prompt: "dub techno", scene })).toContain(
       "current macros",
+    );
+    expect(buildEvolvingFmSynthPrompt({ prompt: "dub techno", scene })).toContain(
+      "root=wavetable",
     );
   });
 });

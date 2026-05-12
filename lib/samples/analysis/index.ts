@@ -82,7 +82,10 @@ export async function analyzeArrayBuffer(
     return cached;
   }
 
-  const baseline = cached ?? (await runFullDspPipeline(arrayBuffer));
+  const baseline =
+    cached
+    ?? (await tryServerAnalysis(arrayBuffer))
+    ?? (await runFullDspPipeline(arrayBuffer));
   if (!cached) {
     await putCachedAnalysis(baseline);
   }
@@ -97,6 +100,26 @@ export async function analyzeArrayBuffer(
   }
 
   return enrichDescriptorsAsync(baseline, options.sourceName);
+}
+
+async function tryServerAnalysis(
+  arrayBuffer: ArrayBuffer,
+): Promise<SampleAnalysis | null> {
+  try {
+    const response = await fetch("/api/analyze-upload", {
+      method: "POST",
+      headers: { "Content-Type": "audio/wav" },
+      body: arrayBuffer.slice(0),
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const payload = (await response.json()) as { analysis?: unknown };
+    const parsed = SampleAnalysisSchema.safeParse(payload.analysis);
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
 }
 
 async function runFullDspPipeline(

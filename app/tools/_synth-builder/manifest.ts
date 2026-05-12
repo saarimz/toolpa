@@ -1,0 +1,53 @@
+import type { AgentManifest } from "@/lib/agents/contract";
+
+export const synthBuilderManifest = {
+  name: "synth-builder",
+  slug: "_synth-builder",
+  level: 2,
+  origin: "installed",
+  description:
+    "Specialized L2 builder for SynthScene instruments with gateway fallback, render, recording, and global scale sync.",
+  route: "/build/synth",
+  instrument: {
+    type: "builder",
+    workflow: "synth-l2-builder",
+    document: "files",
+    usesSamples: false,
+    usesSynthesis: false,
+  },
+  capabilities: [
+    "generateSynthSceneTool",
+    "wireGatewayFallback",
+    "renderSynthWav",
+    "exportSynthMidi",
+    "verifyTool",
+    "registerTool",
+  ],
+  inputs: {
+    samples: [],
+    bpm: false,
+    globalBpm: false,
+    globalKey: false,
+    scaleSearch: false,
+    prompt: false,
+    description: true,
+    referenceAgent: true,
+    requiredAnalysis: [],
+  },
+  musicContext: {
+    globalBpm: false,
+    globalKey: false,
+    scaleSearch: false,
+  },
+  outputs: {
+    pattern: false,
+    synthScene: false,
+    midi: false,
+    audio: false,
+    recording: false,
+    files: true,
+    manifest: true,
+  },
+  autonomy: "driven",
+  status: "enabled",
+} satisfies AgentManifest;

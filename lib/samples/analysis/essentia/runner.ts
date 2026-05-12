@@ -12,7 +12,7 @@ type EssentiaInstance = {
     audio: Float32Array,
     frameSize?: number,
     hopSize?: number,
-  ): EssentiaVector;
+  ): EssentiaVectorVector;
   Windowing(frame: EssentiaVector, normalized?: boolean): { frame: EssentiaVector };
   Spectrum(frame: EssentiaVector, size?: number): { spectrum: EssentiaVector };
   Centroid(array: EssentiaVector, range?: number): { centroid: number };
@@ -89,6 +89,12 @@ export type EssentiaVector = {
   delete(): void;
 };
 
+export type EssentiaVectorVector = {
+  size(): number;
+  get(index: number): EssentiaVector;
+  delete(): void;
+};
+
 let cached: EssentiaInstance | null = null;
 
 export function getEssentia(): EssentiaInstance {
@@ -154,7 +160,9 @@ export function withChannelVectors<T>(
   }
 }
 
-export function safeDelete(vector: EssentiaVector | undefined | null): void {
+export function safeDelete(
+  vector: EssentiaVector | EssentiaVectorVector | undefined | null,
+): void {
   if (vector && typeof vector.delete === "function") {
     try {
       vector.delete();

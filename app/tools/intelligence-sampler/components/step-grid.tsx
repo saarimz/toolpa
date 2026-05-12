@@ -2,6 +2,12 @@
 
 import { useMemo } from "react";
 
+import {
+  getPatternStepAgency,
+  getPatternStepAgencyClassName,
+  PatternStepAgencyBadge,
+  usePatternStepAgency,
+} from "@/components/pattern-step-agency";
 import { cn } from "@/lib/utils";
 import { useIntelligenceSamplerStore } from "@/app/tools/intelligence-sampler/store";
 import { getScaleDefinition } from "@/lib/music/scale-catalog";
@@ -16,6 +22,7 @@ export function StepGrid() {
   const setSelectedStep = useIntelligenceSamplerStore((state) => state.setSelectedStep);
   const musicalContext = useGlobalMusicContextStore((state) => state.context);
   const currentScale = getScaleDefinition(musicalContext.key.scaleId);
+  const agencyEvents = usePatternStepAgency(pattern.id);
 
   const selected = useMemo(() => {
     if (!selectedStep) {
@@ -44,6 +51,12 @@ export function StepGrid() {
                   const beat = stepIndex % 4 === 0;
                   const isSelected =
                     selectedStep?.trackId === track.id && selectedStep.stepIndex === stepIndex;
+                  const agencyEvent = getPatternStepAgency(agencyEvents, {
+                    patternId: pattern.id,
+                    slot: step.slot ?? track.slot,
+                    stepIndex,
+                    trackId: track.id,
+                  });
 
                   return (
                     <button
@@ -56,14 +69,16 @@ export function StepGrid() {
                         setSelectedStep({ trackId: track.id, stepIndex });
                       }}
                       className={cn(
-                        "h-8 border text-[10px] transition",
+                        "relative h-8 overflow-hidden border text-[10px] transition",
                         beat ? "border-zinc-600" : "border-zinc-800",
                         step.active
-                          ? "bg-cyan-300 text-zinc-950"
+                          ? "bg-zinc-100 text-zinc-950"
                           : "bg-zinc-950 text-zinc-700 hover:bg-zinc-900",
-                        isSelected && "outline outline-1 outline-cyan-200",
+                        isSelected && "outline outline-1 outline-zinc-100",
+                        getPatternStepAgencyClassName(agencyEvent),
                       )}
                     >
+                      <PatternStepAgencyBadge event={agencyEvent} />
                       {step.active ? step.slot ?? track.slot ?? 0 : ""}
                     </button>
                   );
@@ -100,7 +115,7 @@ export function StepGrid() {
             <label className="block text-xs text-zinc-500">
               velocity
               <input
-                className="mt-2 w-full accent-cyan-300"
+                className="mt-2 w-full accent-zinc-200"
                 type="range"
                 min={0}
                 max={1}
@@ -117,7 +132,7 @@ export function StepGrid() {
             <label className="block text-xs text-zinc-500">
               probability
               <input
-                className="mt-2 w-full accent-cyan-300"
+                className="mt-2 w-full accent-zinc-200"
                 type="range"
                 min={0}
                 max={1}
@@ -134,7 +149,7 @@ export function StepGrid() {
             <label className="block text-xs text-zinc-500">
               microShift
               <input
-                className="mt-2 w-full accent-cyan-300"
+                className="mt-2 w-full accent-zinc-200"
                 type="range"
                 min={-0.5}
                 max={0.5}
@@ -168,7 +183,7 @@ export function StepGrid() {
             <label className="block text-xs text-zinc-500">
               pitch cents
               <input
-                className="mt-2 w-full accent-cyan-300"
+                className="mt-2 w-full accent-zinc-200"
                 type="range"
                 min={-1200}
                 max={1200}

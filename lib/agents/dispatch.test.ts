@@ -96,10 +96,10 @@ describe("resolveToolPrompts", () => {
     ).toThrow("at least two sources");
   });
 
-  it("does not resolve deleted generated tool prompts", () => {
+  it("does not resolve missing generated tool prompts", () => {
     expect(() =>
       resolveToolPrompts({
-        toolSlug: "vocal-stutter",
+        toolSlug: "deleted-generated-tool",
         pattern,
         sample,
         secondarySample: null,
@@ -108,7 +108,7 @@ describe("resolveToolPrompts", () => {
         vibe: "test groove",
         agentMode: "structured",
       }),
-    ).toThrow("Unsupported tool vocal-stutter");
+    ).toThrow("Unsupported tool deleted-generated-tool");
   });
 
   it("resolves prompts for every L1 pattern instrument in the registry", () => {

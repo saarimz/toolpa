@@ -52,6 +52,7 @@ describe("build handler", () => {
           outputs: {
             pattern: true,
             synthScene: false,
+            midi: false,
             audio: true,
             recording: true,
             files: false,
@@ -73,6 +74,17 @@ describe("build handler", () => {
           slug: "vocal-stutter",
           name: "Vocal Stutter",
           instrumentType: "sample",
+          builderSpecialization: {
+            domain: "sample",
+            builderSlug: "_sample-builder",
+            targetInstrumentType: "sample",
+            targetDocument: "pattern",
+            targetWorkflow: "sample-pattern",
+            templateKit: "sample-pattern-tool-skeleton",
+            referenceAgent: "intelligence-sampler",
+            constraints: ["Generated sample tools use the shared sample engine."],
+            verificationGates: ["Generated manifest validates as a Pattern tool."],
+          },
         }),
       }),
       { runBuilder },
@@ -81,6 +93,11 @@ describe("build handler", () => {
     expect(response.status).toBe(200);
     expect(runBuilder).toHaveBeenCalledWith(
       expect.objectContaining({
+        builderSpecialization: expect.objectContaining({
+          builderSlug: "_sample-builder",
+          domain: "sample",
+          targetDocument: "pattern",
+        }),
         instrumentType: "sample",
         tokenBudget: 50000,
       }),

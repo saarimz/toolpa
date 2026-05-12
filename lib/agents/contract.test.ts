@@ -42,6 +42,7 @@ describe("AgentManifestSchema", () => {
       outputs: {
         pattern: true,
         synthScene: false,
+        midi: false,
         audio: false,
         recording: false,
         files: false,
@@ -50,7 +51,7 @@ describe("AgentManifestSchema", () => {
     });
   });
 
-  it("accepts L2 and L3 builder manifests", () => {
+  it("accepts L2 builder manifests", () => {
     expect(
       AgentManifestSchema.parse({
         name: "tool-builder",
@@ -85,22 +86,25 @@ describe("AgentManifestSchema", () => {
       outputs: {
         pattern: false,
         synthScene: false,
+        midi: false,
         audio: false,
         recording: false,
         files: true,
         manifest: true,
       },
     });
+  });
 
-    expect(
+  it("rejects builder levels outside the L1/L2 product model", () => {
+    expect(() =>
       AgentManifestSchema.parse({
         name: "agent-builder",
         slug: "agent-builder",
         level: 3,
         description: "Builds higher-level agents",
-        route: "/agents/build",
-      }).level,
-    ).toBe(3);
+        route: "/build/agent",
+      }),
+    ).toThrow();
   });
 
   it("accepts generated manifest origin tags", () => {
@@ -164,7 +168,7 @@ describe("AgentManifestSchema", () => {
         inputs: { globalBpm: true, globalKey: true, scaleSearch: true },
         musicContext: { globalBpm: true, globalKey: true, scaleSearch: true },
         capabilities: ["recordOutput"],
-        outputs: { synthScene: true, audio: true, recording: true },
+        outputs: { synthScene: true, midi: true, audio: true, recording: true },
       }),
     ).toMatchObject({
       instrument: {
@@ -175,7 +179,7 @@ describe("AgentManifestSchema", () => {
         usesSynthesis: true,
       },
       musicContext: { globalBpm: true, globalKey: true, scaleSearch: true },
-      outputs: { pattern: false, synthScene: true, recording: true },
+      outputs: { pattern: false, synthScene: true, midi: true, recording: true },
       capabilities: ["recordOutput"],
     });
   });

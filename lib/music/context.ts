@@ -74,7 +74,9 @@ export const ScaleDefinitionSchema = z.object({
   description: z.string().min(1),
   microtonal: z.boolean().default(false),
   tuning: ScaleTuningSchema,
-  source: z.enum(["curated", "scala-compatible", "tonal-compatible"]).default("curated"),
+  source: z
+    .enum(["curated", "scala-compatible", "tool-generated", "tonal-compatible"])
+    .default("curated"),
   sourceUrl: z.string().url().optional(),
 });
 

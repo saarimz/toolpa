@@ -2,7 +2,7 @@
 
 :root {
   --background: #050505;
-  --foreground: #e8e8e8;
+  --foreground: #f4f4f5;
 }
 
 @theme inline {
@@ -31,5 +31,5 @@ textarea {
 }
 
 ::selection {
-  background: rgba(103, 232, 249, 0.35);
+  background: rgba(245, 245, 245, 0.35);
 }

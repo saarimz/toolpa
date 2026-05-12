@@ -6,11 +6,13 @@ import { Download, Pause, Play } from "lucide-react";
 import { AudioOutputRecorder } from "@/components/audio-output-recorder";
 import { PatternLiveTrace } from "@/components/pattern-live-trace";
 import { Button } from "@/components/ui/button";
-import { playIntelligenceSamplerPattern, stopIntelligenceSamplerPattern } from "@/app/tools/intelligence-sampler/lib/play";
 import { useGridSamplerStore } from "@/app/tools/grid-sampler/store";
 import { getStepDurationSec } from "@/lib/audio/pattern";
+import { getSamplePlaybackHost } from "@/lib/audio/sample-playback";
 import { renderPatternToWav } from "@/lib/audio/wav-render";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
+
+const playbackHost = getSamplePlaybackHost("grid-sampler");
 
 export function GridTransportBar() {
   const timerRef = useRef<number | null>(null);
@@ -37,7 +39,7 @@ export function GridTransportBar() {
 
   async function togglePlayback() {
     if (isPlaying) {
-      await stopIntelligenceSamplerPattern();
+      await playbackHost.stopPattern();
       setPlaying(false);
       setCurrentStepIndex(null);
       if (timerRef.current) {
@@ -47,7 +49,7 @@ export function GridTransportBar() {
     }
 
     const pattern = toPattern();
-    await playIntelligenceSamplerPattern(pattern, { musicalContext, sliceCount });
+    await playbackHost.playPattern(pattern, { musicalContext, sliceCount });
     setPlaying(true);
     let step = 0;
     setCurrentStepIndex(step);
@@ -83,7 +85,7 @@ export function GridTransportBar() {
         <Download className="size-4" />
         {isRendering ? "rendering" : "render wav"}
       </Button>
-      <AudioOutputRecorder filename="grid-sampler" />
+      <AudioOutputRecorder filename="grid-sampler" sourceId="grid-sampler" />
       <label className="flex items-center gap-2 text-xs text-zinc-500">
         bpm
         <input
@@ -98,7 +100,7 @@ export function GridTransportBar() {
       <label className="flex min-w-64 items-center gap-2 text-xs text-zinc-500">
         swing
         <input
-          className="w-40 accent-cyan-300"
+          className="w-40 accent-zinc-200"
           type="range"
           min={0}
           max={0.5}
@@ -108,7 +110,7 @@ export function GridTransportBar() {
         />
         <span className="w-10 text-zinc-300">{Math.round(swing * 100)}%</span>
       </label>
-      <PatternLiveTrace patternId={toPattern().id} />
+      <PatternLiveTrace patternId="grid-sampler-pattern" />
     </section>
   );
 }

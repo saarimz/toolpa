@@ -5,6 +5,7 @@ import {
   clearIntelligenceSamplerPlaybackState,
   createIntelligenceSamplerPlayerKey,
   playIntelligenceSamplerPattern,
+  stopIntelligenceSamplerPattern,
 } from "@/app/tools/intelligence-sampler/lib/play";
 import { createPattern, createStep, createTrack } from "@/lib/pattern/schema";
 
@@ -145,7 +146,7 @@ describe("intelligence sampler playback", () => {
     resolverState.resolveSample.mockImplementation(async (sampleId: string) => ({
       id: sampleId,
       name: sampleId,
-      audioBuffer: { duration: 8 },
+      audioBuffer: { duration: 8, sampleId },
       origin: "library",
     }));
   });
@@ -223,6 +224,69 @@ describe("intelligence sampler playback", () => {
     expect(toneState.players[0]?.stop).toHaveBeenCalled();
   });
 
+  it("preloads and plays step-level sample overrides through the smoothed engine", async () => {
+    const pattern = createPattern({
+      id: "pattern",
+      name: "pattern",
+      bpm: 120,
+      tracks: [
+        createTrack({
+          id: "slice-1",
+          name: "slice 1",
+          sampleId: "library:jungle/default",
+          slot: 0,
+          steps: Array.from({ length: 16 }, (_, index) =>
+            createStep({
+              active: index === 0,
+              sampleId: index === 0 ? "library:jungle/override" : undefined,
+              slot: 0,
+            }),
+          ),
+        }),
+      ],
+    });
+
+    await playIntelligenceSamplerPattern(pattern, { declickPreset: "tight" });
+
+    expect(resolverState.resolveSample).toHaveBeenCalledWith("library:jungle/default");
+    expect(resolverState.resolveSample).toHaveBeenCalledWith("library:jungle/override");
+    expect(toneState.players[0]?.audioBuffer).toMatchObject({
+      sampleId: "library:jungle/override",
+    });
+    expect(toneState.players[0]).toMatchObject({
+      fadeIn: 0.002,
+      fadeOut: 0.006,
+    });
+  });
+
+  it("starts reversed slices from the mirrored buffer offset", async () => {
+    const pattern = createPattern({
+      id: "pattern",
+      name: "pattern",
+      bpm: 120,
+      tracks: [
+        createTrack({
+          id: "slice-1",
+          name: "slice 1",
+          sampleId: "library:jungle/amen",
+          slot: 2,
+          steps: Array.from({ length: 16 }, (_, index) =>
+            createStep({
+              active: index === 0,
+              reverse: true,
+              slot: 2,
+            }),
+          ),
+        }),
+      ],
+    });
+
+    await playIntelligenceSamplerPattern(pattern, { sliceCount: 8 });
+
+    expect(toneState.players[0]).toMatchObject({ reverse: true });
+    expect(toneState.players[0]?.start).toHaveBeenCalledWith(0, 5);
+  });
+
   it("applies the same declick envelope when auditioning slices", async () => {
     await auditionIntelligenceSamplerSlice("library:jungle/amen", 0, {
       declickPreset: "soft",
@@ -233,5 +297,43 @@ describe("intelligence sampler playback", () => {
       fadeOut: 0.02,
     });
     expect(toneState.limiters).toHaveLength(1);
+  });
+
+  it("fades active players before disposal when transport stops", async () => {
+    vi.useFakeTimers();
+    const pattern = createPattern({
+      id: "pattern",
+      name: "pattern",
+      bpm: 120,
+      tracks: [
+        createTrack({
+          id: "slice-1",
+          name: "slice 1",
+          sampleId: "library:jungle/amen",
+          slot: 0,
+          steps: createSixteenthSteps(0, 0),
+        }),
+      ],
+    });
+
+    try {
+      await playIntelligenceSamplerPattern(pattern, { declickPreset: "tight" });
+      const player = toneState.players[0];
+      const limiter = toneState.limiters[0];
+
+      await stopIntelligenceSamplerPattern();
+
+      expect(player?.fadeOut).toBe(0.02);
+      expect(player?.stop).toHaveBeenCalledTimes(2);
+      expect(player?.dispose).not.toHaveBeenCalled();
+      expect(limiter?.dispose).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(121);
+
+      expect(player?.dispose).toHaveBeenCalledTimes(1);
+      expect(limiter?.dispose).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

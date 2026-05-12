@@ -8,12 +8,14 @@ import { LlmGeneratingOverlay } from "@/components/llm-generating-overlay";
 import { readGenerateStream } from "@/lib/ai/client-stream";
 import type { GenerateStreamChunk } from "@/lib/ai/contracts";
 import { PatternSchema } from "@/lib/pattern/schema";
+import { createLocalSplicePattern } from "@/app/tools/splice-lab/lib/local-agent";
 import { useSpliceLabStore } from "@/app/tools/splice-lab/store";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
+import { usePromptParamState } from "@/lib/tools/use-prompt-param";
 
 export function SpliceGenerationPanel() {
   const abortRef = useRef<AbortController | null>(null);
-  const [vibe, setVibe] = useState(
+  const [vibe, setVibe] = usePromptParamState(
     "interlocking multi-source loop, melodic source swaps, clipped rhythmic answers",
   );
   const [streamText, setStreamText] = useState("");
@@ -42,9 +44,10 @@ export function SpliceGenerationPanel() {
     }
     setError(null);
     let finalPattern: unknown = null;
+    const seedPattern = toPattern();
+    let failureMessage: string | null = null;
 
     try {
-      const pattern = toPattern();
       const primarySource = sources[0];
       const secondarySource = sources[1] ?? primarySource;
       const response = await fetch("/api/generate", {
@@ -55,15 +58,15 @@ export function SpliceGenerationPanel() {
           mode: "splice",
           prompt,
           context: {
-            pattern,
+            pattern: seedPattern,
             sampleId: primarySource?.sampleId ?? "source-a",
             sampleName: primarySource?.name,
             sampleRole: primarySource?.role,
             secondarySampleId: secondarySource?.sampleId,
             secondarySampleName: secondarySource?.name,
             secondarySampleRole: secondarySource?.role,
-            bpm: pattern.bpm,
-            swing: pattern.swing,
+            bpm: seedPattern.bpm,
+            swing: seedPattern.swing,
             musicalContext,
             sliceCount,
           },
@@ -84,16 +87,44 @@ export function SpliceGenerationPanel() {
         }
       });
     } catch (unknownError) {
-      if (collectOnly || !controller.signal.aborted) {
-        setError(
-          unknownError instanceof Error ? unknownError.message : "Generation failed",
-        );
+      if (!collectOnly && controller.signal.aborted) {
+        return null;
       }
+      failureMessage =
+        unknownError instanceof Error ? unknownError.message : "Generation failed";
     } finally {
-      setIsGenerating(false);
+      if (!collectOnly) {
+        setIsGenerating(false);
+      }
     }
 
-    return finalPattern;
+    const parsedFinalPattern = PatternSchema.safeParse(finalPattern);
+    if (parsedFinalPattern.success) {
+      return parsedFinalPattern.data;
+    }
+
+    const fallback = createLocalSplicePattern({
+      pattern: seedPattern,
+      prompt,
+      sliceCount,
+      variant: getPromptVariant(prompt),
+    });
+    if (!collectOnly) {
+      setPattern(fallback);
+      setPromptText(
+        failureMessage
+          ? `Gateway failed: ${failureMessage}`
+          : "Gateway stream ended without a final splice map.",
+      );
+      setStreamText(JSON.stringify(fallback, null, 2));
+      setError(
+        failureMessage
+          ? `Gateway failed; used local splice map instead. ${failureMessage}`
+          : "Gateway did not return a final splice map; used local splice map instead.",
+      );
+    }
+
+    return fallback;
   }
 
   async function generateAlternatives() {
@@ -190,7 +221,7 @@ export function SpliceGenerationPanel() {
         <label className="block text-xs text-zinc-500">
           generation prompt
           <textarea
-            className="mt-2 h-24 w-full resize-none rounded-sm border border-zinc-700 bg-zinc-950 p-3 text-xs text-zinc-100 outline-none focus:border-cyan-300 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
+            className="mt-2 h-24 w-full resize-none rounded-sm border border-zinc-700 bg-zinc-950 p-3 text-xs text-zinc-100 outline-none focus:border-zinc-200 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
             value={vibe}
             disabled={isGenerating || isGeneratingAlternatives}
             onChange={(event) => setVibe(event.target.value)}
@@ -231,7 +262,7 @@ export function SpliceGenerationPanel() {
               type="checkbox"
               checked={liveRegeneration}
               onChange={(event) => setLiveRegeneration(event.target.checked)}
-              className="accent-cyan-300"
+              className="accent-zinc-200"
             />
             live regen
           </label>
@@ -243,7 +274,7 @@ export function SpliceGenerationPanel() {
               <button
                 key={ghost.id}
                 type="button"
-                className="mr-2 mt-2 border border-zinc-800 px-2 py-1 text-zinc-500 hover:border-cyan-300 hover:text-cyan-100"
+                className="mr-2 mt-2 border border-zinc-800 px-2 py-1 text-zinc-500 hover:border-zinc-200 hover:text-zinc-100"
                 onClick={() => setPattern(ghost)}
               >
                 {ghost.name}
@@ -257,10 +288,19 @@ export function SpliceGenerationPanel() {
         <pre className="overflow-auto border border-zinc-800 bg-black p-3 text-[11px] leading-5 text-zinc-500">
           {promptText || "prompt stream will appear here"}
         </pre>
-        <pre className="mt-2 overflow-auto border border-zinc-800 bg-black p-3 text-[11px] leading-5 text-cyan-100">
+        <pre className="mt-2 overflow-auto border border-zinc-800 bg-black p-3 text-[11px] leading-5 text-zinc-100">
           {streamText || "pattern json / rationale will appear here"}
         </pre>
       </div>
     </section>
   );
+}
+
+function getPromptVariant(prompt: string) {
+  const candidateMatch = /candidate\s+(\d+)/i.exec(prompt);
+  if (candidateMatch?.[1]) {
+    return Math.max(0, Number(candidateMatch[1]) - 1);
+  }
+
+  return 0;
 }

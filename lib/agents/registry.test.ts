@@ -16,6 +16,11 @@ describe("agent registry", () => {
     expect(slugs).toEqual([...slugs].sort());
     expect(slugs).toEqual(
       expect.arrayContaining([
+        "_effect-builder",
+        "_hybrid-builder",
+        "_microtonal-builder",
+        "_sample-builder",
+        "_synth-builder",
         "intelligence-sampler",
         "drum-machine",
         "evolving-fm-synth",
@@ -47,6 +52,11 @@ describe("agent registry", () => {
 
     expect(discoveredSlugs).toEqual(
       expect.arrayContaining([
+        "_effect-builder",
+        "_hybrid-builder",
+        "_microtonal-builder",
+        "_sample-builder",
+        "_synth-builder",
         "_builder",
         "intelligence-sampler",
         "drum-machine",
@@ -60,6 +70,11 @@ describe("agent registry", () => {
   it("exposes only enabled tools separately", () => {
     expect(getEnabledAgentManifests().map((manifest) => manifest.slug)).toEqual(
       expect.arrayContaining([
+        "_effect-builder",
+        "_hybrid-builder",
+        "_microtonal-builder",
+        "_sample-builder",
+        "_synth-builder",
         "intelligence-sampler",
         "drum-machine",
         "evolving-fm-synth",
@@ -74,16 +89,26 @@ describe("agent registry", () => {
     expect(getAgentManifest("missing")).toBeNull();
   });
 
-  it("tags shipped tools as installed and excludes generated tools", () => {
+  it("tags shipped tools as installed and keeps generated tools distinct", () => {
     expect(getAgentManifest("intelligence-sampler")?.origin).toBe("installed");
     expect(getAgentManifest("drum-machine")?.origin).toBe("installed");
     expect(getAgentManifest("evolving-fm-synth")?.origin).toBe("installed");
     expect(getAgentManifest("grid-sampler")?.origin).toBe("installed");
     expect(getAgentManifest("splice-lab")?.origin).toBe("installed");
-    expect(getAgentManifest("vocal-stutter")).toBeNull();
-    expect(getAgentManifest("l2-grid-sampler")).toBeNull();
-    expect(getAgentManifest("l2-drum-machine")).toBeNull();
-    expect(getAgentManifests().filter((manifest) => manifest.origin === "generated")).toEqual([]);
+    const installedSlugs = new Set([
+      "intelligence-sampler",
+      "drum-machine",
+      "evolving-fm-synth",
+      "grid-sampler",
+      "splice-lab",
+    ]);
+    const generatedManifests = getAgentManifests().filter(
+      (manifest) => manifest.origin === "generated",
+    );
+
+    expect(
+      generatedManifests.every((manifest) => !installedSlugs.has(manifest.slug)),
+    ).toBe(true);
   });
 
   it("exposes instrument workflow tags for sample tools, synth tools, and builders", () => {
@@ -112,6 +137,15 @@ describe("agent registry", () => {
       type: "builder",
       document: "files",
     });
+    expect(getAgentManifest("_synth-builder")).toMatchObject({
+      level: 2,
+      route: "/build/synth",
+      instrument: {
+        type: "builder",
+        document: "files",
+        workflow: "synth-l2-builder",
+      },
+    });
   });
 
   it("filters manifests by level", () => {
@@ -121,5 +155,16 @@ describe("agent registry", () => {
     expect(getAgentManifestsByLevel(2).every((manifest) => manifest.level === 2)).toBe(
       true,
     );
+    expect(getAgentManifestsByLevel(2).map((manifest) => manifest.slug)).toEqual(
+      expect.arrayContaining([
+        "_builder",
+        "_effect-builder",
+        "_hybrid-builder",
+        "_microtonal-builder",
+        "_sample-builder",
+        "_synth-builder",
+      ]),
+    );
+    expect(getAgentManifests().some((manifest) => manifest.level > 2)).toBe(false);
   });
 });

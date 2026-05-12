@@ -17,6 +17,7 @@ describe("evolving fm synth events", () => {
     expect(events.length).toBeGreaterThan(0);
     expect(events.every((event) => String(event.note).length >= 2)).toBe(true);
     expect(events.every((event) => event.durationSec > 0)).toBe(true);
+    expect(events.every((event) => event.rootWaveform === "wavetable")).toBe(true);
   });
 
   it("derives step and loop timing from BPM and grid shape", () => {

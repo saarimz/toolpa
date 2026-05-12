@@ -34,6 +34,7 @@ export const drumMachineManifest: AgentManifest = {
   outputs: {
     pattern: true,
     synthScene: false,
+    midi: false,
     audio: true,
     recording: true,
     files: false,

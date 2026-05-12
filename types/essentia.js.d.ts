@@ -13,3 +13,10 @@ declare module "essentia.js" {
   const defaultExport: any;
   export default defaultExport;
 }
+
+declare module "essentia.js/dist/essentia.js-model.es.js" {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  export const EssentiaTFInputExtractor: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  export const TensorflowMusiCNN: any;
+}

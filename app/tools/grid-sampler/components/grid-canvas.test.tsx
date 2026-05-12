@@ -1,9 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { act } from "react";
 import { describe, expect, it } from "vitest";
 
 import { GridCanvas } from "@/app/tools/grid-sampler/components/grid-canvas";
 import { createGridSamplerState } from "@/app/tools/grid-sampler/lib/pattern";
+import { publishPatternPlaybackTrace } from "@/lib/audio/playback-agency";
 import { useGridSamplerStore } from "@/app/tools/grid-sampler/store";
 
 describe("GridCanvas", () => {
@@ -65,5 +67,47 @@ describe("GridCanvas", () => {
     expect(screen.getByRole("option", { name: "4" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "8" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "16" })).toBeInTheDocument();
+  });
+
+  it("annotates grid cells by playback trace slot", () => {
+    const state = createGridSamplerState(
+      "library:jungle/let-there-break",
+      "Let There Break",
+    );
+    useGridSamplerStore.setState({
+      ...state,
+      sliceCount: 32,
+      cells: state.cells.slice(0, 32),
+    });
+
+    render(<GridCanvas />);
+
+    act(() => {
+      publishPatternPlaybackTrace({
+        patternId: "grid-sampler-pattern",
+        patternName: "grid 32 LR",
+        trackId: "grid",
+        trackName: "grid",
+        stepIndex: 1,
+        stepInTrack: 1,
+        slot: 1,
+        barIndex: 0,
+        timeSec: 0.25,
+        fired: true,
+        reason: "fired",
+        velocity: 1,
+        microShift: 0.05,
+        probability: 1,
+        pitchCents: 0,
+        playbackRate: 1,
+        repeatCount: 1,
+      });
+    });
+
+    expect(
+      within(screen.getByLabelText(/slice 2, play 2, active/i)).getByLabelText(
+        "playback agency shift",
+      ),
+    ).toBeInTheDocument();
   });
 });

@@ -4,6 +4,33 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SamplePicker, type PickedSample } from "@/components/sample-picker";
 
+vi.mock("@/lib/samples/analysis", () => ({
+  getSampleSchema: vi.fn(async () => ({
+    global: {
+      lufs_integrated: -12,
+      true_peak_dbfs: -1,
+    },
+    llm_descriptors: null,
+    rhythm: {
+      bpm: null,
+      bpm_confidence: 0,
+      onsets_s: [],
+    },
+    role: null,
+    role_confidence: 0,
+    slices: [],
+    tonal: {
+      key: null,
+      key_strength: 0,
+      scale: null,
+    },
+  })),
+}));
+
+vi.mock("@/lib/samples/analysis/library-cache", () => ({
+  hasLibraryAnalysis: vi.fn(() => false),
+}));
+
 describe("SamplePicker", () => {
   beforeEach(async () => {
     await new Promise<void>((resolve, reject) => {

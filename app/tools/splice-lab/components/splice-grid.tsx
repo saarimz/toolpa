@@ -2,10 +2,17 @@
 
 import { useMemo } from "react";
 
+import {
+  getPatternStepAgency,
+  getPatternStepAgencyClassName,
+  PatternStepAgencyBadge,
+  usePatternStepAgency,
+} from "@/components/pattern-step-agency";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   getCellSlot,
+  getTrackId,
   type SpliceLabSource,
   type SpliceSource,
   type SpliceSourceKey,
@@ -14,29 +21,29 @@ import { useSpliceWaveforms } from "@/app/tools/splice-lab/components/use-splice
 import { useSpliceLabStore } from "@/app/tools/splice-lab/store";
 
 const sourceCellClasses: Record<SpliceSourceKey, string> = {
-  A: "border-cyan-300/60 bg-cyan-300/20 text-cyan-50 shadow-[0_0_18px_rgba(103,232,249,0.22)]",
-  B: "border-fuchsia-300/60 bg-fuchsia-300/20 text-fuchsia-50 shadow-[0_0_18px_rgba(240,171,252,0.2)]",
-  C: "border-amber-300/60 bg-amber-300/20 text-amber-50 shadow-[0_0_18px_rgba(252,211,77,0.2)]",
-  D: "border-emerald-300/60 bg-emerald-300/20 text-emerald-50 shadow-[0_0_18px_rgba(110,231,183,0.18)]",
-  E: "border-sky-300/60 bg-sky-300/20 text-sky-50 shadow-[0_0_18px_rgba(125,211,252,0.18)]",
-  F: "border-rose-300/60 bg-rose-300/20 text-rose-50 shadow-[0_0_18px_rgba(253,164,175,0.18)]",
-  G: "border-violet-300/60 bg-violet-300/20 text-violet-50 shadow-[0_0_18px_rgba(196,181,253,0.18)]",
-  H: "border-lime-300/60 bg-lime-300/20 text-lime-50 shadow-[0_0_18px_rgba(190,242,100,0.18)]",
-  I: "border-orange-300/60 bg-orange-300/20 text-orange-50 shadow-[0_0_18px_rgba(253,186,116,0.18)]",
-  J: "border-teal-300/60 bg-teal-300/20 text-teal-50 shadow-[0_0_18px_rgba(94,234,212,0.18)]",
+  A: "border-zinc-50/70 bg-zinc-50/20 text-zinc-50 shadow-[0_0_18px_rgba(245,245,245,0.22)]",
+  B: "border-zinc-100/65 bg-zinc-100/15 text-zinc-50 shadow-[0_0_18px_rgba(244,244,245,0.18)]",
+  C: "border-zinc-200/60 bg-zinc-200/15 text-zinc-100 shadow-[0_0_18px_rgba(228,228,231,0.16)]",
+  D: "border-zinc-300/55 bg-zinc-300/15 text-zinc-100 shadow-[0_0_18px_rgba(212,212,216,0.14)]",
+  E: "border-zinc-400/50 bg-zinc-400/10 text-zinc-100 shadow-[0_0_18px_rgba(161,161,170,0.14)]",
+  F: "border-neutral-50/65 bg-neutral-50/15 text-neutral-50 shadow-[0_0_18px_rgba(245,245,245,0.16)]",
+  G: "border-neutral-100/60 bg-neutral-100/15 text-neutral-50 shadow-[0_0_18px_rgba(245,245,245,0.14)]",
+  H: "border-neutral-200/55 bg-neutral-200/10 text-neutral-100 shadow-[0_0_18px_rgba(229,229,229,0.14)]",
+  I: "border-neutral-300/50 bg-neutral-300/10 text-neutral-100 shadow-[0_0_18px_rgba(212,212,212,0.12)]",
+  J: "border-neutral-400/45 bg-neutral-400/10 text-neutral-100 shadow-[0_0_18px_rgba(163,163,163,0.12)]",
 };
 
 const sourceBarClasses: Record<SpliceSourceKey, string> = {
-  A: "bg-cyan-200",
-  B: "bg-fuchsia-200",
-  C: "bg-amber-200",
-  D: "bg-emerald-200",
-  E: "bg-sky-200",
-  F: "bg-rose-200",
-  G: "bg-violet-200",
-  H: "bg-lime-200",
-  I: "bg-orange-200",
-  J: "bg-teal-200",
+  A: "bg-zinc-50",
+  B: "bg-zinc-100",
+  C: "bg-zinc-200",
+  D: "bg-zinc-300",
+  E: "bg-zinc-400",
+  F: "bg-neutral-50",
+  G: "bg-neutral-100",
+  H: "bg-neutral-200",
+  I: "bg-neutral-300",
+  J: "bg-neutral-400",
 };
 
 export function SpliceGrid() {
@@ -51,6 +58,7 @@ export function SpliceGrid() {
   const updateCell = useSpliceLabStore((state) => state.updateCell);
   const updateCellSlot = useSpliceLabStore((state) => state.updateCellSlot);
   const waveforms = useSpliceWaveforms(sources, sliceCount);
+  const agencyEvents = usePatternStepAgency("splice-lab-pattern");
   const selected = useMemo(
     () => cells.find((cell) => cell.step === selectedStep) ?? null,
     [cells, selectedStep],
@@ -77,6 +85,14 @@ export function SpliceGrid() {
                 source && slot !== null
                   ? waveforms.get(source.key)?.sliceBars[slot]
                   : null;
+              const agencyEvent = source
+                ? getPatternStepAgency(agencyEvents, {
+                    patternId: "splice-lab-pattern",
+                    slot: slot ?? undefined,
+                    stepIndex: cell.step,
+                    trackId: getTrackId(source.key),
+                  })
+                : undefined;
               return (
                 <button
                   key={cell.step}
@@ -94,9 +110,11 @@ export function SpliceGrid() {
                       "border-zinc-800 bg-zinc-950 text-zinc-700 hover:bg-zinc-900",
                     current &&
                       "z-10 outline outline-2 outline-white shadow-[0_0_28px_rgba(255,255,255,0.35)]",
-                    selectedStep === cell.step && "outline outline-1 outline-cyan-100",
+                    selectedStep === cell.step && "outline outline-1 outline-zinc-100",
+                    getPatternStepAgencyClassName(agencyEvent),
                   )}
                 >
+                  <PatternStepAgencyBadge event={agencyEvent} />
                   <span className="flex items-center justify-between">
                     <span className="text-sm">{source ? source.key : "-"}</span>
                     <span className="text-[10px] opacity-70">{cell.step + 1}</span>
@@ -206,7 +224,7 @@ export function SpliceGrid() {
                 onChange={(event) =>
                   updateCell(selected.step, { reverse: event.target.checked })
                 }
-                className="accent-cyan-300"
+                className="accent-zinc-200"
               />
               reverse
             </label>
@@ -287,7 +305,7 @@ function Slider({
     <label className="block text-xs text-zinc-500">
       {label}
       <input
-        className="mt-2 w-full accent-cyan-300"
+        className="mt-2 w-full accent-zinc-200"
         type="range"
         min={min}
         max={max}

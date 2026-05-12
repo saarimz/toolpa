@@ -1,0 +1,53 @@
+import type { AgentManifest } from "@/lib/agents/contract";
+
+export const hybridBuilderManifest = {
+  name: "hybrid-builder",
+  slug: "_hybrid-builder",
+  level: 2,
+  origin: "installed",
+  description:
+    "Specialized L2 builder for sample-informed SynthScene tools that keep sample context and synth artifacts explicit.",
+  route: "/build/hybrid",
+  instrument: {
+    type: "builder",
+    workflow: "hybrid-l2-builder",
+    document: "files",
+    usesSamples: false,
+    usesSynthesis: false,
+  },
+  capabilities: [
+    "generateHybridSynthTool",
+    "wireSampleAnalysisContext",
+    "renderSynthWav",
+    "exportSynthMidi",
+    "verifyTool",
+    "registerTool",
+  ],
+  inputs: {
+    samples: [],
+    bpm: false,
+    globalBpm: false,
+    globalKey: false,
+    scaleSearch: false,
+    prompt: false,
+    description: true,
+    referenceAgent: true,
+    requiredAnalysis: [],
+  },
+  musicContext: {
+    globalBpm: false,
+    globalKey: false,
+    scaleSearch: false,
+  },
+  outputs: {
+    pattern: false,
+    synthScene: false,
+    midi: false,
+    audio: false,
+    recording: false,
+    files: true,
+    manifest: true,
+  },
+  autonomy: "driven",
+  status: "enabled",
+} satisfies AgentManifest;

@@ -24,6 +24,13 @@ export const ModulationWaveSchema = z.enum([
   "sawtooth",
 ]);
 
+export const RootWaveformSchema = z.enum([
+  "sine",
+  "wavetable",
+  "square",
+  "sawtooth",
+]);
+
 export const EvolutionBarsSchema = z.union([
   z.literal(4),
   z.literal(8),
@@ -48,6 +55,7 @@ export const SynthStepSchema = z.object({
 
 export const VoicePatchSchema = z.object({
   partials: z.array(z.number().min(0).max(1)).min(4).max(16),
+  rootWaveform: RootWaveformSchema.default("wavetable"),
   modulationIndex: z.number().min(0).max(48),
   harmonicity: z.number().min(0.125).max(8),
   modulationType: ModulationWaveSchema.default("sine"),
@@ -145,6 +153,7 @@ export const SynthSceneSchema = z.object({
 
 export type SynthScale = z.infer<typeof ScaleSchema>;
 export type EvolutionBars = z.infer<typeof EvolutionBarsSchema>;
+export type SynthRootWaveform = z.infer<typeof RootWaveformSchema>;
 export type SynthStep = z.infer<typeof SynthStepSchema>;
 export type VoicePatch = z.infer<typeof VoicePatchSchema>;
 export type SynthVoice = z.infer<typeof SynthVoiceSchema>;

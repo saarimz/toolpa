@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   collectPatternPlaybackPlan,
   collectPatternEvents,
+  collectPatternSampleIds,
   getStepDurationSec,
   pitchCentsToPlaybackRate,
   pitchToPlaybackRate,
@@ -74,7 +75,7 @@ describe("pattern event planner", () => {
     );
   });
 
-  it("drops probability-zero events", () => {
+  it("drops probability-zero events when probability is rolled at plan time", () => {
     const pattern = createPattern({
       id: "pattern",
       name: "pattern",
@@ -89,6 +90,36 @@ describe("pattern event planner", () => {
     });
 
     expect(collectPatternEvents(pattern, { random: () => 1 })).toHaveLength(0);
+  });
+
+  it("emits probability-eligible events when probability is deferred to callers", () => {
+    const pattern = createPattern({
+      id: "pattern",
+      name: "pattern",
+      bars: 1,
+      stepsPerBar: 3,
+      tracks: [
+        createTrack({
+          id: "track",
+          name: "track",
+          sampleId: "library:test",
+          steps: [
+            createStep({ active: true, probability: 0 }),
+            createStep({ active: true, probability: 0.7 }),
+            createStep({ active: false, probability: 1 }),
+          ],
+        }),
+      ],
+    });
+
+    const events = collectPatternEvents(pattern, {
+      random: () => 1,
+      probabilityMode: "defer",
+    });
+
+    expect(events).toHaveLength(2);
+    expect(events[0]?.probability).toBe(0);
+    expect(events[1]?.probability).toBeCloseTo(0.7);
   });
 
   it("converts pitch to playback rate", () => {
@@ -168,5 +199,30 @@ describe("pattern event planner", () => {
 
     expect(events[0]?.chokeGroup).toBe("break");
     expect(events[1]?.chokeGroup).toBe("fill");
+  });
+
+  it("collects every track and step-level sample id needed by playback engines", () => {
+    const pattern = createPattern({
+      id: "pattern",
+      name: "pattern",
+      tracks: [
+        createTrack({
+          id: "track",
+          name: "track",
+          sampleId: "library:test/default",
+          steps: [
+            createStep({ active: true }),
+            createStep({ active: true, sampleId: "library:test/fill" }),
+            createStep({ active: false, sampleId: "library:test/ghost" }),
+          ],
+        }),
+      ],
+    });
+
+    expect(collectPatternSampleIds(pattern)).toEqual([
+      "library:test/default",
+      "library:test/fill",
+      "library:test/ghost",
+    ]);
   });
 });

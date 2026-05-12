@@ -24,6 +24,8 @@ describe("gateway config", () => {
   });
 
   it("uses the configured model or default", () => {
+    expect(DEFAULT_GATEWAY_MODEL).toBe("deepseek/deepseek-v4-flash");
+
     delete process.env.AI_GATEWAY_MODEL;
     expect(getConfiguredGatewayModelId()).toBe(DEFAULT_GATEWAY_MODEL);
 

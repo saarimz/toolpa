@@ -10,6 +10,7 @@ import {
   type EvolutionBars,
   type SynthEffects,
   type SynthMacros,
+  type SynthRootWaveform,
   type SynthScale,
   type SynthScene,
   type SynthStep,
@@ -41,7 +42,7 @@ export function buildEvolvingFmSynthSystemPrompt() {
   return [
     "You are the evolving-fm-synth L1 agent inside ai-daw-tools.",
     "Generate an interpretable browser synth state, not opaque audio.",
-    "Control key, scale, BPM, MIDI notes, FM parameters, wavetable partials, effects, and variation macros.",
+    "Control key, scale, BPM, MIDI notes, FM carrier root waveform, modulator waveform, wavetable partials, effects, and variation macros.",
     "Treat bars as the long-form evolution cycle: 4, 8, 16, 32, 64, or 128 bars.",
     "Prefer gradual bar-by-bar modulation over replacing the whole scene while playback is running.",
     "Dub techno should favor minor or dorian roots, low-pass motion, chord stabs, feedback delay, and long reverb.",
@@ -71,7 +72,7 @@ export function buildEvolvingFmSynthPrompt({
       : "",
     `current evolution cycle: ${scene.bars} bars`,
     `current macros: ${JSON.stringify(scene.macros)}`,
-    `current voices: ${scene.voices.map((voice) => `${voice.id}:${voice.role}`).join(", ")}`,
+    `current voices: ${scene.voices.map((voice) => `${voice.id}:${voice.role}:root=${voice.patch.rootWaveform}`).join(", ")}`,
     "Return a SynthScene JSON object with playable MIDI steps and compact rationale.",
   ].filter(Boolean).join("\n");
 }
@@ -104,6 +105,9 @@ export function generateSynthSceneFromPrompt({
   const macros = inferMacros(normalizedPrompt, previousScene?.macros);
   const effects = inferEffects(normalizedPrompt, macros, previousScene?.effects);
   const explicitNotes = parsePromptNotes(normalizedPrompt);
+  const rootWaveform = parseRootWaveform(normalizedPrompt);
+  const rationaleRootWaveform =
+    rootWaveform ?? previousScene?.voices[0]?.patch.rootWaveform ?? "wavetable";
   const rootMidi = keyToMidiRoot(key, normalizedPrompt.toLowerCase().includes("sub") ? 1 : 2);
   const bars = parseEvolutionBars(normalizedPrompt) ??
     previousScene?.bars ??
@@ -114,8 +118,10 @@ export function generateSynthSceneFromPrompt({
   const voices = buildVoices({
     explicitNotes,
     macros,
+    previousVoices: previousScene?.voices,
     random,
     rootMidi,
+    rootWaveform,
     scale,
     stepsPerBar,
     sustained,
@@ -138,7 +144,15 @@ export function generateSynthSceneFromPrompt({
     metadata: {
       createdBy: "local-agent",
       prompt: normalizedPrompt,
-      rationale: createRationale({ prompt: normalizedPrompt, key, scale, bpm, bars, macros }),
+      rationale: createRationale({
+        prompt: normalizedPrompt,
+        key,
+        scale,
+        bpm,
+        bars,
+        macros,
+        rootWaveform: rationaleRootWaveform,
+      }),
       influences: inferInfluences(normalizedPrompt),
       agentPlan: plan,
       researchBasis: [
@@ -238,8 +252,10 @@ export function updateSceneKey(
 function buildVoices({
   explicitNotes,
   macros,
+  previousVoices,
   random,
   rootMidi,
+  rootWaveform,
   scale,
   stepsPerBar,
   sustained,
@@ -247,13 +263,25 @@ function buildVoices({
 }: {
   explicitNotes: number[];
   macros: SynthMacros;
+  previousVoices?: SynthVoice[];
   random: () => number;
   rootMidi: number;
+  rootWaveform: SynthRootWaveform | null;
   scale: SynthScale;
   stepsPerBar: number;
   sustained: boolean;
   totalSteps: number;
 }): SynthVoice[] {
+  const previousVoicesById = new Map(
+    previousVoices?.map((voice) => [voice.id, voice]) ?? [],
+  );
+  const patchFor = (id: string, role: SynthVoice["role"]) =>
+    createPatch({
+      role,
+      macros,
+      random,
+      rootWaveform: rootWaveform ?? previousVoicesById.get(id)?.patch.rootWaveform,
+    });
   const notePool =
     explicitNotes.length > 0
       ? explicitNotes.map((midi) => toSynthPitch(midi))
@@ -274,7 +302,7 @@ function buildVoices({
       role: "bass",
       gainDb: -8,
       pan: -0.05,
-      patch: createPatch({ role: "bass", macros, random }),
+      patch: patchFor("sub-fm", "bass"),
       steps: createBassSteps({ notes: bassNotes, macros, random, sustained, stepsPerBar, totalSteps }),
     }),
     createVoice({
@@ -283,7 +311,7 @@ function buildVoices({
       role: "stab",
       gainDb: -12,
       pan: 0.12,
-      patch: createPatch({ role: "stab", macros, random }),
+      patch: patchFor("carrier-stab", "stab"),
       steps: createStabSteps({
         notes: chordNotes,
         macros,
@@ -300,7 +328,7 @@ function buildVoices({
       role: "chord",
       gainDb: -15,
       pan: -0.18,
-      patch: createPatch({ role: "chord", macros, random }),
+      patch: patchFor("sideband-chord", "chord"),
       steps: createStabSteps({
         notes: chordNotes.map((note) => ({
           ...note,
@@ -320,7 +348,7 @@ function buildVoices({
       role: "lead",
       gainDb: -17,
       pan: 0.28,
-      patch: createPatch({ role: "lead", macros, random }),
+      patch: patchFor("latent-line", "lead"),
       steps: createMelodicSteps({ notes: notePool, macros, random, sustained, stepsPerBar, totalSteps }),
     }),
     createVoice({
@@ -329,7 +357,7 @@ function buildVoices({
       role: "texture",
       gainDb: -22,
       pan: 0.38,
-      patch: createPatch({ role: "texture", macros, random }),
+      patch: patchFor("dust-texture", "texture"),
       steps: createTextureSteps({
         notes: notePool.map((note) => ({
           ...note,
@@ -353,16 +381,19 @@ function createPatch({
   role,
   macros,
   random,
+  rootWaveform,
 }: {
   role: SynthVoice["role"];
   macros: SynthMacros;
   random: () => number;
+  rootWaveform?: SynthRootWaveform;
 }): VoicePatch {
   const brightness = role === "bass" ? macros.brightness * 0.55 : macros.brightness;
   const bite = role === "texture" ? 1 : role === "lead" ? 0.8 : 0.62;
 
   return {
     partials: createPartials({ brightness, bite, random }),
+    rootWaveform: rootWaveform ?? "wavetable",
     modulationIndex: clamp(
       (role === "bass" ? 3 : role === "texture" ? 18 : 10) +
         macros.mutationDepth * 24 +
@@ -895,6 +926,27 @@ function parsePromptNotes(prompt: string): number[] {
   return [...new Set(notes)].slice(0, 12);
 }
 
+function parseRootWaveform(prompt: string): SynthRootWaveform | null {
+  const lower = prompt.toLowerCase();
+  if (/\b(sine|sin|sign wave|sign)\b/.test(lower)) {
+    return "sine";
+  }
+
+  if (/\b(wavetable|wave table|custom partials?|partials?)\b/.test(lower)) {
+    return "wavetable";
+  }
+
+  if (/\bsquare\b/.test(lower)) {
+    return "square";
+  }
+
+  if (/\b(saw|sawtooth|saw tooth)\b/.test(lower)) {
+    return "sawtooth";
+  }
+
+  return null;
+}
+
 function createAgentPlan(prompt: string) {
   const specific = parsePromptNotes(prompt).length > 0 || parseKey(prompt) || parseBpm(prompt);
   return [
@@ -903,7 +955,7 @@ function createAgentPlan(prompt: string) {
       : "Infer key, tempo, scale, and density from genre and mood words.",
     "Choose a 4, 8, 16, 32, 64, or 128 bar evolution cycle before writing notes.",
     "Generate symbolic MIDI lanes for bass, stabs, sidebands, lead, and texture.",
-    "Map latent-style timbre controls into bar-level FM index, harmonicity, wavetable partials, and drift.",
+    "Map latent-style timbre controls into carrier waveform, bar-level FM index, harmonicity, wavetable partials, and drift.",
     "Tune dub effects as controllable delay, reverb, chorus, drive, and filter motion.",
   ];
 }
@@ -915,6 +967,7 @@ function createRationale({
   bpm,
   bars,
   macros,
+  rootWaveform,
 }: {
   prompt: string;
   key: string;
@@ -922,17 +975,23 @@ function createRationale({
   bpm: number;
   bars: EvolutionBars;
   macros: SynthMacros;
+  rootWaveform: SynthRootWaveform;
 }) {
   const notes = parsePromptNotes(prompt).map(midiToNoteName);
   return [
     `Built a ${normalizeKey(key)} ${getScaleDisplayName(scale)} scene at ${bpm} BPM over ${bars} bars.`,
     notes.length > 0 ? `Prompt notes anchored the pitch set: ${notes.join(", ")}.` : null,
+    `Carrier root starts from ${formatRootWaveform(rootWaveform)}.`,
     `Evolution ${Math.round(macros.evolution * 100)}%, dub space ${Math.round(
       macros.dubSpace * 100,
     )}%, mutation ${Math.round(macros.mutationDepth * 100)}%.`,
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+function formatRootWaveform(rootWaveform: SynthRootWaveform) {
+  return rootWaveform === "sawtooth" ? "saw" : rootWaveform;
 }
 
 function inferInfluences(prompt: string) {

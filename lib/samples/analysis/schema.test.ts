@@ -55,6 +55,7 @@ function buildAnalysis(): SampleAnalysis {
     beats: [],
     role: "oneshot",
     role_confidence: 0.6,
+    tags: null,
     llm_descriptors: null,
     pipeline_version: "1.0.0-mvp",
     analyzed_at: 1700000000000,

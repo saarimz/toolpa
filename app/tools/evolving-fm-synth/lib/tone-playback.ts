@@ -8,7 +8,7 @@ import {
   type SynthEvent,
   type SynthModulationEvent,
 } from "./events";
-import type { SynthScene, SynthVoice } from "./schema";
+import type { SynthRootWaveform, SynthScene, SynthVoice } from "./schema";
 
 type ToneModule = typeof import("tone");
 
@@ -59,6 +59,10 @@ type FilterNode = DisposableNode & {
   Q: { value: number };
 };
 
+export type CarrierOscillatorOptions =
+  | { type: "custom"; partials: number[] }
+  | { type: Exclude<SynthRootWaveform, "wavetable"> };
+
 let activePart: DisposablePart | null = null;
 let activeModulationPart: DisposablePart | null = null;
 const activeSynths = new Map<string, PlayableSynth>();
@@ -93,10 +97,10 @@ export async function playEvolvingFmSynthScene(scene: SynthScene) {
 
     synth.set({
       modulationIndex: event.modulationIndex,
-      oscillator: {
-        type: "custom",
-        partials: event.partials,
-      },
+      oscillator: buildCarrierOscillatorOptions(
+        event.rootWaveform,
+        event.partials,
+      ),
     });
     automateFilter(effects.filter, scene, event, time);
     synth.triggerAttackRelease(event.note, event.durationSec, time, event.velocity);
@@ -115,10 +119,10 @@ export async function playEvolvingFmSynthScene(scene: SynthScene) {
           48,
           Math.max(0, voice.patch.modulationIndex * event.modulationScale),
         ),
-        oscillator: {
-          type: "custom",
-          partials: morphPartials(voice.patch.partials, event.partialMorph),
-        },
+        oscillator: buildCarrierOscillatorOptions(
+          voice.patch.rootWaveform,
+          morphPartials(voice.patch.partials, event.partialMorph),
+        ),
       });
     }
   }, modulationEvents.map((event) => [event.timeSec, event] as const));
@@ -165,8 +169,10 @@ export async function stopEvolvingFmSynthScene() {
 function createToneSynth(Tone: ToneModule, voice: SynthVoice): PlayableSynth {
   const synth = new Tone.PolySynth(Tone.FMSynth, {
     oscillator: {
-      type: "custom",
-      partials: voice.patch.partials,
+      ...buildCarrierOscillatorOptions(
+        voice.patch.rootWaveform,
+        voice.patch.partials,
+      ),
     },
     modulation: {
       type: voice.patch.modulationType,
@@ -190,6 +196,20 @@ function createToneSynth(Tone: ToneModule, voice: SynthVoice): PlayableSynth {
 
   synth.volume.value = voice.gainDb;
   return synth;
+}
+
+export function buildCarrierOscillatorOptions(
+  rootWaveform: SynthRootWaveform,
+  partials: number[],
+): CarrierOscillatorOptions {
+  if (rootWaveform === "wavetable") {
+    return {
+      type: "custom",
+      partials,
+    };
+  }
+
+  return { type: rootWaveform };
 }
 
 async function createEffects(Tone: ToneModule, scene: SynthScene) {

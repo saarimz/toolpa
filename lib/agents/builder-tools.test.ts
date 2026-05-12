@@ -17,12 +17,21 @@ import {
 
 function createRoot() {
   const rootDir = mkdtempSync(join(tmpdir(), "builder-tools-"));
-  for (const path of ["lib/pattern", "lib/agents", "lib/samples"]) {
+  for (const path of [
+    "lib/pattern",
+    "lib/agents",
+    "lib/samples",
+    "app/tools/evolving-fm-synth/lib",
+  ]) {
     mkdirSync(join(rootDir, path), { recursive: true });
   }
   writeFileSync(join(rootDir, "lib/pattern/schema.ts"), "export const Pattern = 1;\n");
   writeFileSync(join(rootDir, "lib/agents/contract.ts"), "export const Agent = 1;\n");
   writeFileSync(join(rootDir, "lib/samples/roles.ts"), "export const Roles = 1;\n");
+  writeFileSync(
+    join(rootDir, "app/tools/evolving-fm-synth/lib/schema.ts"),
+    "export const SynthScene = 1;\n",
+  );
   return rootDir;
 }
 
@@ -37,6 +46,7 @@ describe("builder tools", () => {
       "lib/pattern/schema.ts",
       "lib/agents/contract.ts",
       "lib/samples/roles.ts",
+      "app/tools/evolving-fm-synth/lib/schema.ts",
     ]);
     expect(readToolFiles(runtime, { slug: "reference" }).files).toMatchObject({
       "app/tools/reference/lib/prompt.ts": "export {}\n",

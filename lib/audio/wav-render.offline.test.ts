@@ -11,6 +11,7 @@ vi.mock("@/lib/samples/resolver", () => ({
 }));
 
 let gainEvents: unknown[] = [];
+let limiterConnections = 0;
 let starts: unknown[] = [];
 
 function createAudioBufferStub(duration = 1): AudioBuffer {
@@ -26,6 +27,7 @@ function createAudioBufferStub(duration = 1): AudioBuffer {
 describe("offline wav rendering", () => {
   beforeEach(() => {
     gainEvents = [];
+    limiterConnections = 0;
     starts = [];
 
     vi.stubGlobal(
@@ -63,6 +65,22 @@ describe("offline wav rendering", () => {
               ),
             },
             connect: vi.fn(),
+          };
+        }
+
+        createDynamicsCompressor() {
+          const createParam = () => ({
+            setValueAtTime: vi.fn(),
+          });
+          return {
+            attack: createParam(),
+            connect: vi.fn(() => {
+              limiterConnections += 1;
+            }),
+            knee: createParam(),
+            ratio: createParam(),
+            release: createParam(),
+            threshold: createParam(),
           };
         }
 
@@ -105,6 +123,7 @@ describe("offline wav rendering", () => {
 
     expect(wav.type).toBe("audio/wav");
     expect(resolverMock.resolveSample).toHaveBeenCalledWith("sample");
+    expect(limiterConnections).toBe(1);
   });
 
   it("ramps offline gain in and out to avoid render clicks", async () => {

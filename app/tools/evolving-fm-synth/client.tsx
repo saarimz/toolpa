@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   BrainCircuit,
   Copy,
+  Download,
   Pause,
   Play,
   RefreshCcw,
@@ -36,6 +37,7 @@ import {
   type EvolutionBars,
   type SynthEffects,
   type SynthMacros,
+  type SynthRootWaveform,
   type SynthScale,
   type SynthScene,
   type SynthStep,
@@ -45,6 +47,8 @@ import {
 import { useEvolvingFmSynthStore } from "@/app/tools/evolving-fm-synth/store";
 import { useGlobalSynthContextSync } from "@/lib/music/use-global-context-sync";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
+import { downloadSynthSceneMidi } from "@/lib/midi/synth-scene";
+import { useHydratePromptParam } from "@/lib/tools/use-prompt-param";
 
 const promptSeeds = [
   "dub techno in F minor at 124 bpm over 32 bars, soft evolving pads, ancient tape drift",
@@ -60,6 +64,15 @@ const scaleOptions: SynthScale[] = [
   "phrygian",
   "minor-pentatonic",
   "chromatic",
+];
+const rootWaveformOptions: Array<{
+  label: string;
+  value: SynthRootWaveform;
+}> = [
+  { label: "sine", value: "sine" },
+  { label: "wavetable", value: "wavetable" },
+  { label: "square", value: "square" },
+  { label: "saw", value: "sawtooth" },
 ];
 
 const macroControls: Array<{
@@ -111,6 +124,7 @@ export function EvolvingFmSynthClient() {
   const updateEffects = useEvolvingFmSynthStore((state) => state.updateEffects);
   const globalMusicContext = useGlobalMusicContextStore((state) => state.context);
   useGlobalSynthContextSync({ setBpm, setKeyAndScale });
+  useHydratePromptParam(setPrompt);
 
   const selectedVoice = scene.voices.find((voice) => voice.id === selectedVoiceId) ?? scene.voices[0];
   const selectedStep =
@@ -256,10 +270,10 @@ export function EvolvingFmSynthClient() {
   }
 
   return (
-    <main className="min-h-screen bg-[#050706] text-zinc-100">
+    <main className="min-h-screen bg-zinc-950 text-zinc-100">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3">
         <div>
-          <Link href="/dashboard" className="text-xs text-zinc-500 hover:text-emerald-200">
+          <Link href="/dashboard" className="text-xs text-zinc-500 hover:text-zinc-200">
             /dashboard
           </Link>
           <h1 className="mt-1 text-lg tracking-normal text-zinc-100">
@@ -268,7 +282,7 @@ export function EvolvingFmSynthClient() {
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
           <span>L1</span>
-          <span className="text-emerald-300">agentic</span>
+          <span className="text-zinc-200">agentic</span>
           <span>{scene.key} {getScaleDisplayName(scene.scale)}</span>
           <span>{scene.bpm} bpm</span>
         </div>
@@ -280,7 +294,7 @@ export function EvolvingFmSynthClient() {
             <LlmGeneratingOverlay
               detail="Prompting the LLM for an evolving FM synth scene."
               label="generating synth prompt"
-              tone="emerald"
+              tone="solid"
             />
           ) : null}
 
@@ -289,7 +303,7 @@ export function EvolvingFmSynthClient() {
               <button
                 key={seed}
                 type="button"
-                className="rounded-sm border border-zinc-800 px-3 py-2 text-left text-xs text-zinc-400 hover:border-emerald-300 hover:text-emerald-100"
+                className="rounded-sm border border-zinc-800 px-3 py-2 text-left text-xs text-zinc-400 hover:border-zinc-200 hover:text-zinc-100"
                 onClick={() => setPrompt(seed)}
               >
                 {seed}
@@ -299,7 +313,7 @@ export function EvolvingFmSynthClient() {
           <label className="block text-xs text-zinc-500">
             synth prompt
             <textarea
-              className="mt-2 h-28 w-full resize-none rounded-sm border border-zinc-700 bg-zinc-950 p-3 text-xs text-zinc-100 outline-none focus:border-emerald-300"
+              className="mt-2 h-28 w-full resize-none rounded-sm border border-zinc-700 bg-zinc-950 p-3 text-xs text-zinc-100 outline-none focus:border-zinc-200"
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
             />
@@ -317,7 +331,11 @@ export function EvolvingFmSynthClient() {
               <RefreshCcw className="size-4" />
               evolve
             </Button>
-            <AudioOutputRecorder filename={scene.name} />
+            <AudioOutputRecorder filename={scene.name} sourceId="evolving-fm-synth" />
+            <Button onClick={() => downloadSynthSceneMidi(scene)}>
+              <Download className="size-4" />
+              download midi
+            </Button>
             <Button
               onClick={() =>
                 void navigator.clipboard.writeText(JSON.stringify(scene, null, 2))
@@ -421,7 +439,7 @@ export function EvolvingFmSynthClient() {
       <section className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_420px]">
         <div className="border border-zinc-800 bg-zinc-950 p-3">
           <div className="mb-2 flex items-center gap-2 text-xs text-zinc-400">
-            <BrainCircuit className="size-4 text-emerald-300" />
+            <BrainCircuit className="size-4 text-zinc-200" />
             agent trace
           </div>
           <pre className="max-h-56 overflow-auto text-[11px] leading-5 text-zinc-500">
@@ -436,10 +454,10 @@ export function EvolvingFmSynthClient() {
         </div>
         <div className="border border-zinc-800 bg-black p-3">
           <div className="mb-2 flex items-center gap-2 text-xs text-zinc-400">
-            <Zap className="size-4 text-emerald-300" />
+            <Zap className="size-4 text-zinc-200" />
             prompt contract
           </div>
-          <pre className="max-h-56 overflow-auto text-[11px] leading-5 text-emerald-100">
+          <pre className="max-h-56 overflow-auto text-[11px] leading-5 text-zinc-100">
             {[buildEvolvingFmSynthSystemPrompt(), "", agentPrompt].join("\n")}
           </pre>
         </div>
@@ -569,7 +587,7 @@ function VoiceRow({
         type="button"
         className={`h-8 rounded-sm border px-2 text-left text-xs ${
           selected
-            ? "border-emerald-300 text-emerald-100"
+            ? "border-zinc-200 text-zinc-100"
             : "border-zinc-800 text-zinc-500 hover:border-zinc-600"
         }`}
         onClick={() => setSelectedVoiceId(voice.id)}
@@ -586,10 +604,10 @@ function VoiceRow({
             title={`${voice.label} ${midiToNoteName(step.midi)}`}
             className={`h-8 rounded-sm border text-[10px] transition ${
               step.active
-                ? "border-emerald-300/70 bg-emerald-300/20 text-emerald-100"
+                ? "border-zinc-200/70 bg-white/20 text-zinc-100"
                 : "border-zinc-800 bg-zinc-950 text-zinc-700"
-            } ${isCurrent ? "ring-1 ring-cyan-300" : ""} ${
-              isSelected ? "outline outline-1 outline-emerald-100" : ""
+            } ${isCurrent ? "ring-1 ring-zinc-200" : ""} ${
+              isSelected ? "outline outline-1 outline-zinc-100" : ""
             }`}
             onClick={(event) => {
               if (event.shiftKey) {
@@ -627,10 +645,28 @@ function PatchPanel({
   return (
     <div className="border-b border-zinc-800 p-4 lg:border-b-0 lg:border-r">
       <div className="mb-3 flex items-center gap-2 text-xs text-zinc-400">
-        <SlidersHorizontal className="size-4 text-emerald-300" />
+        <SlidersHorizontal className="size-4 text-zinc-200" />
         {selectedVoice.label}
       </div>
       <div className="grid gap-3 md:grid-cols-2">
+        <label className="text-xs text-zinc-500">
+          root wave
+          <select
+            className="mt-1 h-9 w-full rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-zinc-100"
+            value={selectedVoice.patch.rootWaveform}
+            onChange={(event) =>
+              updateVoicePatch(selectedVoice.id, {
+                rootWaveform: event.target.value as SynthRootWaveform,
+              })
+            }
+          >
+            {rootWaveformOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <SliderRow
           label="fm index"
           max={48}
@@ -725,7 +761,7 @@ function EffectsPanel({
   return (
     <div className="p-4">
       <div className="mb-3 flex items-center gap-2 text-xs text-zinc-400">
-        <Waves className="size-4 text-emerald-300" />
+        <Waves className="size-4 text-zinc-200" />
         effects
       </div>
       <div className="grid gap-3">
@@ -828,7 +864,7 @@ function SliderRow({
         <span className="text-zinc-300">{formatControlValue(value)}</span>
       </span>
       <input
-        className="w-full accent-emerald-300"
+        className="w-full accent-zinc-200"
         max={max}
         min={min}
         step={step}
@@ -846,7 +882,7 @@ function PartialBars({ partials }: { partials: number[] }) {
       {partials.map((partial, index) => (
         <div
           key={`${index}-${partial}`}
-          className="flex-1 rounded-t-sm bg-emerald-300/70"
+          className="flex-1 rounded-t-sm bg-white/70"
           style={{ height: `${Math.max(5, partial * 100).toFixed(4)}%` }}
         />
       ))}

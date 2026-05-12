@@ -66,6 +66,7 @@ export async function runDspPipeline({
     ...partial,
     role: role.role,
     role_confidence: role.confidence,
+    tags: null,
     llm_descriptors: null,
     pipeline_version: PIPELINE_VERSION,
     analyzed_at: Date.now(),

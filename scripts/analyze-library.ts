@@ -5,9 +5,10 @@ import { fileURLToPath } from "node:url";
 
 import { decodeWavInNode } from "@/lib/samples/analysis/pipeline/decode";
 import {
-  PIPELINE_VERSION,
-  runDspPipeline,
-} from "@/lib/samples/analysis/pipeline/index";
+  ESSENTIA_PIPELINE_VERSION,
+  runEssentiaPipeline,
+} from "@/lib/samples/analysis/essentia/pipeline";
+import { shutdownEssentia } from "@/lib/samples/analysis/essentia/runner";
 import {
   SampleAnalysisSchema,
   SAMPLE_ANALYSIS_SCHEMA_VERSION,
@@ -33,10 +34,11 @@ async function main() {
     !isCheckMode && process.env.AI_GATEWAY_API_KEY
       ? true
       : false;
+  const includeMusicnn = !process.argv.includes("--no-musicnn");
 
   if (!isCheckMode) {
     console.log(
-      `Analyzing ${librarySamples.length} library samples (descriptors=${includeDescriptors})`,
+      `Analyzing ${librarySamples.length} library samples (descriptors=${includeDescriptors}, musicnn=${includeMusicnn})`,
     );
   }
 
@@ -49,11 +51,12 @@ async function main() {
       buffer.byteOffset + buffer.byteLength,
     );
     const decoded = decodeWavInNode(arrayBuffer);
-    const analysis = await runDspPipeline({
+    const analysis = await runEssentiaPipeline({
       arrayBuffer,
       channels: decoded.channels,
       sampleRate: decoded.sampleRate,
       durationSec: decoded.durationSec,
+      includeMusicnn,
     });
 
     let finalized: SampleAnalysis = SampleAnalysisSchema.parse({
@@ -95,10 +98,11 @@ async function main() {
 
   const payload: BakedCacheFile = {
     schema_version: SAMPLE_ANALYSIS_SCHEMA_VERSION,
-    pipeline_version: PIPELINE_VERSION,
+    pipeline_version: ESSENTIA_PIPELINE_VERSION,
     generated_git_sha: readGitSha(projectRoot),
     samples,
   };
+  shutdownEssentia();
   const serialized = `${JSON.stringify(payload, null, 2)}\n`;
 
   if (isCheckMode) {

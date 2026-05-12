@@ -1,12 +1,14 @@
-import { collectPatternEvents, getStepDurationSec } from "@/lib/audio/pattern";
-import { getAudioBufferChannelData } from "@/lib/audio/buffer-data";
-import { getAudibleDurationSec, getDeclickEnvelope, type DeclickPreset } from "@/lib/audio/declick";
 import {
-  computeEqualSlices,
-  getSliceForSlot,
-  snapSliceRegionsToZeroCrossings,
-  type SliceRegion,
-} from "@/lib/audio/slices";
+  collectPatternEvents,
+  collectPatternSampleIds,
+  getStepDurationSec,
+} from "@/lib/audio/pattern";
+import { type DeclickPreset } from "@/lib/audio/declick";
+import {
+  resolveSamplePlaybackSegment,
+  type SampleSmoothingOptions,
+} from "@/lib/audio/sample-engine";
+import { type SliceRegion } from "@/lib/audio/slices";
 import type { Pattern } from "@/lib/pattern/schema";
 import type { GlobalMusicContext } from "@/lib/music/context";
 import { resolveSample } from "@/lib/samples/resolver";
@@ -17,6 +19,7 @@ export type RenderPatternWavOptions = {
   sliceCount?: number;
   slicesBySampleId?: Map<string, SliceRegion[]>;
   musicalContext?: GlobalMusicContext;
+  zeroCrossingWindowMs?: number;
 };
 
 export async function renderPatternToWav(
@@ -43,9 +46,11 @@ export async function renderPatternToAudioBuffer(
     Math.ceil(totalDurationSec * sampleRate),
     sampleRate,
   );
-  const sampleIds = [...new Set(pattern.tracks.map((track) => track.sampleId))];
+  const outputNode = createOfflineSafetyLimiter(context);
   const samples = await Promise.all(
-    sampleIds.map(async (sampleId) => [sampleId, await resolveSample(sampleId)] as const),
+    collectPatternSampleIds(pattern).map(
+      async (sampleId) => [sampleId, await resolveSample(sampleId)] as const,
+    ),
   );
   const sampleMap = new Map(samples);
 
@@ -58,41 +63,32 @@ export async function renderPatternToAudioBuffer(
       continue;
     }
 
-    const slices = getRenderableSlices({
+    const segment = resolveSamplePlaybackSegment({
       audioBuffer: sample.audioBuffer,
-      sampleId: event.sampleId,
-      sliceCount: options.sliceCount,
-      slicesBySampleId: options.slicesBySampleId,
-    });
-    const slice = getSliceForSlot(slices, event.slot);
-    const durationSec = Math.min(slice.durationSec, event.durationSec);
-    const audibleDurationSec = getAudibleDurationSec(durationSec, event.playbackRate);
-    const envelope = getDeclickEnvelope({
-      durationSec: audibleDurationSec,
-      preset: options.declickPreset,
+      event,
+      options: getSampleSmoothingOptions(options),
     });
     const startTime = Math.max(0, event.timeSec);
-    const targetGain = Math.max(0, event.velocity * event.gain);
-    const releaseStart = startTime + Math.max(0, audibleDurationSec - envelope.releaseSec);
-    const endTime = startTime + audibleDurationSec;
+    const releaseStart = startTime + segment.releaseStartOffsetSec;
+    const endTime = startTime + segment.audibleDurationSec;
     const source = context.createBufferSource();
     const gain = context.createGain();
 
     source.buffer = sample.audioBuffer;
     source.playbackRate.value = event.playbackRate;
     scheduleDeclickGain(gain.gain, {
-      attackSec: envelope.attackSec,
+      attackSec: segment.envelope.attackSec,
       endTime,
       releaseStart,
       startTime,
-      targetGain,
+      targetGain: segment.targetGain,
     });
     source.connect(gain);
-    gain.connect(context.destination);
+    gain.connect(outputNode);
     source.start(
       startTime,
-      slice.startSec,
-      durationSec,
+      segment.sourceOffsetSec,
+      segment.sourceDurationSec,
     );
   }
 
@@ -145,39 +141,13 @@ function clamp16(value: number) {
   return clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff;
 }
 
-function getRenderableSlices({
-  audioBuffer,
-  sampleId,
-  sliceCount,
-  slicesBySampleId,
-}: {
-  audioBuffer: AudioBuffer;
-  sampleId: string;
-  sliceCount?: number;
-  slicesBySampleId?: Map<string, SliceRegion[]>;
-}) {
-  const bufferData = getAudioBufferChannelData(audioBuffer);
-  const existingSlices = slicesBySampleId?.get(sampleId);
-  if (existingSlices && bufferData) {
-    return snapSliceRegionsToZeroCrossings({
-      channelData: bufferData.channelData,
-      durationSec: audioBuffer.duration,
-      sampleRate: bufferData.sampleRate,
-      slices: existingSlices,
-    });
-  }
-
-  if (existingSlices) {
-    return existingSlices;
-  }
-
-  return computeEqualSlices({
-    channelData: bufferData?.channelData,
-    durationSec: audioBuffer.duration,
-    sampleRate: bufferData?.sampleRate,
-    sourceSampleId: sampleId,
-    sliceCount,
-  });
+function getSampleSmoothingOptions(options: RenderPatternWavOptions): SampleSmoothingOptions {
+  return {
+    declickPreset: options.declickPreset,
+    sliceCount: options.sliceCount,
+    slicesBySampleId: options.slicesBySampleId,
+    zeroCrossingWindowMs: options.zeroCrossingWindowMs,
+  };
 }
 
 function scheduleDeclickGain(
@@ -207,4 +177,15 @@ function scheduleDeclickGain(
 
   gain.setValueAtTime(targetGain, releaseStart);
   gain.linearRampToValueAtTime(0, endTime);
+}
+
+function createOfflineSafetyLimiter(context: OfflineAudioContext): AudioNode {
+  const limiter = context.createDynamicsCompressor();
+  limiter.threshold.setValueAtTime(-1, 0);
+  limiter.knee.setValueAtTime(0, 0);
+  limiter.ratio.setValueAtTime(20, 0);
+  limiter.attack.setValueAtTime(0.003, 0);
+  limiter.release.setValueAtTime(0.03, 0);
+  limiter.connect(context.destination);
+  return limiter;
 }

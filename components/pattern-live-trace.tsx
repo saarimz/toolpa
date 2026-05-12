@@ -56,7 +56,7 @@ export function PatternLiveTrace({
               <span
                 className={cn(
                   "h-2 w-2 rounded-full",
-                  event.fired ? "bg-cyan-300" : "bg-zinc-700",
+                  event.fired ? "bg-zinc-100" : "bg-zinc-700",
                 )}
                 aria-hidden="true"
               />
@@ -66,7 +66,7 @@ export function PatternLiveTrace({
               <span
                 className={cn(
                   "text-right text-[10px]",
-                  event.fired ? "text-cyan-200" : "text-zinc-600",
+                  event.fired ? "text-zinc-200" : "text-zinc-600",
                 )}
               >
                 {formatReason(event.reason)}

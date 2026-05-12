@@ -8,7 +8,7 @@ import { detectBpm } from "@/lib/audio/analysis";
 import { getAudioBufferChannelData } from "@/lib/audio/buffer-data";
 import { resolveSample } from "@/lib/samples/resolver";
 import { computeEqualSlices, detectOnsetSlices } from "@/lib/audio/slices";
-import { auditionIntelligenceSamplerSlice } from "@/app/tools/intelligence-sampler/lib/play";
+import { auditionSamplePlaybackSlice } from "@/lib/audio/sample-playback";
 import { useIntelligenceSamplerStore } from "@/app/tools/intelligence-sampler/store";
 
 export function WaveformSlicer() {
@@ -100,7 +100,7 @@ export function WaveformSlicer() {
     context.clearRect(0, 0, width, height);
     context.fillStyle = "#050505";
     context.fillRect(0, 0, width, height);
-    context.strokeStyle = "rgba(103, 232, 249, 0.88)";
+    context.strokeStyle = "rgba(245,245,245,0.88)";
     context.lineWidth = 1;
     context.beginPath();
 
@@ -216,7 +216,7 @@ export function WaveformSlicer() {
             key={slot}
             className="h-8 px-1"
             onClick={() =>
-              void auditionIntelligenceSamplerSlice(sampleId, slot, {
+              void auditionSamplePlaybackSlice(sampleId, slot, {
                 slicesBySampleId:
                   slices.length > 0 ? new Map([[sampleId, slices]]) : undefined,
               })

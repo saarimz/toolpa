@@ -60,7 +60,7 @@ export async function generateSynthSceneWithGateway({
       JSON.stringify(draft),
       "",
       "Improve it as an AI sound-design pass while preserving valid schema bounds.",
-      "Keep it playable in Tone.js with FMSynth custom oscillator partials.",
+      "Keep it playable in Tone.js with FMSynth rootWaveform values and custom oscillator partials when rootWaveform is wavetable.",
     ].join("\n"),
     temperature: 0.75,
   });

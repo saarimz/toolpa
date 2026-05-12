@@ -1,6 +1,6 @@
 import { Loader2 } from "lucide-react";
 
-type OverlayTone = "cyan" | "emerald" | "fuchsia";
+type OverlayTone = "neutral" | "solid" | "soft";
 
 const toneClasses: Record<
   OverlayTone,
@@ -12,26 +12,26 @@ const toneClasses: Record<
     shadow: string;
   }
 > = {
-  cyan: {
-    border: "border-cyan-300/30",
-    icon: "text-cyan-200",
-    text: "text-cyan-100",
-    bar: "bg-cyan-300",
-    shadow: "shadow-[0_0_30px_rgba(103,232,249,0.12)]",
+  neutral: {
+    border: "border-zinc-200/30",
+    icon: "text-zinc-200",
+    text: "text-zinc-100",
+    bar: "bg-zinc-100",
+    shadow: "shadow-[0_0_30px_rgba(245,245,245,0.12)]",
   },
-  emerald: {
-    border: "border-emerald-300/30",
-    icon: "text-emerald-200",
-    text: "text-emerald-100",
-    bar: "bg-emerald-300",
-    shadow: "shadow-[0_0_30px_rgba(110,231,183,0.12)]",
+  solid: {
+    border: "border-zinc-100/35",
+    icon: "text-zinc-100",
+    text: "text-zinc-100",
+    bar: "bg-white",
+    shadow: "shadow-[0_0_30px_rgba(245,245,245,0.14)]",
   },
-  fuchsia: {
-    border: "border-fuchsia-300/30",
-    icon: "text-fuchsia-200",
-    text: "text-fuchsia-100",
-    bar: "bg-fuchsia-300",
-    shadow: "shadow-[0_0_30px_rgba(240,171,252,0.12)]",
+  soft: {
+    border: "border-zinc-300/25",
+    icon: "text-zinc-200",
+    text: "text-zinc-200",
+    bar: "bg-zinc-200",
+    shadow: "shadow-[0_0_30px_rgba(212,212,216,0.12)]",
   },
 };
 
@@ -44,7 +44,7 @@ type LlmGeneratingOverlayProps = {
 export function LlmGeneratingOverlay({
   detail,
   label,
-  tone = "cyan",
+  tone = "neutral",
 }: LlmGeneratingOverlayProps) {
   const classes = toneClasses[tone];
 

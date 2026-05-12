@@ -1,16 +1,32 @@
 "use client";
 
+import {
+  analyzeAudioBufferScaleEvidence,
+  type AudioScaleEvidence,
+} from "@/lib/audio/audio-scale-evidence";
 import { encodeAudioBufferToWav } from "@/lib/audio/wav-render";
 
 type ToneModule = typeof import("tone");
 type ToneRecorder = InstanceType<ToneModule["Recorder"]>;
 
 export type LiveRecording = {
+  audioEvidence: AudioScaleEvidence | null;
   wavBlob: Blob;
   sourceBlob: Blob;
   mimeType: string;
   filename: string;
   recordedAt: string;
+};
+
+export const LIVE_AUDIO_SCALE_EVIDENCE_EVENT =
+  "ai-daw-tools:live-audio-scale-evidence";
+
+export type LiveAudioScaleEvidencePayload = {
+  audioEvidence: AudioScaleEvidence;
+  captureKind?: "bar-capture" | "live-output";
+  filename: string;
+  recordedAt: string;
+  sourceId: string;
 };
 
 export type StopLiveOutputRecordingOptions = {
@@ -81,15 +97,20 @@ export async function stopLiveOutputRecording(
 
   const decoder = options.decodeRecordedBlob ?? decodeRecordedBlobWithAudioContext;
   const audioBuffer = await decoder(sourceBlob);
+  const filename = sanitizeRecordingFilename(options.filename ?? "ai-daw-tools-recording");
+  const audioEvidence = analyzeAudioBufferScaleEvidence(audioBuffer, {
+    label: `${filename.replace(/\.wav$/i, "")} live output`,
+  });
   const wavBlob = new Blob([encodeAudioBufferToWav(audioBuffer)], {
     type: "audio/wav",
   });
 
   return {
+    audioEvidence,
     wavBlob,
     sourceBlob,
     mimeType: sourceBlob.type || recorder.mimeType,
-    filename: sanitizeRecordingFilename(options.filename ?? "ai-daw-tools-recording"),
+    filename,
     recordedAt: new Date().toISOString(),
   };
 }

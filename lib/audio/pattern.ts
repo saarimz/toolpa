@@ -24,7 +24,10 @@ export type ScheduledStepEvent = {
   reverse: boolean;
   chokeGroup?: string;
   repeatIndex: number;
+  probability: number;
 };
+
+export type ProbabilityMode = "preroll" | "defer";
 
 export type PatternStepTraceReason =
   | "fired"
@@ -41,6 +44,7 @@ export type PatternStepTraceEvent = {
   trackName: string;
   stepIndex: number;
   stepInTrack: number;
+  slot?: number;
   barIndex: number;
   timeSec: number;
   fired: boolean;
@@ -57,6 +61,7 @@ export type PatternEventOptions = {
   random?: () => number;
   bars?: number;
   musicalContext?: GlobalMusicContext;
+  probabilityMode?: ProbabilityMode;
 };
 
 export type PatternPlaybackPlan = {
@@ -115,6 +120,7 @@ export function collectPatternPlaybackPlan(
   options: PatternEventOptions = {},
 ): PatternPlaybackPlan {
   const random = options.random ?? Math.random;
+  const probabilityMode = options.probabilityMode ?? "preroll";
   const bars = options.bars ?? pattern.bars;
   const totalSteps = bars * pattern.stepsPerBar;
   const stepDurationSec = getStepDurationSec(pattern);
@@ -150,7 +156,7 @@ export function collectPatternPlaybackPlan(
         continue;
       }
 
-      const reason = getStepTraceReason(step, barIndex, random);
+      const reason = getStepTraceReason(step, barIndex, random, probabilityMode);
       traces.push(
         createTraceEvent({
           barIndex,
@@ -195,6 +201,7 @@ export function collectPatternPlaybackPlan(
           reverse: step.reverse,
           chokeGroup: step.chokeGroup ?? track.chokeGroup,
           repeatIndex,
+          probability: step.probability,
         });
       }
     }
@@ -213,16 +220,32 @@ export function collectPatternEvents(
   return collectPatternPlaybackPlan(pattern, options).events;
 }
 
+export function collectPatternSampleIds(pattern: Pattern): string[] {
+  const sampleIds = new Set<string>();
+
+  for (const track of pattern.tracks) {
+    sampleIds.add(track.sampleId);
+    for (const step of track.steps) {
+      if (step.sampleId) {
+        sampleIds.add(step.sampleId);
+      }
+    }
+  }
+
+  return [...sampleIds];
+}
+
 function getStepTraceReason(
   step: Pick<Step, "active" | "probability" | "conditions">,
   barIndex: number,
   random: () => number,
+  probabilityMode: ProbabilityMode = "preroll",
 ): PatternStepTraceReason {
   if (!step.active) {
     return "skip-inactive";
   }
 
-  if (random() > step.probability) {
+  if (probabilityMode === "preroll" && random() > step.probability) {
     return "skip-prob";
   }
 
@@ -262,6 +285,7 @@ function createTraceEvent({
     trackName: track.name,
     stepIndex,
     stepInTrack: stepIndex % track.steps.length,
+    slot: step.slot ?? track.slot ?? 0,
     barIndex,
     timeSec:
       stepIndex * stepDurationSec + (fired ? step.microShift * stepDurationSec : 0),

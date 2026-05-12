@@ -78,14 +78,10 @@ export const useIntelligenceSamplerStore = create<IntelligenceSamplerState>((set
     set({ slices });
   },
   setBpm(bpm) {
-    set((state) => ({
-      pattern: PatternSchema.parse({ ...state.pattern, bpm }),
-    }));
+    set((state) => ({ pattern: { ...state.pattern, bpm } }));
   },
   setSwing(swing) {
-    set((state) => ({
-      pattern: PatternSchema.parse({ ...state.pattern, swing }),
-    }));
+    set((state) => ({ pattern: { ...state.pattern, swing } }));
   },
   setPattern(pattern) {
     set({ pattern: PatternSchema.parse(pattern) });
@@ -98,7 +94,7 @@ export const useIntelligenceSamplerStore = create<IntelligenceSamplerState>((set
   },
   toggleStep(trackId, stepIndex) {
     set((state) => ({
-      pattern: PatternSchema.parse({
+      pattern: {
         ...state.pattern,
         tracks: state.pattern.tracks.map((track) =>
           track.id === trackId
@@ -116,23 +112,23 @@ export const useIntelligenceSamplerStore = create<IntelligenceSamplerState>((set
               }
             : track,
         ),
-      }),
+      },
       selectedStep: { trackId, stepIndex },
     }));
   },
   updateTrack(trackId, patch) {
     set((state) => ({
-      pattern: PatternSchema.parse({
+      pattern: {
         ...state.pattern,
         tracks: state.pattern.tracks.map((track) =>
           track.id === trackId ? { ...track, ...patch } : track,
         ),
-      }),
+      },
     }));
   },
   updateStep(trackId, stepIndex, patch) {
     set((state) => ({
-      pattern: PatternSchema.parse({
+      pattern: {
         ...state.pattern,
         tracks: state.pattern.tracks.map((track) =>
           track.id === trackId
@@ -144,7 +140,7 @@ export const useIntelligenceSamplerStore = create<IntelligenceSamplerState>((set
               }
             : track,
         ),
-      }),
+      },
     }));
   },
   setSelectedStep(selectedStep) {

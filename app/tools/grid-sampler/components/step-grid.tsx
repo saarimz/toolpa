@@ -76,7 +76,7 @@ function Slider({
     <label className="block text-xs text-zinc-500">
       {label}
       <input
-        className="mt-2 w-full accent-cyan-300"
+        className="mt-2 w-full accent-zinc-200"
         type="range"
         min={min}
         max={max}

@@ -2,7 +2,7 @@ import "server-only";
 
 import { gateway, type GatewayModelId } from "@ai-sdk/gateway";
 
-export const DEFAULT_GATEWAY_MODEL = "anthropic/claude-sonnet-4.6";
+export const DEFAULT_GATEWAY_MODEL = "deepseek/deepseek-v4-flash";
 
 export function getConfiguredGatewayModelId() {
   return process.env.AI_GATEWAY_MODEL || DEFAULT_GATEWAY_MODEL;

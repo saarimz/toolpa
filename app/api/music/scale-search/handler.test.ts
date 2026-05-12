@@ -18,7 +18,10 @@ describe("scale search handler", () => {
       new Request("http://localhost/api/music/scale-search", {
         method: "POST",
         body: JSON.stringify({
+          evidenceSummary: "evolving-fm-synth: active synth notes C, Eb, G",
+          pitchClasses: [0, 3, 7],
           prompt: "metallic gamelan microtonal stutter",
+          relativePitchClasses: [0, 3, 7],
           tonic: "C",
           limit: 12,
         }),
@@ -36,6 +39,8 @@ describe("scale search handler", () => {
     expect(chooseScaleWithAgent).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: "metallic gamelan microtonal stutter",
+        pitchClasses: [0, 3, 7],
+        relativePitchClasses: [0, 3, 7],
         tonic: "C",
       }),
     );

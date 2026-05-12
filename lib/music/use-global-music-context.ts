@@ -18,6 +18,7 @@ type GlobalMusicContextStore = {
   hydrated: boolean;
   hydrate: () => void;
   setBpm: (bpm: number) => void;
+  setContext: (context: GlobalMusicContext) => void;
   setSwing: (swing: number) => void;
   setKey: (key: { tonic?: Tonic; scaleId?: string; referenceFrequency?: number }) => void;
   setScaleKey: (scaleKey: ScaleKey) => void;
@@ -43,6 +44,9 @@ export const useGlobalMusicContextStore = create<GlobalMusicContextStore>((set, 
   },
   setBpm(bpm) {
     setAndPersist(set, { ...get().context, bpm });
+  },
+  setContext(context) {
+    setAndPersist(set, context);
   },
   setSwing(swing) {
     setAndPersist(set, { ...get().context, swing });

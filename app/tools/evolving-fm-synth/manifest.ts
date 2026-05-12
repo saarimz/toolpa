@@ -19,6 +19,7 @@ export const evolvingFmSynthManifest = {
     "promptToPatch",
     "wavetableFm",
     "generateMidi",
+    "exportMidi",
     "evolveVariations",
     "dubEffects",
     "recordOutput",
@@ -42,6 +43,7 @@ export const evolvingFmSynthManifest = {
   outputs: {
     pattern: false,
     synthScene: true,
+    midi: true,
     audio: true,
     recording: true,
     files: false,

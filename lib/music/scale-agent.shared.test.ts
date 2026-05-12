@@ -35,6 +35,32 @@ describe("scale agent shared helpers", () => {
     expect(prompt).toContain(candidates[0]?.scale.id);
   });
 
+  it("uses generated pitch-class evidence to shortlist matching scales", () => {
+    const candidates = getScaleAgentCandidates({
+      evidenceSummary: "evolving-fm-synth: active synth notes C, D, E, F, G, A, B",
+      pitchClasses: [0, 2, 4, 5, 7, 9, 11],
+      prompt: "glassy generated artifact evidence",
+      tonic: "C",
+      limit: 6,
+    });
+
+    expect(candidates[0]?.id).toBe("C:major");
+
+    const prompt = buildScaleAgentPrompt(
+      {
+        evidenceSummary: "evolving-fm-synth: active synth notes C, D, E, F, G, A, B",
+        pitchClasses: [0, 2, 4, 5, 7, 9, 11],
+        prompt: "glassy generated artifact evidence",
+        tonic: "C",
+        limit: 6,
+      },
+      candidates,
+    );
+
+    expect(prompt).toContain("Generated artifact evidence");
+    expect(prompt).toContain("Observed absolute pitch classes: C, D, E, F, G, A, B");
+  });
+
   it("creates a deterministic fallback choice with alternatives", () => {
     const choice = createDeterministicScaleChoice({
       prompt: "gamelan metallic stutter",

@@ -1,5 +1,6 @@
 import {
   type SynthScene,
+  type SynthRootWaveform,
   type SynthStep,
   type SynthVoice,
   clamp,
@@ -16,6 +17,7 @@ export type SynthEvent = {
   midi: number;
   note: string | number;
   velocity: number;
+  rootWaveform: SynthRootWaveform;
   modulationIndex: number;
   partials: number[];
 };
@@ -141,6 +143,7 @@ export function createSynthEvent({
         ? midiToNoteName(step.midi)
         : midiToFrequency(step.midi, step.tuningCents),
     velocity: clamp(step.velocity, 0, 1),
+    rootWaveform: voice.patch.rootWaveform,
     modulationIndex,
     partials: morphPartials(voice.patch.partials, step.partialMorph),
   };

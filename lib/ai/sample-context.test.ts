@@ -52,6 +52,7 @@ function makeAnalysis(): SampleAnalysis {
     beats: [],
     role: "loop",
     role_confidence: 0.5,
+    tags: null,
     llm_descriptors: null,
     pipeline_version: "1.0.0-mvp",
     analyzed_at: 1700000000000,

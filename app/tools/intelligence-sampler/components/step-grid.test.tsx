@@ -1,8 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { act } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { StepGrid } from "@/app/tools/intelligence-sampler/components/step-grid";
+import { publishPatternPlaybackTrace } from "@/lib/audio/playback-agency";
 import { useIntelligenceSamplerStore } from "@/app/tools/intelligence-sampler/store";
 import { DEFAULT_GLOBAL_MUSIC_CONTEXT } from "@/lib/music/context";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
@@ -56,6 +58,47 @@ describe("StepGrid", () => {
         .getState()
         .pattern.tracks.find((track) => track.id === "slice-1")?.chokeGroup,
     ).toBe("main");
+  });
+
+  it("annotates cells with live playback agency", async () => {
+    const pattern = createIntelligenceSamplerPattern(
+      "library:jungle/let-there-break",
+      "Let There Break",
+    );
+    useIntelligenceSamplerStore.setState({
+      pattern,
+      selectedStep: null,
+    });
+
+    render(<StepGrid />);
+
+    act(() => {
+      publishPatternPlaybackTrace({
+        patternId: pattern.id,
+        patternName: pattern.name,
+        trackId: "slice-1",
+        trackName: "slice 1",
+        stepIndex: 0,
+        stepInTrack: 0,
+        slot: 0,
+        barIndex: 0,
+        timeSec: 0,
+        fired: true,
+        reason: "fired",
+        velocity: 1,
+        microShift: 0,
+        probability: 1,
+        pitchCents: 0,
+        playbackRate: 1,
+        repeatCount: 1,
+      });
+    });
+
+    expect(
+      within(screen.getByTitle("slice 1 step 1")).getByLabelText(
+        "playback agency fire",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("edits a step choke group override", async () => {

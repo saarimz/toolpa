@@ -29,9 +29,8 @@ export function AudioBootstrap() {
   }
 
   return (
-    <div className="fixed bottom-4 left-4 z-50 max-w-xs border border-zinc-800 bg-zinc-950/95 p-3 shadow-2xl backdrop-blur">
-      <div className="mb-2 text-xs text-zinc-400">audio context locked</div>
-      <Button variant="solid" onClick={enableAudio}>
+    <div className="fixed right-3 top-3 z-50 max-w-[calc(100vw-1.5rem)] border border-zinc-800 bg-zinc-950/95 p-1.5 shadow-2xl backdrop-blur">
+      <Button className="h-9 px-3 text-xs" variant="solid" onClick={enableAudio}>
         <Volume2 className="size-4" />
         enable audio
       </Button>

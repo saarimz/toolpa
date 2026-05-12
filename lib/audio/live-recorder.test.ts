@@ -37,11 +37,16 @@ vi.mock("tone", () => ({
 }));
 
 function createAudioBufferStub(samples: number[]): AudioBuffer {
+  const data = Float32Array.from(samples);
   return {
+    duration: samples.length / 44100,
     length: samples.length,
     numberOfChannels: 1,
     sampleRate: 44100,
-    getChannelData: () => Float32Array.from(samples),
+    copyFromChannel: (destination: Float32Array) => {
+      destination.set(data.slice(0, destination.length));
+    },
+    getChannelData: () => data,
   } as unknown as AudioBuffer;
 }
 
@@ -68,6 +73,25 @@ describe("live output recorder", () => {
     expect(dispose).toHaveBeenCalled();
     expect(recording.filename).toBe("my-synth-take.wav");
     expect(recording.wavBlob.type).toBe("audio/wav");
+    expect(recording.audioEvidence).toBeNull();
+  });
+
+  it("analyzes tonal evidence from decoded live output", async () => {
+    const { startLiveOutputRecording, stopLiveOutputRecording } = await import(
+      "@/lib/audio/live-recorder"
+    );
+
+    await startLiveOutputRecording();
+    const recording = await stopLiveOutputRecording({
+      filename: "Live C Major",
+      decodeRecordedBlob: async () =>
+        createAudioBufferStub(generateChord([523.25, 659.25, 783.99], 1.5)),
+    });
+
+    expect(recording.audioEvidence?.pitchClasses).toEqual(
+      expect.arrayContaining([0, 4, 7]),
+    );
+    expect(recording.audioEvidence?.summary).toContain("live-c-major live output");
   });
 
   it("sanitizes filenames for downloadable clips", async () => {
@@ -79,3 +103,17 @@ describe("live output recorder", () => {
     expect(sanitizeRecordingFilename("")).toBe("ai-daw-tools-recording.wav");
   });
 });
+
+function generateChord(frequencies: number[], durationSec: number) {
+  const sampleRate = 44100;
+  const length = Math.floor(durationSec * sampleRate);
+  const samples = new Array<number>(length).fill(0);
+  const amplitude = 0.3 / frequencies.length;
+  for (const frequency of frequencies) {
+    for (let index = 0; index < length; index++) {
+      samples[index] +=
+        amplitude * Math.sin((2 * Math.PI * frequency * index) / sampleRate);
+    }
+  }
+  return samples;
+}

@@ -1,68 +1,53 @@
-import esPkg from "essentia.js";
+import { readFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const essentia = new esPkg.Essentia(esPkg.EssentiaWASM);
+import { decodeWavInNode } from "@/lib/samples/analysis/pipeline/decode";
+import {
+  extractGlobal,
+  extractRhythm,
+  extractSpectral,
+  extractTonal,
+} from "@/lib/samples/analysis/essentia/extract";
+import { shutdownEssentia } from "@/lib/samples/analysis/essentia/runner";
 
-console.log("essentia version:", essentia.version);
-console.log("algorithm count:", essentia.algorithmNames.split(",").length);
-
-const sampleRate = 44100;
-const length = sampleRate;
-const pcm = new Float32Array(length);
-for (let i = 0; i < length; i++) {
-  pcm[i] = 0.5 * Math.sin((2 * Math.PI * 440 * i) / sampleRate);
-}
-
-const v1 = essentia.arrayToVector(pcm);
-try {
-  const key = essentia.KeyExtractor(v1);
-  console.log("KeyExtractor:", key.key, key.scale, "strength=", key.strength);
-} finally {
-  v1.delete();
-}
-
-const v2 = essentia.arrayToVector(pcm);
-try {
-  const ebur = essentia.LoudnessEBUR128(v2, v2);
-  console.log("LoudnessEBUR128 integrated:", ebur.integratedLoudness);
-} finally {
-  v2.delete();
-}
-
-const v3 = essentia.arrayToVector(pcm);
-try {
-  const bpm = essentia.PercivalBpmEstimator(v3);
-  console.log("PercivalBpmEstimator:", bpm.bpm);
-} finally {
-  v3.delete();
-}
-
-const v4 = essentia.arrayToVector(pcm);
-try {
-  const onsets = essentia.OnsetRate(v4);
-  console.log("OnsetRate:", onsets.onsetRate);
-  if (onsets.onsets?.delete) onsets.onsets.delete();
-} finally {
-  v4.delete();
-}
-
-const v5 = essentia.arrayToVector(pcm.subarray(0, 2048));
-try {
-  const win = essentia.Windowing(v5);
-  const spec = essentia.Spectrum(win.frame);
-  const mfcc = essentia.MFCC(spec.spectrum);
-  console.log(
-    "MFCC bands.size:",
-    mfcc.bands?.size?.(),
-    "mfcc.size:",
-    mfcc.mfcc?.size?.(),
+async function main() {
+  const scriptDir = dirname(fileURLToPath(import.meta.url));
+  const projectRoot = resolve(scriptDir, "..");
+  const samplePath = join(
+    projectRoot,
+    "public/samples/element-one/140-stripped-drum-loop-03.wav",
   );
-  win.frame.delete();
-  spec.spectrum.delete();
-  mfcc.bands.delete();
-  mfcc.mfcc.delete();
-} finally {
-  v5.delete();
+  const buffer = await readFile(samplePath).catch(async () => {
+    return readFile(
+      join(projectRoot, "public/samples/expanded-library/element-one/140-stripped-drum-loop-03.wav"),
+    );
+  });
+  const arrayBuffer = buffer.buffer.slice(
+    buffer.byteOffset,
+    buffer.byteOffset + buffer.byteLength,
+  );
+  const decoded = decodeWavInNode(arrayBuffer);
+
+  console.log("decoded:", {
+    sr: decoded.sampleRate,
+    ch: decoded.channels.length,
+    dur: decoded.durationSec.toFixed(2),
+  });
+
+  console.log("global:", extractGlobal(decoded.channels));
+  const { spectral, chromaMean } = extractSpectral(decoded.channels, decoded.sampleRate);
+  console.log("spectral.centroid:", spectral.centroid_hz);
+  console.log("spectral.flatness:", spectral.flatness);
+  console.log("spectral.mfcc_mean[0..3]:", spectral.mfcc_mean.slice(0, 4));
+  console.log("tonal:", extractTonal(decoded.channels, chromaMean));
+  console.log("rhythm:", extractRhythm(decoded.channels, decoded.sampleRate));
+
+  shutdownEssentia();
 }
 
-essentia.shutdown();
-console.log("done");
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

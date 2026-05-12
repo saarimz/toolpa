@@ -68,14 +68,14 @@ export const useDrumMachineStore = create<DrumMachineStore>((set, get) => ({
     set({ isPlaying });
   },
   setBpm(bpm) {
-    set((state) => ({ pattern: PatternSchema.parse({ ...state.pattern, bpm }) }));
+    set((state) => ({ pattern: { ...state.pattern, bpm } }));
   },
   setSwing(swing) {
-    set((state) => ({ pattern: PatternSchema.parse({ ...state.pattern, swing }) }));
+    set((state) => ({ pattern: { ...state.pattern, swing } }));
   },
   toggleStep(trackId, stepIndex) {
     set((state) => ({
-      pattern: PatternSchema.parse({
+      pattern: {
         ...state.pattern,
         tracks: state.pattern.tracks.map((track) =>
           track.id === trackId
@@ -89,13 +89,13 @@ export const useDrumMachineStore = create<DrumMachineStore>((set, get) => ({
               }
             : track,
         ),
-      }),
+      },
       selectedStep: { trackId, stepIndex },
     }));
   },
   updateStep(trackId, stepIndex, patch) {
     set((state) => ({
-      pattern: PatternSchema.parse({
+      pattern: {
         ...state.pattern,
         tracks: state.pattern.tracks.map((track) =>
           track.id === trackId
@@ -107,12 +107,12 @@ export const useDrumMachineStore = create<DrumMachineStore>((set, get) => ({
               }
             : track,
         ),
-      }),
+      },
     }));
   },
   updateTrack(trackId, patch) {
     set((state) => ({
-      pattern: PatternSchema.parse({
+      pattern: {
         ...state.pattern,
         tracks: state.pattern.tracks.map((track) => {
           if (track.id !== trackId) {
@@ -134,17 +134,17 @@ export const useDrumMachineStore = create<DrumMachineStore>((set, get) => ({
             ),
           };
         }),
-      }),
+      },
     }));
   },
   setTrackStepCount(trackId, stepCount) {
     set((state) => ({
-      pattern: PatternSchema.parse({
+      pattern: {
         ...state.pattern,
         tracks: state.pattern.tracks.map((track) =>
           track.id === trackId ? resizeTrackSteps(track, stepCount) : track,
         ),
-      }),
+      },
       selectedStep: null,
     }));
   },

@@ -10,10 +10,11 @@ import type { GenerateStreamChunk } from "@/lib/ai/contracts";
 import { PatternSchema } from "@/lib/pattern/schema";
 import { useDrumMachineStore } from "@/app/tools/drum-machine/store";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
+import { usePromptParamState } from "@/lib/tools/use-prompt-param";
 
 export function DrumGenerationPanel() {
   const abortRef = useRef<AbortController | null>(null);
-  const [vibe, setVibe] = useState("skittery, sparse kick, polyrhythmic hats");
+  const [vibe, setVibe] = usePromptParamState("skittery, sparse kick, polyrhythmic hats");
   const [streamText, setStreamText] = useState("");
   const [promptText, setPromptText] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -175,7 +176,7 @@ export function DrumGenerationPanel() {
         <label className="block text-xs text-zinc-500">
           generation prompt
           <textarea
-            className="mt-2 h-24 w-full resize-none rounded-sm border border-zinc-700 bg-zinc-950 p-3 text-xs text-zinc-100 outline-none focus:border-cyan-300 disabled:text-zinc-600"
+            className="mt-2 h-24 w-full resize-none rounded-sm border border-zinc-700 bg-zinc-950 p-3 text-xs text-zinc-100 outline-none focus:border-zinc-200 disabled:text-zinc-600"
             value={vibe}
             disabled={isGenerating || isGeneratingAlternatives}
             onChange={(event) => setVibe(event.target.value)}
@@ -209,7 +210,7 @@ export function DrumGenerationPanel() {
               type="checkbox"
               checked={liveRegeneration}
               onChange={(event) => setLiveRegeneration(event.target.checked)}
-              className="accent-cyan-300"
+              className="accent-zinc-200"
             />
             live regen
           </label>
@@ -221,7 +222,7 @@ export function DrumGenerationPanel() {
               <button
                 key={ghost.id}
                 type="button"
-                className="mr-2 mt-2 border border-zinc-800 px-2 py-1 text-zinc-500 hover:border-cyan-300 hover:text-cyan-100"
+                className="mr-2 mt-2 border border-zinc-800 px-2 py-1 text-zinc-500 hover:border-zinc-200 hover:text-zinc-100"
                 onClick={() => setPattern(ghost)}
               >
                 {ghost.name}
@@ -235,7 +236,7 @@ export function DrumGenerationPanel() {
         <pre className="overflow-auto border border-zinc-800 bg-black p-3 text-[11px] leading-5 text-zinc-500">
           {promptText || "prompt stream will appear here"}
         </pre>
-        <pre className="mt-2 overflow-auto border border-zinc-800 bg-black p-3 text-[11px] leading-5 text-cyan-100">
+        <pre className="mt-2 overflow-auto border border-zinc-800 bg-black p-3 text-[11px] leading-5 text-zinc-100">
           {streamText || "pattern json / rationale will appear here"}
         </pre>
       </div>

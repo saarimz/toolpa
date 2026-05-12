@@ -34,6 +34,7 @@ export const toolBuilderManifest = {
   outputs: {
     pattern: false,
     synthScene: false,
+    midi: false,
     audio: false,
     recording: false,
     files: true,

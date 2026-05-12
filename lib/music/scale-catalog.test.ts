@@ -1,16 +1,23 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  clearAdHocScaleDefinitions,
+  getAdHocScaleDefinitions,
   getScaleDefinition,
   getScaleDegreeCents,
   getScaleKeys,
   getScalePitchOffsets,
   getScaleSemitoneApproximation,
+  registerAdHocScaleDefinition,
   resolveScaleKey,
   searchScaleKeys,
 } from "@/lib/music/scale-catalog";
 
 describe("scale catalog", () => {
+  afterEach(() => {
+    clearAdHocScaleDefinitions();
+  });
+
   it("expands curated scales across enough tonics for hundreds of keys", () => {
     const keys = getScaleKeys();
 
@@ -62,5 +69,35 @@ describe("scale catalog", () => {
     expect(getScaleDegreeCents("just-major", 2)).toBeCloseTo(386.314);
     expect(getScaleDegreeCents("dorian", 8)).toBe(1400);
     expect(getScaleDegreeCents("dorian", -1)).toBe(-200);
+  });
+
+  it("registers tool-generated ad-hoc scales for global context consumers", () => {
+    const registered = registerAdHocScaleDefinition({
+      aliases: ["tool triad"],
+      description: "A tool-generated C minor triad scale.",
+      family: "tool ad-hoc",
+      id: "tool-c-minor-triad",
+      microtonal: false,
+      name: "Tool C minor triad",
+      source: "curated",
+      tags: ["tool-generated", "evidence"],
+      tuning: {
+        kind: "12tet",
+        intervals: [0, 3, 7],
+        periodCents: 1200,
+      },
+    });
+
+    expect(registered.source).toBe("tool-generated");
+    expect(getAdHocScaleDefinitions()).toHaveLength(1);
+    expect(getScaleDefinition("tool-c-minor-triad")).toMatchObject({
+      name: "Tool C minor triad",
+      source: "tool-generated",
+    });
+    expect(getScaleSemitoneApproximation("tool-c-minor-triad")).toEqual([0, 3, 7]);
+    expect(resolveScaleKey({ tonic: "C", scaleId: "tool-c-minor-triad" })).toMatchObject({
+      id: "C:tool-c-minor-triad",
+      scale: { id: "tool-c-minor-triad" },
+    });
   });
 });

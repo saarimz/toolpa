@@ -2,6 +2,12 @@
 
 import { useMemo } from "react";
 
+import {
+  getPatternStepAgency,
+  getPatternStepAgencyClassName,
+  PatternStepAgencyBadge,
+  usePatternStepAgency,
+} from "@/components/pattern-step-agency";
 import { Button } from "@/components/ui/button";
 import { SamplePicker } from "@/components/sample-picker";
 import { DrumStepCounts } from "@/app/tools/drum-machine/lib/polyrhythm";
@@ -20,6 +26,7 @@ export function DrumGrid() {
   const setTrackStepCount = useDrumMachineStore((state) => state.setTrackStepCount);
   const setSelectedStep = useDrumMachineStore((state) => state.setSelectedStep);
   const updateStep = useDrumMachineStore((state) => state.updateStep);
+  const agencyEvents = usePatternStepAgency(pattern.id);
   const selected = useMemo(() => {
     if (!selectedStep) {
       return null;
@@ -92,7 +99,7 @@ export function DrumGrid() {
                 <label className="flex items-center gap-1 text-[10px] text-zinc-600">
                   pit
                   <input
-                    className="w-12 accent-cyan-300"
+                    className="w-12 accent-zinc-200"
                     type="range"
                     min={-12}
                     max={12}
@@ -106,7 +113,7 @@ export function DrumGrid() {
                 <label className="flex items-center gap-1 text-[10px] text-zinc-600">
                   dec
                   <input
-                    className="w-12 accent-cyan-300"
+                    className="w-12 accent-zinc-200"
                     type="range"
                     min={0}
                     max={1}
@@ -127,6 +134,12 @@ export function DrumGrid() {
                 {track.steps.map((step, stepIndex) => {
                   const isSelected =
                     selectedStep?.trackId === track.id && selectedStep.stepIndex === stepIndex;
+                  const agencyEvent = getPatternStepAgency(agencyEvents, {
+                    patternId: pattern.id,
+                    slot: step.slot ?? track.slot,
+                    stepIndex,
+                    trackId: track.id,
+                  });
 
                   return (
                     <button
@@ -139,14 +152,16 @@ export function DrumGrid() {
                         setSelectedStep({ trackId: track.id, stepIndex });
                       }}
                       className={cn(
-                        "h-8 border text-[10px] transition",
+                        "relative h-8 overflow-hidden border text-[10px] transition",
                         stepIndex % 4 === 0 ? "border-zinc-600" : "border-zinc-800",
                         step.active
-                          ? "bg-cyan-300 text-zinc-950"
+                          ? "bg-zinc-100 text-zinc-950"
                           : "bg-zinc-950 text-zinc-700 hover:bg-zinc-900",
-                        isSelected && "outline outline-1 outline-cyan-200",
+                        isSelected && "outline outline-1 outline-zinc-100",
+                        getPatternStepAgencyClassName(agencyEvent),
                       )}
                     >
+                      <PatternStepAgencyBadge event={agencyEvent} />
                       {step.active ? "x" : ""}
                     </button>
                   );
@@ -227,7 +242,7 @@ function Slider({
     <label className="block text-xs text-zinc-500">
       {label}
       <input
-        className="mt-2 w-full accent-cyan-300"
+        className="mt-2 w-full accent-zinc-200"
         type="range"
         min={min}
         max={max}

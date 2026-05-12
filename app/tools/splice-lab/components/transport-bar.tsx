@@ -6,14 +6,13 @@ import { Download, Pause, Play } from "lucide-react";
 import { AudioOutputRecorder } from "@/components/audio-output-recorder";
 import { PatternLiveTrace } from "@/components/pattern-live-trace";
 import { Button } from "@/components/ui/button";
-import {
-  playIntelligenceSamplerPattern,
-  stopIntelligenceSamplerPattern,
-} from "@/app/tools/intelligence-sampler/lib/play";
 import { useSpliceLabStore } from "@/app/tools/splice-lab/store";
 import { getStepDurationSec } from "@/lib/audio/pattern";
+import { getSamplePlaybackHost } from "@/lib/audio/sample-playback";
 import { renderPatternToWav } from "@/lib/audio/wav-render";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
+
+const playbackHost = getSamplePlaybackHost("splice-lab");
 import type { Pattern } from "@/lib/pattern/schema";
 
 export function SpliceTransportBar() {
@@ -48,7 +47,7 @@ export function SpliceTransportBar() {
 
   async function togglePlayback() {
     if (isPlaying) {
-      await stopIntelligenceSamplerPattern();
+      await playbackHost.stopPattern();
       setPlaying(false);
       setCurrentStepIndex(null);
       if (timerRef.current) {
@@ -58,7 +57,7 @@ export function SpliceTransportBar() {
     }
 
     const pattern = withPlaybackRate(toPattern(), playbackRate);
-    await playIntelligenceSamplerPattern(pattern, { musicalContext, sliceCount });
+    await playbackHost.playPattern(pattern, { musicalContext, sliceCount });
     setPlaying(true);
     let step = 0;
     setCurrentStepIndex(step);
@@ -101,7 +100,7 @@ export function SpliceTransportBar() {
             <Download className="size-4" />
             {isRendering ? "rendering" : "render wav"}
           </Button>
-          <AudioOutputRecorder filename="splice-lab" />
+          <AudioOutputRecorder filename="splice-lab" sourceId="splice-lab" />
         </div>
         <div className="min-w-0 border border-zinc-800 bg-black/40 p-3">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
@@ -115,7 +114,7 @@ export function SpliceTransportBar() {
           </div>
           <div className="h-2 overflow-hidden rounded-sm bg-zinc-900">
             <div
-              className="h-full bg-cyan-200 shadow-[0_0_18px_rgba(103,232,249,0.55)] transition-[width]"
+              className="h-full bg-zinc-100 shadow-[0_0_18px_rgba(245,245,245,0.55)] transition-[width]"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -151,7 +150,7 @@ export function SpliceTransportBar() {
         <label className="flex min-w-64 items-center gap-2 text-xs text-zinc-500">
           swing
           <input
-            className="w-40 accent-cyan-300"
+            className="w-40 accent-zinc-200"
             type="range"
             min={0}
             max={0.5}

@@ -66,9 +66,9 @@ export function extractAgentManifestFromSource(
     },
   };
 
-  new Script(transpiled.outputText, { filename: "manifest.js" }).runInNewContext(
-    context,
-  );
+  new Script(transpiled.outputText, {
+    filename: "manifest.js",
+  }).runInNewContext(context, { timeout: 1000 });
 
   for (const value of Object.values(cjsModule.exports)) {
     const parsed = AgentManifestSchema.safeParse(value);

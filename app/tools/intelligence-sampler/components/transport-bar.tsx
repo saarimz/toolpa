@@ -6,13 +6,12 @@ import { Download, Pause, Play } from "lucide-react";
 import { AudioOutputRecorder } from "@/components/audio-output-recorder";
 import { PatternLiveTrace } from "@/components/pattern-live-trace";
 import { Button } from "@/components/ui/button";
+import { getSamplePlaybackHost } from "@/lib/audio/sample-playback";
 import { renderPatternToWav } from "@/lib/audio/wav-render";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
-import {
-  playIntelligenceSamplerPattern,
-  stopIntelligenceSamplerPattern,
-} from "@/app/tools/intelligence-sampler/lib/play";
 import { useIntelligenceSamplerStore } from "@/app/tools/intelligence-sampler/store";
+
+const playbackHost = getSamplePlaybackHost("intelligence-sampler");
 
 export function TransportBar() {
   const [isRendering, setIsRendering] = useState(false);
@@ -28,12 +27,12 @@ export function TransportBar() {
 
   async function togglePlayback() {
     if (isPlaying) {
-      await stopIntelligenceSamplerPattern();
+      await playbackHost.stopPattern();
       setPlaying(false);
       return;
     }
 
-    await playIntelligenceSamplerPattern(pattern, {
+    await playbackHost.playPattern(pattern, {
       musicalContext,
       slicesBySampleId: slices.length > 0 ? new Map([[sampleId, slices]]) : undefined,
     });
@@ -69,7 +68,7 @@ export function TransportBar() {
         <Download className="size-4" />
         {isRendering ? "rendering" : "render wav"}
       </Button>
-      <AudioOutputRecorder filename={pattern.name} />
+      <AudioOutputRecorder filename={pattern.name} sourceId="intelligence-sampler" />
       <label className="flex items-center gap-2 text-xs text-zinc-500">
         bpm
         <input
@@ -84,7 +83,7 @@ export function TransportBar() {
       <label className="flex min-w-64 items-center gap-2 text-xs text-zinc-500">
         swing
         <input
-          className="w-40 accent-cyan-300"
+          className="w-40 accent-zinc-200"
           type="range"
           min={0}
           max={0.5}

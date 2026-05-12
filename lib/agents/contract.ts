@@ -38,7 +38,7 @@ export const InstrumentWorkflowSchema = z
 export const AgentManifestSchema = z.object({
   name: z.string().min(1),
   slug: z.string().regex(/^_?[a-z0-9][a-z0-9-]*$/),
-  level: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  level: z.union([z.literal(1), z.literal(2)]),
   origin: z.enum(["installed", "generated"]).default("installed"),
   description: z.string().min(1),
   route: z.string().startsWith("/"),
@@ -72,6 +72,7 @@ export const AgentManifestSchema = z.object({
     .object({
       pattern: z.boolean().default(false),
       synthScene: z.boolean().default(false),
+      midi: z.boolean().default(false),
       audio: z.boolean().default(false),
       recording: z.boolean().default(false),
       files: z.boolean().default(false),
@@ -80,6 +81,7 @@ export const AgentManifestSchema = z.object({
     .default({
       pattern: false,
       synthScene: false,
+      midi: false,
       audio: false,
       recording: false,
       files: false,
@@ -91,3 +93,4 @@ export const AgentManifestSchema = z.object({
 
 export type AgentManifest = z.infer<typeof AgentManifestSchema>;
 export type InstrumentType = z.infer<typeof InstrumentTypeSchema>;
+export type InstrumentDocument = z.infer<typeof InstrumentDocumentSchema>;

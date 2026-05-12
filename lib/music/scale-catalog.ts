@@ -84,18 +84,43 @@ export const scaleDefinitions: ScaleDefinition[] = [
 ].map((definition) => ScaleDefinitionSchema.parse(definition));
 
 const scaleById = new Map(scaleDefinitions.map((definition) => [definition.id, definition]));
+const adHocScaleById = new Map<string, ScaleDefinition>();
 
 export function getScaleDefinitions() {
-  return scaleDefinitions;
+  return [...scaleDefinitions, ...adHocScaleById.values()];
 }
 
 export function getScaleDefinition(scaleId: string) {
-  return scaleById.get(scaleId) ?? scaleById.get("minor") ?? scaleDefinitions[0];
+  return (
+    adHocScaleById.get(scaleId) ??
+    scaleById.get(scaleId) ??
+    scaleById.get("minor") ??
+    scaleDefinitions[0]
+  );
+}
+
+export function registerAdHocScaleDefinition(
+  definition: ScaleDefinition,
+): ScaleDefinition {
+  const parsed = ScaleDefinitionSchema.parse({
+    ...definition,
+    source: "tool-generated",
+  });
+  adHocScaleById.set(parsed.id, parsed);
+  return parsed;
+}
+
+export function getAdHocScaleDefinitions() {
+  return [...adHocScaleById.values()];
+}
+
+export function clearAdHocScaleDefinitions() {
+  adHocScaleById.clear();
 }
 
 export function getScaleKeys(): ScaleKey[] {
   return ChromaticTonics.flatMap((tonic) =>
-    scaleDefinitions.map((scaleDefinition) => ({
+    getScaleDefinitions().map((scaleDefinition) => ({
       id: `${tonic}:${scaleDefinition.id}`,
       tonic,
       scale: scaleDefinition,
