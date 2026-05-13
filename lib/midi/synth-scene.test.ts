@@ -8,6 +8,7 @@ import {
   encodeSynthSceneToMidi,
   getSynthSceneMidiFilename,
 } from "@/lib/midi/synth-scene";
+import { parseMidiFileSummary } from "@/lib/midi/parse";
 
 describe("SynthScene MIDI export", () => {
   it("converts active SynthScene steps into beat-timed MIDI notes", () => {
@@ -47,9 +48,15 @@ describe("SynthScene MIDI export", () => {
     });
     expect(notes.every((note) => note.startBeat >= 0)).toBe(true);
     expect(notes.every((note) => note.durationBeats > 0)).toBe(true);
-    expect(exportInput).toMatchObject({ bpm: scene.bpm, name: "Micro Pad" });
+    expect(exportInput).toMatchObject({ bpm: scene.bpm, format: 1, name: "Micro Pad" });
+    expect(exportInput.tracks?.length).toBe(scene.voices.length);
     expect(String.fromCharCode(...midi)).toContain("MThd");
     expect(Array.from(midi)).toEqual(expect.arrayContaining([0x90, 61]));
+    expect(parseMidiFileSummary(midi)).toMatchObject({
+      format: 1,
+      trackCount: scene.voices.length + 1,
+      valid: true,
+    });
     expect(getSynthSceneMidiFilename(scene)).toBe("micro-pad.mid");
   });
 });

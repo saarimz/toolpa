@@ -9,7 +9,9 @@ import { GridStepGrid } from "@/app/tools/grid-sampler/components/step-grid";
 import { GridTransportBar } from "@/app/tools/grid-sampler/components/transport-bar";
 import { useGridSamplerStore } from "@/app/tools/grid-sampler/store";
 import { getSamplePlaybackHost } from "@/lib/audio/sample-playback";
+import { useToolFxPattern } from "@/lib/audio/use-fx-pattern";
 import { useGlobalBpmSync } from "@/lib/music/use-global-context-sync";
+import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
 
 const playbackHost = getSamplePlaybackHost("grid-sampler");
 
@@ -21,14 +23,20 @@ export function GridSamplerClient() {
   const swing = useGridSamplerStore((state) => state.swing);
   const toPattern = useGridSamplerStore((state) => state.toPattern);
   const setBpm = useGridSamplerStore((state) => state.setBpm);
+  const fxPattern = useToolFxPattern("grid-sampler");
+  const musicalContext = useGlobalMusicContextStore((state) => state.context);
   useGlobalBpmSync(setBpm);
 
   useEffect(() => {
     if (!playbackHost.isPlaying()) {
       return;
     }
-    void playbackHost.updatePattern(toPattern());
-  }, [cells, bpm, swing, sliceCount, traversal, toPattern]);
+    void playbackHost.updatePattern(toPattern(), {
+      fxPattern,
+      musicalContext,
+      sliceCount,
+    });
+  }, [cells, bpm, fxPattern, musicalContext, sliceCount, swing, traversal, toPattern]);
 
   useEffect(
     () => () => {

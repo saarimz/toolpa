@@ -31,8 +31,25 @@ vi.mock("@/lib/samples/analysis/library-cache", () => ({
   hasLibraryAnalysis: vi.fn(() => false),
 }));
 
+vi.mock("@/lib/samples/resolver", () => ({
+  resolveSample: vi.fn(async (sampleId: string) => ({
+    id: sampleId,
+    name: "sample",
+    origin: sampleId.startsWith("library:") ? "library" : "upload",
+    audioBuffer: {
+      duration: 2,
+      sampleRate: 44100,
+      numberOfChannels: 1,
+      length: 8,
+      getChannelData: () =>
+        Float32Array.from([0, 0.25, -0.5, 1, -1, 0.25, 0, 0.75]),
+    },
+  })),
+}));
+
 describe("SamplePicker", () => {
   beforeEach(async () => {
+    vi.clearAllMocks();
     await new Promise<void>((resolve, reject) => {
       const request = indexedDB.deleteDatabase("ai-daw-tools-samples");
       request.onsuccess = () => resolve();
@@ -82,5 +99,23 @@ describe("SamplePicker", () => {
         }),
       );
     });
+  });
+
+  it("shows the selected sample full waveform and duration", async () => {
+    render(
+      <SamplePicker
+        id="sample"
+        label="source"
+        value="library:element-one/140-stripped-drum-loop-03"
+        roles={["loop", "pad"]}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("img", {
+        name: /full waveform, 2\.00s \/ 44\.1 kHz \/ 1 ch/i,
+      }),
+    ).toBeInTheDocument();
   });
 });

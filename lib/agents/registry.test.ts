@@ -25,6 +25,7 @@ describe("agent registry", () => {
         "drum-machine",
         "evolving-fm-synth",
         "grid-sampler",
+        "midi-generator",
         "splice-lab",
       ]),
     );
@@ -62,6 +63,7 @@ describe("agent registry", () => {
         "drum-machine",
         "evolving-fm-synth",
         "grid-sampler",
+        "midi-generator",
         "splice-lab",
       ]),
     );
@@ -79,6 +81,7 @@ describe("agent registry", () => {
         "drum-machine",
         "evolving-fm-synth",
         "grid-sampler",
+        "midi-generator",
         "splice-lab",
       ]),
     );
@@ -94,12 +97,14 @@ describe("agent registry", () => {
     expect(getAgentManifest("drum-machine")?.origin).toBe("installed");
     expect(getAgentManifest("evolving-fm-synth")?.origin).toBe("installed");
     expect(getAgentManifest("grid-sampler")?.origin).toBe("installed");
+    expect(getAgentManifest("midi-generator")?.origin).toBe("installed");
     expect(getAgentManifest("splice-lab")?.origin).toBe("installed");
     const installedSlugs = new Set([
       "intelligence-sampler",
       "drum-machine",
       "evolving-fm-synth",
       "grid-sampler",
+      "midi-generator",
       "splice-lab",
     ]);
     const generatedManifests = getAgentManifests().filter(
@@ -133,6 +138,16 @@ describe("agent registry", () => {
       pattern: false,
       synthScene: true,
     });
+    expect(getAgentManifest("midi-generator")?.instrument).toMatchObject({
+      type: "midi",
+      document: "midi-clip",
+      usesSamples: false,
+      usesSynthesis: true,
+    });
+    expect(getAgentManifest("midi-generator")?.outputs).toMatchObject({
+      midi: true,
+      audio: true,
+    });
     expect(getAgentManifest("_builder")?.instrument).toMatchObject({
       type: "builder",
       document: "files",
@@ -150,7 +165,12 @@ describe("agent registry", () => {
 
   it("filters manifests by level", () => {
     expect(getAgentManifestsByLevel(1).map((manifest) => manifest.slug)).toEqual(
-      expect.arrayContaining(["intelligence-sampler", "evolving-fm-synth", "grid-sampler"]),
+      expect.arrayContaining([
+        "intelligence-sampler",
+        "evolving-fm-synth",
+        "grid-sampler",
+        "midi-generator",
+      ]),
     );
     expect(getAgentManifestsByLevel(2).every((manifest) => manifest.level === 2)).toBe(
       true,

@@ -56,6 +56,32 @@ describe("generated tool audit", () => {
     expect(audit.issues).toEqual([]);
   });
 
+  it("treats MIDI clips as renderable MIDI document outputs", () => {
+    const audit = createGeneratedToolAudit([
+      generatedManifest({
+        document: "midi-clip",
+        instrumentType: "midi",
+        outputs: { midi: true },
+        slug: "generated-midi",
+      }),
+    ]);
+
+    expect(audit).toMatchObject({
+      byDocument: {
+        "midi-clip": 1,
+      },
+      byInstrument: {
+        midi: 1,
+      },
+      readyCount: 1,
+      status: "ready",
+    });
+    expect(audit.entries[0]).toMatchObject({
+      hasDocumentOutput: true,
+      hasRenderableOutput: true,
+    });
+  });
+
   it("surfaces generated tools that are not prompt-first or renderable", () => {
     const audit = createGeneratedToolAudit([
       generatedManifest({
@@ -101,6 +127,15 @@ export const generatedBreakManifest = {
     usesSynthesis: false,
   },
   outputs: { pattern: true, audio: true },
+  exports: {
+    document: "pattern",
+    audio: {
+      strategy: "offline-render",
+      formats: ["wav"],
+      maxDefaultDurationSec: 120,
+      requiresUserGestureForPreview: true,
+    },
+  },
 } satisfies AgentManifest;
 `,
       "utf8",
@@ -129,6 +164,66 @@ export const generatedBreakManifest = {
       registryMatchesManifest: true,
       routeMatchesSlug: true,
     });
+  });
+
+  it("flags generated in-tree tools that are missing from the generated registry", () => {
+    const rootDir = mkdtempSync(join(tmpdir(), "generated-audit-unregistered-"));
+    const manifest = generatedManifest({
+      document: "audio-stream",
+      instrumentType: "effect",
+      outputs: { audio: true, recording: true },
+      slug: "unregistered-effect",
+    });
+    const toolRoot = join(rootDir, "app", "tools", manifest.slug);
+    mkdirSync(toolRoot, { recursive: true });
+    writeFileSync(
+      join(toolRoot, "manifest.ts"),
+      `import type { AgentManifest } from "@/lib/agents/contract";
+export const unregisteredEffectManifest = ${JSON.stringify(manifest, null, 2)} satisfies AgentManifest;
+`,
+      "utf8",
+    );
+    writeFileSync(join(toolRoot, "page.tsx"), "export default function Page() { return null; }\n");
+    writeFileSync(join(toolRoot, "render.ts"), "export async function renderOffline() { return null; }\n");
+    writeFileSync(join(toolRoot, "render.audio.test.ts"), "import { it } from 'vitest'; it('renders audio', () => {});\n");
+    writeFileSync(join(toolRoot, "client.test.tsx"), "import { it } from 'vitest'; it('works', () => {});\n");
+
+    const audit = createGeneratedToolAudit([], {
+      checkFiles: true,
+      inTreeManifests: [manifest],
+      rootDir,
+    });
+
+    expect(audit).toMatchObject({
+      generatedCount: 1,
+      readyCount: 0,
+      status: "attention",
+    });
+    expect(audit.entries[0]).toMatchObject({
+      hasInTreeManifest: true,
+      registered: false,
+      slug: "unregistered-effect",
+    });
+    expect(audit.issues.map((issue) => issue.id)).toContain(
+      "unregistered-effect:registry-entry",
+    );
+  });
+
+  it("flags generated registry entries that are missing from the in-tree manifests", () => {
+    const audit = createGeneratedToolAudit(
+      [generatedManifest({ slug: "orphan-registry-tool" })],
+      { inTreeManifests: [] },
+    );
+
+    expect(audit.status).toBe("attention");
+    expect(audit.readyCount).toBe(0);
+    expect(audit.entries[0]).toMatchObject({
+      hasInTreeManifest: false,
+      registered: true,
+    });
+    expect(audit.issues.map((issue) => issue.id)).toContain(
+      "orphan-registry-tool:in-tree-manifest",
+    );
   });
 
   it("requires generated routes and declared outputs to match document contracts", () => {
@@ -178,13 +273,24 @@ function generatedManifest({
   prompt = true,
   slug,
 }: {
-  document?: AgentManifest["instrument"]["document"];
+  document?: Exclude<AgentManifest["instrument"]["document"], "files">;
   globalContext?: boolean;
   instrumentType?: Exclude<AgentManifest["instrument"]["type"], "builder">;
   outputs?: Partial<AgentManifest["outputs"]>;
   prompt?: boolean;
   slug: string;
 }): AgentManifest {
+  const normalizedOutputs = {
+    audio: false,
+    files: false,
+    manifest: false,
+    midi: false,
+    pattern: false,
+    recording: false,
+    synthScene: false,
+    ...outputs,
+  };
+
   return {
     autonomy: "driven",
     capabilities: ["generatePattern", "play", "recordOutput"],
@@ -215,18 +321,45 @@ function generatedManifest({
     },
     name: slug,
     origin: "generated",
-    outputs: {
-      audio: false,
-      files: false,
-      manifest: false,
-      midi: false,
-      pattern: false,
-      recording: false,
-      synthScene: false,
-      ...outputs,
-    },
+    outputs: normalizedOutputs,
+    exports: createGeneratedExportContract(document, normalizedOutputs),
     route: `/tools/${slug}`,
     slug,
     status: "enabled",
+  };
+}
+
+function createGeneratedExportContract(
+  document: Exclude<AgentManifest["instrument"]["document"], "files">,
+  outputs: AgentManifest["outputs"],
+): AgentManifest["exports"] {
+  if (!outputs.audio && !outputs.midi) {
+    return undefined;
+  }
+
+  return {
+    document,
+    ...(outputs.audio
+      ? {
+          audio: {
+            strategy: document === "audio-stream" ? "live-recording" : "offline-render",
+            formats: ["wav"] as const,
+            maxDefaultDurationSec: 120,
+            requiresUserGestureForPreview: true,
+          },
+        }
+      : {}),
+    ...(outputs.midi
+      ? {
+          midi: {
+            strategy: "standard-midi-file",
+            format: "smf-1",
+            ticksPerQuarter: 480,
+            preservesTracks: true,
+            supportsPitchBend: true,
+            supportsCc: document === "midi-clip",
+          },
+        }
+      : {}),
   };
 }

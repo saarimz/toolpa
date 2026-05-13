@@ -1,20 +1,24 @@
 import { z } from "zod";
 
+import { AgentFxSchema } from "@/lib/audio/fx-manifest";
 import { InstrumentMusicContextSchema } from "@/lib/music/context";
 import { AnalysisPathSchema } from "@/lib/samples/analysis/schema";
 import { SampleRoleSchema } from "@/lib/samples/roles";
+import { ToolExportDeclarationSchema } from "@/lib/tool-exports/contract";
 
 export const InstrumentTypeSchema = z.enum([
   "sample",
   "synth",
   "hybrid",
   "effect",
+  "midi",
   "builder",
 ]);
 
 export const InstrumentDocumentSchema = z.enum([
   "pattern",
   "synth-scene",
+  "midi-clip",
   "audio-stream",
   "files",
 ]);
@@ -87,6 +91,8 @@ export const AgentManifestSchema = z.object({
       files: false,
       manifest: false,
     }),
+  exports: ToolExportDeclarationSchema.optional(),
+  fx: AgentFxSchema.optional(),
   autonomy: z.enum(["manual", "assist", "driven"]).default("manual"),
   status: z.enum(["enabled", "disabled", "coming-soon"]).default("enabled"),
 });

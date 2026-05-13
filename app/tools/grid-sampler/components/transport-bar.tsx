@@ -1,32 +1,44 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Download, Pause, Play } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { Pause, Play } from "lucide-react";
 
-import { AudioOutputRecorder } from "@/components/audio-output-recorder";
+import { FxSlotPanel } from "@/components/fx-slot-panel";
+import {
+  createPatternMidiPlayback,
+  MidiPlaybackPanel,
+} from "@/components/midi-playback-panel";
 import { PatternLiveTrace } from "@/components/pattern-live-trace";
+import { ToolExportPanel } from "@/components/tool-export-panel";
 import { Button } from "@/components/ui/button";
+import { gridSamplerManifest } from "@/app/tools/grid-sampler/manifest";
 import { useGridSamplerStore } from "@/app/tools/grid-sampler/store";
 import { getStepDurationSec } from "@/lib/audio/pattern";
 import { getSamplePlaybackHost } from "@/lib/audio/sample-playback";
-import { renderPatternToWav } from "@/lib/audio/wav-render";
+import { useToolFxPattern } from "@/lib/audio/use-fx-pattern";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
+import { exportPatternWavArtifact } from "@/lib/tool-exports/adapters/pattern";
 
 const playbackHost = getSamplePlaybackHost("grid-sampler");
 
 export function GridTransportBar() {
   const timerRef = useRef<number | null>(null);
-  const [isRendering, setIsRendering] = useState(false);
   const sliceCount = useGridSamplerStore((state) => state.sliceCount);
   const bpm = useGridSamplerStore((state) => state.bpm);
   const swing = useGridSamplerStore((state) => state.swing);
   const isPlaying = useGridSamplerStore((state) => state.isPlaying);
+  const currentStepIndex = useGridSamplerStore((state) => state.currentStepIndex);
+  const fxPattern = useToolFxPattern("grid-sampler");
   const musicalContext = useGlobalMusicContextStore((state) => state.context);
   const setBpm = useGridSamplerStore((state) => state.setBpm);
   const setSwing = useGridSamplerStore((state) => state.setSwing);
   const setPlaying = useGridSamplerStore((state) => state.setPlaying);
   const setCurrentStepIndex = useGridSamplerStore((state) => state.setCurrentStepIndex);
   const toPattern = useGridSamplerStore((state) => state.toPattern);
+  const pattern = toPattern();
+  const midiPlayback = createPatternMidiPlayback(pattern, { musicalContext });
+  const currentBeat =
+    currentStepIndex === null ? null : (currentStepIndex * 4) / pattern.stepsPerBar;
 
   useEffect(
     () => () => {
@@ -48,8 +60,7 @@ export function GridTransportBar() {
       return;
     }
 
-    const pattern = toPattern();
-    await playbackHost.playPattern(pattern, { musicalContext, sliceCount });
+    await playbackHost.playPattern(pattern, { fxPattern, musicalContext, sliceCount });
     setPlaying(true);
     let step = 0;
     setCurrentStepIndex(step);
@@ -59,58 +70,61 @@ export function GridTransportBar() {
     }, getStepDurationSec(pattern) * 1000);
   }
 
-  async function renderWav() {
-    setIsRendering(true);
-    try {
-      const pattern = toPattern();
-      const blob = await renderPatternToWav(pattern, { musicalContext, sliceCount });
-      const href = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = href;
-      anchor.download = "grid-sampler.wav";
-      anchor.click();
-      URL.revokeObjectURL(href);
-    } finally {
-      setIsRendering(false);
-    }
-  }
-
   return (
-    <section className="flex flex-wrap items-center gap-3 border-b border-zinc-800 p-4">
-      <Button variant={isPlaying ? "danger" : "solid"} onClick={() => void togglePlayback()}>
-        {isPlaying ? <Pause className="size-4" /> : <Play className="size-4" />}
-        {isPlaying ? "stop" : "play"}
-      </Button>
-      <Button disabled={isRendering} onClick={() => void renderWav()}>
-        <Download className="size-4" />
-        {isRendering ? "rendering" : "render wav"}
-      </Button>
-      <AudioOutputRecorder filename="grid-sampler" sourceId="grid-sampler" />
-      <label className="flex items-center gap-2 text-xs text-zinc-500">
-        bpm
-        <input
-          className="h-9 w-20 rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-zinc-100"
-          type="number"
-          min={40}
-          max={260}
-          value={bpm}
-          onChange={(event) => setBpm(Number(event.target.value))}
+    <>
+      <section className="flex flex-wrap items-center gap-3 border-b border-zinc-800 p-4">
+        <Button variant={isPlaying ? "danger" : "solid"} onClick={() => void togglePlayback()}>
+          {isPlaying ? <Pause className="size-4" /> : <Play className="size-4" />}
+          {isPlaying ? "stop" : "play"}
+        </Button>
+        <ToolExportPanel
+          audioExport={() =>
+            exportPatternWavArtifact({
+              filename: "grid-sampler.wav",
+              options: { fxPattern, musicalContext, sliceCount },
+              pattern,
+              toolSlug: "grid-sampler",
+            })
+          }
+          document={pattern}
+          filenameStem="grid-sampler"
+          manifest={gridSamplerManifest}
         />
-      </label>
-      <label className="flex min-w-64 items-center gap-2 text-xs text-zinc-500">
-        swing
-        <input
-          className="w-40 accent-zinc-200"
-          type="range"
-          min={0}
-          max={0.5}
-          step={0.01}
-          value={swing}
-          onChange={(event) => setSwing(Number(event.target.value))}
-        />
-        <span className="w-10 text-zinc-300">{Math.round(swing * 100)}%</span>
-      </label>
-      <PatternLiveTrace patternId="grid-sampler-pattern" />
-    </section>
+        <label className="flex items-center gap-2 text-xs text-zinc-500">
+          bpm
+          <input
+            className="h-9 w-20 rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-zinc-100"
+            type="number"
+            min={40}
+            max={260}
+            value={bpm}
+            onChange={(event) => setBpm(Number(event.target.value))}
+          />
+        </label>
+        <label className="flex min-w-64 items-center gap-2 text-xs text-zinc-500">
+          swing
+          <input
+            className="w-40 accent-zinc-200"
+            type="range"
+            min={0}
+            max={0.5}
+            step={0.01}
+            value={swing}
+            onChange={(event) => setSwing(Number(event.target.value))}
+          />
+          <span className="w-10 text-zinc-300">{Math.round(swing * 100)}%</span>
+        </label>
+        <PatternLiveTrace patternId={pattern.id} />
+        <div className="basis-full">
+          <MidiPlaybackPanel
+            {...midiPlayback}
+            className="border border-zinc-800 p-3"
+            currentBeat={currentBeat}
+            isPlaying={isPlaying}
+          />
+        </div>
+      </section>
+      <FxSlotPanel toolId="grid-sampler" />
+    </>
   );
 }

@@ -5,10 +5,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EvolvingFmSynthClient } from "@/app/tools/evolving-fm-synth/client";
 import { createDefaultSynthScene } from "@/app/tools/evolving-fm-synth/lib/agent";
 import { fetchSynthSceneFromGateway } from "@/app/tools/evolving-fm-synth/lib/gateway-request";
+import { playEvolvingFmSynthScene } from "@/app/tools/evolving-fm-synth/lib/tone-playback";
 import { useEvolvingFmSynthStore } from "@/app/tools/evolving-fm-synth/store";
-import { downloadSynthSceneMidi } from "@/lib/midi/synth-scene";
+import { useFxPatternStore } from "@/lib/audio/use-fx-pattern";
+import { encodeMidiFile } from "@/lib/midi/export";
 import { DEFAULT_GLOBAL_MUSIC_CONTEXT } from "@/lib/music/context";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
+import { exportSynthSceneMidiArtifact } from "@/lib/tool-exports/adapters/synth-scene";
 
 vi.mock("@/app/tools/evolving-fm-synth/lib/gateway-request", () => ({
   SynthGatewayTimeoutError: class SynthGatewayTimeoutError extends Error {},
@@ -24,9 +27,32 @@ vi.mock("@/components/audio-output-recorder", () => ({
   AudioOutputRecorder: () => <button type="button">record output</button>,
 }));
 
-vi.mock("@/lib/midi/synth-scene", () => ({
-  downloadSynthSceneMidi: vi.fn(),
-}));
+vi.mock("@/lib/tool-exports/adapters/synth-scene", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/tool-exports/adapters/synth-scene")>(
+    "@/lib/tool-exports/adapters/synth-scene",
+  );
+  return {
+    ...actual,
+    exportSynthSceneMidiArtifact: vi.fn(() => ({
+      bytes: new Uint8Array([1, 2, 3]),
+      evidence: {
+        noteCount: 8,
+        ok: true,
+        reasons: [],
+        trackCount: 2,
+      },
+      filename: "scene.mid",
+      kind: "audio/midi",
+      source: {
+        documentHash: "abc",
+        documentId: "scene",
+        documentKind: "synth-scene",
+        schemaVersion: 1,
+        toolSlug: "evolving-fm-synth",
+      },
+    })),
+  };
+});
 
 const defaultPrompt =
   "dub techno in F minor at 124 bpm over 32 bars, evolving pads, warm tape drift, deep feedback delay";
@@ -48,8 +74,13 @@ describe("EvolvingFmSynthClient", () => {
       context: DEFAULT_GLOBAL_MUSIC_CONTEXT,
       hydrated: false,
     });
+    useFxPatternStore.setState({ patterns: {} });
     vi.mocked(fetchSynthSceneFromGateway).mockReset();
-    vi.mocked(downloadSynthSceneMidi).mockReset();
+    vi.mocked(playEvolvingFmSynthScene).mockReset();
+    vi.mocked(playEvolvingFmSynthScene).mockResolvedValue(undefined);
+    vi.mocked(exportSynthSceneMidiArtifact).mockClear();
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:test");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
   });
 
   it("shows an overlay while the synth generation prompt is running", async () => {
@@ -142,8 +173,58 @@ describe("EvolvingFmSynthClient", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /download midi/i }));
 
-    expect(downloadSynthSceneMidi).toHaveBeenCalledWith(
+    expect(exportSynthSceneMidiArtifact).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scene: useEvolvingFmSynthStore.getState().scene,
+        toolSlug: "evolving-fm-synth",
+      }),
+    );
+    expect(screen.getByRole("region", { name: /midi playback/i })).toBeInTheDocument();
+  });
+
+  it("imports uploaded MIDI files into the synth scene", async () => {
+    const user = userEvent.setup();
+    render(<EvolvingFmSynthClient />);
+    const bytes = encodeMidiFile({
+      bpm: 96,
+      format: 1,
+      name: "Upload",
+      tracks: [
+        {
+          name: "lead",
+          notes: [{ midi: 72, startBeat: 0, durationBeats: 1, velocity: 0.7 }],
+        },
+      ],
+    });
+    const fileBytes = new Uint8Array(bytes.byteLength);
+    fileBytes.set(bytes);
+    const file = new File([fileBytes], "lead.mid", { type: "audio/midi" });
+
+    await user.upload(screen.getByLabelText(/upload midi/i), file);
+
+    await waitFor(() => {
+      expect(useEvolvingFmSynthStore.getState().scene.metadata.createdBy).toBe("import");
+    });
+    expect(screen.getByText("agent midi import")).toBeInTheDocument();
+    expect(useEvolvingFmSynthStore.getState().scene.voices[0]?.label).toBe("lead");
+  });
+
+  it("plays through the selected fx slot pattern", async () => {
+    render(<EvolvingFmSynthClient />);
+
+    await userEvent.selectOptions(screen.getAllByLabelText("effect")[0]!, "chorus");
+    await userEvent.click(screen.getByRole("button", { name: "play" }));
+
+    expect(screen.getByText("fx slots")).toBeInTheDocument();
+    expect(playEvolvingFmSynthScene).toHaveBeenCalledWith(
       useEvolvingFmSynthStore.getState().scene,
+      {
+        fxPattern: expect.objectContaining({
+          slots: expect.arrayContaining([
+            expect.objectContaining({ effect: "chorus", id: "A" }),
+          ]),
+        }),
+      },
     );
   });
 });

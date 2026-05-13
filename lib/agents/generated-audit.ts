@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import {
   AgentManifestSchema,
+  InstrumentDocumentSchema,
   InstrumentTypeSchema,
   type AgentManifest,
   type InstrumentDocument,
@@ -13,17 +14,21 @@ import { extractAgentManifestFromSource } from "@/lib/agents/manifest-source";
 const DOCUMENT_OUTPUT_BY_TYPE = {
   "audio-stream": "audio",
   files: "files",
+  "midi-clip": "midi",
   pattern: "pattern",
   "synth-scene": "synthScene",
 } as const satisfies Record<InstrumentDocument, keyof AgentManifest["outputs"]>;
 
 export const GeneratedToolAuditEntrySchema = z.object({
-  document: z.enum(["pattern", "synth-scene", "audio-stream", "files"]),
+  document: InstrumentDocumentSchema,
   enabled: z.boolean(),
   hasDocumentOutput: z.boolean(),
   hasGlobalContext: z.boolean(),
+  hasInTreeManifest: z.boolean().default(true),
   hasAudioGateTest: z.boolean(),
+  hasAudioExportContract: z.boolean(),
   hasManifestFile: z.boolean(),
+  hasMidiExportContract: z.boolean(),
   hasOfflineRenderer: z.boolean(),
   hasPromptInput: z.boolean(),
   hasRenderableOutput: z.boolean(),
@@ -31,6 +36,7 @@ export const GeneratedToolAuditEntrySchema = z.object({
   hasTests: z.boolean(),
   instrumentType: InstrumentTypeSchema,
   name: z.string().min(1),
+  registered: z.boolean().default(true),
   registryMatchesManifest: z.boolean(),
   routeMatchesSlug: z.boolean(),
   route: z.string().startsWith("/"),
@@ -61,6 +67,7 @@ export type GeneratedToolAuditIssue = z.infer<typeof GeneratedToolAuditIssueSche
 
 type GeneratedToolAuditOptions = {
   checkFiles?: boolean;
+  inTreeManifests?: AgentManifest[];
   rootDir?: string;
 };
 
@@ -68,11 +75,18 @@ export function createGeneratedToolAudit(
   manifests: AgentManifest[],
   options: GeneratedToolAuditOptions = {},
 ): GeneratedToolAudit {
-  const generated = manifests
+  const registeredGenerated = manifests
     .map((manifest) => AgentManifestSchema.parse(manifest))
     .filter((manifest) => manifest.origin === "generated")
     .sort((left, right) => left.slug.localeCompare(right.slug));
-  const entries = generated.map((manifest) => createEntry(manifest, options));
+  const inTreeGenerated = options.inTreeManifests
+    ?.map((manifest) => AgentManifestSchema.parse(manifest))
+    .filter((manifest) => manifest.origin === "generated")
+    .sort((left, right) => left.slug.localeCompare(right.slug));
+  const entryInputs = reconcileGeneratedSources(registeredGenerated, inTreeGenerated);
+  const entries = entryInputs.map(({ hasInTreeManifest, manifest, registered }) =>
+    createEntry(manifest, options, { hasInTreeManifest, registered }),
+  );
   const issues = [
     ...entries.flatMap(createEntryIssues),
     ...createRegistryIssues(entries),
@@ -99,6 +113,10 @@ export function createGeneratedToolAudit(
 function createEntry(
   manifest: AgentManifest,
   options: GeneratedToolAuditOptions,
+  sourceStatus: {
+    hasInTreeManifest?: boolean;
+    registered?: boolean;
+  } = {},
 ): GeneratedToolAuditEntry {
   const fileStatus = options.checkFiles
     ? getGeneratedToolFileStatus(manifest, options.rootDir ?? process.cwd())
@@ -115,16 +133,20 @@ function createEntry(
     document: manifest.instrument.document,
     enabled: manifest.status === "enabled",
     hasDocumentOutput: manifest.outputs[DOCUMENT_OUTPUT_BY_TYPE[manifest.instrument.document]],
+    hasInTreeManifest: sourceStatus.hasInTreeManifest ?? true,
     hasGlobalContext:
       manifest.musicContext.globalBpm ||
       manifest.musicContext.globalKey ||
       manifest.musicContext.scaleSearch,
     hasAudioGateTest: fileStatus.hasAudioGateTest,
+    hasAudioExportContract: !manifest.outputs.audio || Boolean(manifest.exports?.audio),
     hasManifestFile: fileStatus.hasManifestFile,
+    hasMidiExportContract: !manifest.outputs.midi || Boolean(manifest.exports?.midi),
     hasOfflineRenderer: fileStatus.hasOfflineRenderer,
     hasPromptInput: manifest.inputs.prompt,
     hasRenderableOutput:
       manifest.outputs.audio ||
+      manifest.outputs.midi ||
       manifest.outputs.pattern ||
       manifest.outputs.synthScene ||
       manifest.outputs.recording,
@@ -133,10 +155,38 @@ function createEntry(
     instrumentType: manifest.instrument.type,
     name: manifest.name,
     registryMatchesManifest: fileStatus.registryMatchesManifest,
+    registered: sourceStatus.registered ?? true,
     routeMatchesSlug: manifest.route === `/tools/${manifest.slug}`,
     route: manifest.route,
     slug: manifest.slug,
   });
+}
+
+function reconcileGeneratedSources(
+  registeredGenerated: AgentManifest[],
+  inTreeGenerated: AgentManifest[] | undefined,
+) {
+  if (!inTreeGenerated) {
+    return registeredGenerated.map((manifest) => ({
+      hasInTreeManifest: true,
+      manifest,
+      registered: true,
+    }));
+  }
+
+  const registeredBySlug = new Map(
+    registeredGenerated.map((manifest) => [manifest.slug, manifest]),
+  );
+  const inTreeBySlug = new Map(
+    inTreeGenerated.map((manifest) => [manifest.slug, manifest]),
+  );
+  const slugs = [...new Set([...registeredBySlug.keys(), ...inTreeBySlug.keys()])].sort();
+
+  return slugs.map((slug) => ({
+    hasInTreeManifest: inTreeBySlug.has(slug),
+    manifest: registeredBySlug.get(slug) ?? inTreeBySlug.get(slug)!,
+    registered: registeredBySlug.has(slug),
+  }));
 }
 
 function createEntryIssues(entry: GeneratedToolAuditEntry): GeneratedToolAuditIssue[] {
@@ -147,6 +197,24 @@ function createEntryIssues(entry: GeneratedToolAuditEntry): GeneratedToolAuditIs
       detail: `${entry.slug} is registered but not enabled.`,
       id: `${entry.slug}:disabled`,
       severity: "warning",
+      slug: entry.slug,
+    });
+  }
+
+  if (!entry.registered) {
+    issues.push({
+      detail: `${entry.slug} exists in app/tools as a generated tool but is missing from .audit/generated-tools.json.`,
+      id: `${entry.slug}:registry-entry`,
+      severity: "error",
+      slug: entry.slug,
+    });
+  }
+
+  if (!entry.hasInTreeManifest) {
+    issues.push({
+      detail: `${entry.slug} is registered in .audit/generated-tools.json but has no generated in-tree manifest.`,
+      id: `${entry.slug}:in-tree-manifest`,
+      severity: "error",
       slug: entry.slug,
     });
   }
@@ -173,6 +241,24 @@ function createEntryIssues(entry: GeneratedToolAuditEntry): GeneratedToolAuditIs
     issues.push({
       detail: `${entry.slug} does not declare the output that matches its ${entry.document} document contract.`,
       id: `${entry.slug}:document-output`,
+      severity: "error",
+      slug: entry.slug,
+    });
+  }
+
+  if (!entry.hasAudioExportContract) {
+    issues.push({
+      detail: `${entry.slug} declares audio output but has no manifest export audio strategy.`,
+      id: `${entry.slug}:audio-export-contract`,
+      severity: "error",
+      slug: entry.slug,
+    });
+  }
+
+  if (!entry.hasMidiExportContract) {
+    issues.push({
+      detail: `${entry.slug} declares MIDI output but has no manifest Standard MIDI export contract.`,
+      id: `${entry.slug}:midi-export-contract`,
       severity: "error",
       slug: entry.slug,
     });
@@ -270,9 +356,13 @@ function createRegistryIssues(entries: GeneratedToolAuditEntry[]): GeneratedTool
 function isEntryReady(entry: GeneratedToolAuditEntry) {
   return (
     entry.enabled &&
+    entry.registered &&
+    entry.hasInTreeManifest &&
     entry.hasPromptInput &&
     entry.hasRenderableOutput &&
     entry.hasDocumentOutput &&
+    entry.hasAudioExportContract &&
+    entry.hasMidiExportContract &&
     entry.routeMatchesSlug &&
     (entry.hasGlobalContext || entry.instrumentType === "builder") &&
     entry.hasManifestFile &&

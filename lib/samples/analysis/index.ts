@@ -22,9 +22,11 @@ import { getUploadedSample } from "@/lib/samples/storage";
 
 export type SampleSchemaOptions = {
   waitForDescriptors?: boolean;
+  enrichDescriptors?: boolean;
 };
 
 const inFlight = new Map<string, Promise<SampleAnalysis>>();
+const descriptorInFlight = new Map<string, Promise<SampleAnalysis>>();
 
 export function isAnalysisCached(sampleId: string): boolean {
   if (sampleId.startsWith("library:")) {
@@ -40,7 +42,23 @@ export async function getSampleSchema(
   if (sampleId.startsWith("library:")) {
     const baked = getLibraryAnalysis(sampleId);
     if (baked) {
-      return baked;
+      const cached = await getCachedAnalysis(baked.source.sha256);
+      const baseline = cached ?? baked;
+      if (baseline.llm_descriptors) {
+        return baseline;
+      }
+      if (!options.waitForDescriptors) {
+        if (options.enrichDescriptors !== false) {
+          void enrichDescriptorsAsync(baseline, sampleNameForLlmContext(sampleId)).catch(
+            () => {},
+          );
+        }
+        return baseline;
+      }
+      if (options.enrichDescriptors === false) {
+        return baseline;
+      }
+      return enrichDescriptorsAsync(baseline, sampleNameForLlmContext(sampleId));
     }
   }
 
@@ -62,6 +80,7 @@ async function analyzeSampleById(
 ): Promise<SampleAnalysis> {
   const arrayBuffer = await loadAudioBytes(sampleId);
   return analyzeArrayBuffer(arrayBuffer, {
+    enrichDescriptors: options.enrichDescriptors,
     waitForDescriptors: options.waitForDescriptors ?? false,
     sourceName: sampleNameForLlmContext(sampleId),
   });
@@ -70,6 +89,7 @@ async function analyzeSampleById(
 export type AnalyzeOptions = {
   waitForDescriptors?: boolean;
   sourceName?: string;
+  enrichDescriptors?: boolean;
 };
 
 export async function analyzeArrayBuffer(
@@ -91,6 +111,10 @@ export async function analyzeArrayBuffer(
   }
 
   if (baseline.llm_descriptors) {
+    return baseline;
+  }
+
+  if (options.enrichDescriptors === false) {
     return baseline;
   }
 
@@ -139,17 +163,29 @@ async function enrichDescriptorsAsync(
   analysis: SampleAnalysis,
   sourceName: string | undefined,
 ): Promise<SampleAnalysis> {
-  try {
-    const descriptors = await fetchDescriptors(analysis, sourceName);
-    if (!descriptors) {
+  const existing = descriptorInFlight.get(analysis.source.sha256);
+  if (existing) {
+    return existing;
+  }
+
+  const work = (async () => {
+    try {
+      const descriptors = await fetchDescriptors(analysis, sourceName);
+      if (!descriptors) {
+        return analysis;
+      }
+      const enriched: SampleAnalysis = { ...analysis, llm_descriptors: descriptors };
+      await putCachedAnalysis(enriched);
+      return enriched;
+    } catch {
       return analysis;
     }
-    const enriched: SampleAnalysis = { ...analysis, llm_descriptors: descriptors };
-    await putCachedAnalysis(enriched);
-    return enriched;
-  } catch {
-    return analysis;
-  }
+  })().finally(() => {
+    descriptorInFlight.delete(analysis.source.sha256);
+  });
+
+  descriptorInFlight.set(analysis.source.sha256, work);
+  return work;
 }
 
 async function fetchDescriptors(

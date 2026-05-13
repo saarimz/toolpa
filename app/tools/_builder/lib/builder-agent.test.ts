@@ -14,6 +14,7 @@ function createRoot() {
   for (const path of [
     "lib/pattern",
     "lib/agents",
+    "lib/audio",
     "lib/samples",
     "app/tools/intelligence-sampler/lib",
     "app/tools/evolving-fm-synth/lib",
@@ -22,6 +23,7 @@ function createRoot() {
   }
   writeFileSync(join(rootDir, "lib/pattern/schema.ts"), "export const Pattern = 1;\n");
   writeFileSync(join(rootDir, "lib/agents/contract.ts"), "export const Agent = 1;\n");
+  writeFileSync(join(rootDir, "lib/audio/fx-manifest.ts"), "export const Fx = 1;\n");
   writeFileSync(join(rootDir, "lib/samples/roles.ts"), "export const Roles = 1;\n");
   writeFileSync(
     join(rootDir, "app/tools/evolving-fm-synth/lib/schema.ts"),

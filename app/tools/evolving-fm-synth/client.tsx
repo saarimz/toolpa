@@ -4,20 +4,24 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   BrainCircuit,
-  Copy,
-  Download,
   Pause,
   Play,
   RefreshCcw,
   SlidersHorizontal,
   Sparkles,
+  Upload,
   Waves,
   Zap,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { FxSlotPanel } from "@/components/fx-slot-panel";
 import { LlmGeneratingOverlay } from "@/components/llm-generating-overlay";
-import { AudioOutputRecorder } from "@/components/audio-output-recorder";
+import { ToolExportPanel } from "@/components/tool-export-panel";
+import {
+  createSynthSceneMidiPlayback,
+  MidiPlaybackPanel,
+} from "@/components/midi-playback-panel";
 import { getSynthStepDurationSec } from "@/app/tools/evolving-fm-synth/lib/events";
 import {
   buildEvolvingFmSynthPrompt,
@@ -31,6 +35,8 @@ import {
   fetchSynthSceneFromGateway,
   SynthGatewayTimeoutError,
 } from "@/app/tools/evolving-fm-synth/lib/gateway-request";
+import { createSynthSceneFromMidiFile } from "@/app/tools/evolving-fm-synth/lib/midi-import";
+import { evolvingFmSynthManifest } from "@/app/tools/evolving-fm-synth/manifest";
 import {
   midiToNoteName,
   getScaleDisplayName,
@@ -47,9 +53,14 @@ import {
 import { useEvolvingFmSynthStore } from "@/app/tools/evolving-fm-synth/store";
 import { useGlobalSynthContextSync } from "@/lib/music/use-global-context-sync";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
-import { downloadSynthSceneMidi } from "@/lib/midi/synth-scene";
+import {
+  exportSynthSceneMidiArtifact,
+  exportSynthSceneWavArtifact,
+} from "@/lib/tool-exports/adapters/synth-scene";
 import { useHydratePromptParam } from "@/lib/tools/use-prompt-param";
+import { useToolFxPattern } from "@/lib/audio/use-fx-pattern";
 
+const TOOL_SLUG = "evolving-fm-synth";
 const promptSeeds = [
   "dub techno in F minor at 124 bpm over 32 bars, soft evolving pads, ancient tape drift",
   "C dorian 118 bpm, 64 bars, sparse sub pulse, evolving glassy tones",
@@ -102,6 +113,7 @@ export function EvolvingFmSynthClient() {
   const setPrompt = useEvolvingFmSynthStore((state) => state.setPrompt);
   const generate = useEvolvingFmSynthStore((state) => state.generate);
   const evolve = useEvolvingFmSynthStore((state) => state.evolve);
+  const setScene = useEvolvingFmSynthStore((state) => state.setScene);
   const setPlaying = useEvolvingFmSynthStore((state) => state.setPlaying);
   const setCurrentStepIndex = useEvolvingFmSynthStore(
     (state) => state.setCurrentStepIndex,
@@ -123,6 +135,13 @@ export function EvolvingFmSynthClient() {
   const updateVoicePatch = useEvolvingFmSynthStore((state) => state.updateVoicePatch);
   const updateEffects = useEvolvingFmSynthStore((state) => state.updateEffects);
   const globalMusicContext = useGlobalMusicContextStore((state) => state.context);
+  const fxPattern = useToolFxPattern(TOOL_SLUG);
+  const sceneRef = useRef(scene);
+  const fxPatternRef = useRef(fxPattern);
+  const appliedFxPatternRef = useRef(fxPattern);
+  const restartTransportRef = useRef<
+    (nextScene: SynthScene, nextFxPattern: typeof fxPattern) => Promise<void>
+  >(async () => undefined);
   useGlobalSynthContextSync({ setBpm, setKeyAndScale });
   useHydratePromptParam(setPrompt);
 
@@ -140,6 +159,9 @@ export function EvolvingFmSynthClient() {
     source: agentSource,
     warning: agentError,
   });
+  const midiPlayback = useMemo(() => createSynthSceneMidiPlayback(scene), [scene]);
+  const currentBeat =
+    currentStepIndex === null ? null : (currentStepIndex * 4) / scene.stepsPerBar;
   const localScaleOptions = useMemo(
     () =>
       scaleOptions.includes(scene.scale)
@@ -160,6 +182,26 @@ export function EvolvingFmSynthClient() {
     [setCurrentStepIndex, setPlaying],
   );
 
+  useEffect(() => {
+    restartTransportRef.current = restartTransport;
+  });
+
+  useEffect(() => {
+    sceneRef.current = scene;
+  }, [scene]);
+
+  useEffect(() => {
+    fxPatternRef.current = fxPattern;
+  }, [fxPattern]);
+
+  useEffect(() => {
+    if (!isPlaying || appliedFxPatternRef.current === fxPattern) {
+      return;
+    }
+
+    void restartTransportRef.current(sceneRef.current, fxPattern);
+  }, [fxPattern, isPlaying]);
+
   async function togglePlayback() {
     if (isPlaying) {
       await stopTransport();
@@ -169,8 +211,9 @@ export function EvolvingFmSynthClient() {
     await restartTransport(scene);
   }
 
-  async function restartTransport(nextScene: SynthScene) {
-    await playEvolvingFmSynthScene(nextScene);
+  async function restartTransport(nextScene: SynthScene, nextFxPattern = fxPatternRef.current) {
+    appliedFxPatternRef.current = nextFxPattern;
+    await playEvolvingFmSynthScene(nextScene, { fxPattern: nextFxPattern });
     setPlaying(true);
     startStepTicker(nextScene);
   }
@@ -218,6 +261,26 @@ export function EvolvingFmSynthClient() {
       await restartTransport(useEvolvingFmSynthStore.getState().scene);
     }
     void requestGatewayScene("evolve", isPlaying);
+  }
+
+  async function importMidiFile(file: File | null) {
+    if (!file) {
+      return;
+    }
+
+    setAgentError(null);
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const nextScene = createSynthSceneFromMidiFile(bytes, sceneRef.current);
+      setScene(nextScene);
+      setAgentSource("midi import");
+      if (isPlaying) {
+        await restartTransport(nextScene);
+      }
+    } catch (error) {
+      setAgentSource("local-agent");
+      setAgentError(error instanceof Error ? error.message : "Could not import MIDI");
+    }
   }
 
   async function requestGatewayScene(
@@ -331,19 +394,35 @@ export function EvolvingFmSynthClient() {
               <RefreshCcw className="size-4" />
               evolve
             </Button>
-            <AudioOutputRecorder filename={scene.name} sourceId="evolving-fm-synth" />
-            <Button onClick={() => downloadSynthSceneMidi(scene)}>
-              <Download className="size-4" />
-              download midi
-            </Button>
-            <Button
-              onClick={() =>
-                void navigator.clipboard.writeText(JSON.stringify(scene, null, 2))
+            <ToolExportPanel
+              audioExport={() =>
+                exportSynthSceneWavArtifact({
+                  filename: `${scene.name}.wav`,
+                  fxPattern,
+                  scene,
+                  toolSlug: TOOL_SLUG,
+                })
               }
-            >
-              <Copy className="size-4" />
-              copy json
-            </Button>
+              document={scene}
+              filenameStem={scene.name}
+              manifest={evolvingFmSynthManifest}
+              midiExport={() =>
+                exportSynthSceneMidiArtifact({
+                  scene,
+                  toolSlug: TOOL_SLUG,
+                })
+              }
+            />
+            <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-sm border border-zinc-700 bg-zinc-950 px-3 text-xs font-medium text-zinc-200 hover:border-zinc-500 hover:bg-zinc-900">
+              <Upload className="size-4" />
+              upload midi
+              <input
+                className="sr-only"
+                type="file"
+                accept=".mid,.midi,audio/midi"
+                onChange={(event) => void importMidiFile(event.currentTarget.files?.[0] ?? null)}
+              />
+            </label>
             <label className="inline-flex h-9 items-center gap-2 rounded-sm border border-zinc-700 bg-zinc-950 px-3 text-xs text-zinc-300">
               cycle {scene.bars} bars
             </label>
@@ -416,6 +495,12 @@ export function EvolvingFmSynthClient() {
         </div>
       </section>
 
+      <MidiPlaybackPanel
+        {...midiPlayback}
+        currentBeat={currentBeat}
+        isPlaying={isPlaying}
+      />
+
       <Sequencer
         scene={scene}
         currentStepIndex={currentStepIndex}
@@ -433,7 +518,10 @@ export function EvolvingFmSynthClient() {
           updateStep={updateStep}
           updateVoicePatch={updateVoicePatch}
         />
-        <EffectsPanel scene={scene} patchEffects={patchEffects} />
+        <div className="border-t border-zinc-800 lg:border-l lg:border-t-0">
+          <EffectsPanel scene={scene} patchEffects={patchEffects} />
+          <FxSlotPanel toolId={TOOL_SLUG} />
+        </div>
       </section>
 
       <section className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_420px]">

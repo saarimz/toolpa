@@ -14,7 +14,7 @@ export const drumMachineManifest: AgentManifest = {
     usesSamples: true,
     usesSynthesis: false,
   },
-  capabilities: ["sequence", "mutatePattern", "polyrhythm", "recordOutput"],
+  capabilities: ["sequence", "mutatePattern", "polyrhythm", "fxSlots", "recordOutput"],
   inputs: {
     samples: ["break", "loop", "oneshot", "fx"],
     bpm: true,
@@ -39,6 +39,18 @@ export const drumMachineManifest: AgentManifest = {
     recording: true,
     files: false,
     manifest: false,
+  },
+  exports: {
+    document: "pattern",
+    audio: {
+      strategy: "offline-render",
+      formats: ["wav"],
+      maxDefaultDurationSec: 120,
+      requiresUserGestureForPreview: true,
+    },
+  },
+  fx: {
+    enabled: true,
   },
   autonomy: "assist",
   status: "enabled",

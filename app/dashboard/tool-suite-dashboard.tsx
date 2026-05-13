@@ -12,6 +12,8 @@ import {
   RotateCcw,
 } from "lucide-react";
 
+import { DashboardOnboarding } from "@/app/dashboard/dashboard-onboarding";
+import { GlobalMusicControls } from "@/components/music/global-music-controls";
 import type { AgentManifest } from "@/lib/agents/contract";
 import type { GeneratedToolAudit } from "@/lib/agents/generated-audit";
 import type { PlatformHardeningAudit } from "@/lib/agents/platform-hardening";
@@ -23,7 +25,9 @@ type SecondaryFilter =
   | "synth"
   | "effect"
   | "hybrid"
+  | "midi"
   | "pattern"
+  | "midi-clip"
   | "synth-scene"
   | "audio-stream";
 
@@ -46,7 +50,9 @@ const secondaryFilters: Array<{ label: string; value: SecondaryFilter }> = [
   { label: "Synth", value: "synth" },
   { label: "Effect", value: "effect" },
   { label: "Hybrid", value: "hybrid" },
+  { label: "MIDI", value: "midi" },
   { label: "Pattern", value: "pattern" },
+  { label: "MIDI Clip", value: "midi-clip" },
   { label: "SynthScene", value: "synth-scene" },
   { label: "Audio Stream", value: "audio-stream" },
 ];
@@ -81,6 +87,7 @@ export function ToolSuiteDashboard({
 
   return (
     <main className="min-h-screen bg-zinc-950 p-4 text-zinc-100 sm:p-6">
+      <DashboardOnboarding />
       <div className="mx-auto max-w-7xl">
         <header className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-zinc-800 pb-4">
           <div>
@@ -106,6 +113,8 @@ export function ToolSuiteDashboard({
             AI generation is disabled until AI_GATEWAY_API_KEY is set in .env.local.
           </div>
         ) : null}
+
+        <GlobalMusicControls />
 
         <section className="mb-4 grid gap-3 md:grid-cols-5">
           <MetricCard icon={<Boxes className="size-4" />} label="installed L1" value={summary.installedL1} />

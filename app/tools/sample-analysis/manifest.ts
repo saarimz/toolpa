@@ -1,0 +1,68 @@
+import type { AgentManifest } from "@/lib/agents/contract";
+
+export const sampleAnalysisManifest = {
+  name: "sample analysis",
+  slug: "sample-analysis",
+  level: 1,
+  origin: "installed",
+  description:
+    "Analyze uploaded or library samples and generate structured production ideas from DSP features.",
+  route: "/tools/sample-analysis",
+  instrument: {
+    type: "sample",
+    workflow: "sample-analysis",
+    document: "audio-stream",
+    usesSamples: true,
+    usesSynthesis: false,
+  },
+  capabilities: [
+    "selectSample",
+    "uploadSample",
+    "analyzeSample",
+    "structuredUseIdeas",
+    "play",
+    "recordOutput",
+  ],
+  inputs: {
+    samples: ["break", "loop", "oneshot", "melodic", "pad", "fx"],
+    bpm: true,
+    globalBpm: true,
+    globalKey: true,
+    scaleSearch: true,
+    prompt: true,
+    description: false,
+    referenceAgent: false,
+    requiredAnalysis: [
+      "global.true_peak_dbfs",
+      "rhythm.onsets_s",
+      "envelope.attack_ms",
+      "slices",
+      "llm_descriptors",
+    ],
+  },
+  musicContext: {
+    globalBpm: true,
+    globalKey: true,
+    scaleSearch: true,
+  },
+  outputs: {
+    pattern: false,
+    synthScene: false,
+    midi: false,
+    audio: true,
+    recording: true,
+    files: false,
+    manifest: false,
+  },
+  exports: {
+    document: "audio-stream",
+    audio: {
+      strategy: "live-recording",
+      formats: ["wav"],
+      maxDefaultDurationSec: 120,
+      requiresUserGestureForPreview: true,
+    },
+  },
+  autonomy: "assist",
+  status: "enabled",
+} satisfies AgentManifest;

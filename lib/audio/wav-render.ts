@@ -8,14 +8,18 @@ import {
   resolveSamplePlaybackSegment,
   type SampleSmoothingOptions,
 } from "@/lib/audio/sample-engine";
+import { createOfflineFxOutput } from "@/lib/audio/fx-chain";
 import { type SliceRegion } from "@/lib/audio/slices";
 import type { Pattern } from "@/lib/pattern/schema";
 import type { GlobalMusicContext } from "@/lib/music/context";
 import { resolveSample } from "@/lib/samples/resolver";
+import type { FxPatternInput } from "@/lib/audio/fx-manifest";
 
 export type RenderPatternWavOptions = {
   declickPreset?: DeclickPreset;
   durationSec?: number;
+  fxPattern?: FxPatternInput;
+  random?: () => number;
   sampleRate?: number;
   sliceCount?: number;
   slicesBySampleId?: Map<string, SliceRegion[]>;
@@ -48,7 +52,14 @@ export async function renderPatternToAudioBuffer(
     Math.ceil(totalDurationSec * sampleRate),
     sampleRate,
   );
-  const outputNode = createOfflineSafetyLimiter(context);
+  const outputNode = createOfflineFxOutput({
+    bpm: pattern.bpm,
+    context,
+    fxPattern: options.fxPattern,
+    random: options.random,
+    stepDurationSec: getStepDurationSec(pattern),
+    totalSteps: pattern.stepsPerBar * pattern.bars,
+  });
   const samples = await Promise.all(
     collectPatternSampleIds(pattern).map(
       async (sampleId) => [sampleId, await resolveSample(sampleId)] as const,
@@ -183,15 +194,4 @@ function scheduleDeclickGain(
 
   gain.setValueAtTime(targetGain, releaseStart);
   gain.linearRampToValueAtTime(0, endTime);
-}
-
-function createOfflineSafetyLimiter(context: OfflineAudioContext): AudioNode {
-  const limiter = context.createDynamicsCompressor();
-  limiter.threshold.setValueAtTime(-1, 0);
-  limiter.knee.setValueAtTime(0, 0);
-  limiter.ratio.setValueAtTime(20, 0);
-  limiter.attack.setValueAtTime(0.003, 0);
-  limiter.release.setValueAtTime(0.03, 0);
-  limiter.connect(context.destination);
-  return limiter;
 }

@@ -4,12 +4,12 @@ import {
 } from "@/lib/agents/builder-contracts";
 import { SandboxBreach } from "@/lib/agents/sandbox";
 import {
-  runBuilderAgent,
-  type RunBuilderAgentInput,
+  runBuilderToolLoopAgent,
+  type RunBuilderToolLoopAgentInput,
 } from "@/app/tools/_builder/lib/builder-agent";
 
 export type BuildHandlerDeps = {
-  runBuilder?: (input: RunBuilderAgentInput) => Promise<unknown>;
+  runBuilder?: (input: RunBuilderToolLoopAgentInput) => Promise<unknown>;
 };
 
 export async function handleBuildRequest(
@@ -24,7 +24,7 @@ export async function handleBuildRequest(
     );
   }
 
-  const runBuilder = deps.runBuilder ?? runBuilderAgent;
+  const runBuilder = deps.runBuilder ?? runBuilderToolLoopAgent;
 
   return new Response(
     new ReadableStream({

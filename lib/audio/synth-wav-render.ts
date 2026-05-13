@@ -1,16 +1,20 @@
 import {
   collectSynthEvents,
   getSynthSceneDurationSec,
+  getSynthStepDurationSec,
 } from "@/app/tools/evolving-fm-synth/lib/events";
 import {
   midiToFrequency,
   type SynthScene,
   type SynthVoice,
 } from "@/app/tools/evolving-fm-synth/lib/schema";
+import { createOfflineFxOutput } from "@/lib/audio/fx-chain";
+import type { FxPatternInput } from "@/lib/audio/fx-manifest";
 import { encodeAudioBufferToWav } from "@/lib/audio/wav-render";
 
 export type RenderSynthSceneWavOptions = {
   durationSec?: number;
+  fxPattern?: FxPatternInput | null;
   maxDurationSec?: number;
   sampleRate?: number;
 };
@@ -42,7 +46,14 @@ export async function renderSynthSceneToAudioBuffer(
     Math.ceil(renderDurationSec * sampleRate),
     sampleRate,
   );
-  const output = createOfflineSynthLimiter(context);
+  const output = createOfflineFxOutput({
+    bpm: scene.bpm,
+    context,
+    fxPattern: options.fxPattern,
+    limiterDb: scene.effects.masterDb,
+    stepDurationSec: getSynthStepDurationSec(scene),
+    totalSteps: scene.bars * scene.stepsPerBar,
+  });
   const voicesById = new Map(scene.voices.map((voice) => [voice.id, voice]));
 
   for (const event of collectSynthEvents(scene, { random: () => 0 })) {
@@ -180,17 +191,6 @@ function createPeriodicWave(
   return context.createPeriodicWave(real, imaginary, {
     disableNormalization: false,
   });
-}
-
-function createOfflineSynthLimiter(context: OfflineAudioContext): AudioNode {
-  const limiter = context.createDynamicsCompressor();
-  limiter.threshold.setValueAtTime(-2, 0);
-  limiter.knee.setValueAtTime(0, 0);
-  limiter.ratio.setValueAtTime(18, 0);
-  limiter.attack.setValueAtTime(0.004, 0);
-  limiter.release.setValueAtTime(0.08, 0);
-  limiter.connect(context.destination);
-  return limiter;
 }
 
 function getSynthReleaseTailSec(scene: SynthScene) {

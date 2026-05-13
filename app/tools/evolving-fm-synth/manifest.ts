@@ -22,6 +22,7 @@ export const evolvingFmSynthManifest = {
     "exportMidi",
     "evolveVariations",
     "dubEffects",
+    "fxSlots",
     "recordOutput",
   ],
   inputs: {
@@ -48,6 +49,26 @@ export const evolvingFmSynthManifest = {
     recording: true,
     files: false,
     manifest: false,
+  },
+  exports: {
+    document: "synth-scene",
+    audio: {
+      strategy: "offline-render",
+      formats: ["wav"],
+      maxDefaultDurationSec: 600,
+      requiresUserGestureForPreview: true,
+    },
+    midi: {
+      strategy: "standard-midi-file",
+      format: "smf-1",
+      ticksPerQuarter: 480,
+      preservesTracks: true,
+      supportsPitchBend: true,
+      supportsCc: false,
+    },
+  },
+  fx: {
+    enabled: true,
   },
   autonomy: "driven",
   status: "enabled",

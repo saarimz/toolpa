@@ -14,7 +14,7 @@ export const gridSamplerManifest: AgentManifest = {
     usesSamples: true,
     usesSynthesis: false,
   },
-  capabilities: ["sliceGrid", "traverse", "generatePattern", "recordOutput"],
+  capabilities: ["sliceGrid", "traverse", "generatePattern", "fxSlots", "recordOutput"],
   inputs: {
     samples: ["break", "loop", "oneshot", "melodic", "pad", "fx"],
     bpm: true,
@@ -39,6 +39,18 @@ export const gridSamplerManifest: AgentManifest = {
     recording: true,
     files: false,
     manifest: false,
+  },
+  exports: {
+    document: "pattern",
+    audio: {
+      strategy: "offline-render",
+      formats: ["wav"],
+      maxDefaultDurationSec: 120,
+      requiresUserGestureForPreview: true,
+    },
+  },
+  fx: {
+    enabled: true,
   },
   autonomy: "assist",
   status: "enabled",

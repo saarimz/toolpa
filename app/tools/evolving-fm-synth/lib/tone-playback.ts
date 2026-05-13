@@ -1,9 +1,20 @@
 "use client";
 
 import {
+  collectFxAutomationEvents,
+  resolveFxAutomationWet,
+  type FxPatternInput,
+} from "@/lib/audio/fx-manifest";
+import {
+  createToneFxGraph,
+  type ToneFxGraph,
+} from "@/lib/audio/fx-chain";
+
+import {
   collectSynthEvents,
   collectSynthModulationEvents,
   getSynthSceneDurationSec,
+  getSynthStepDurationSec,
   morphPartials,
   type SynthEvent,
   type SynthModulationEvent,
@@ -65,11 +76,16 @@ export type CarrierOscillatorOptions =
 
 let activePart: DisposablePart | null = null;
 let activeModulationPart: DisposablePart | null = null;
+let activeFxAutomationPart: DisposablePart | null = null;
+let activeFxGraph: ToneFxGraph | null = null;
 const activeSynths = new Map<string, PlayableSynth>();
 const activeVoices = new Map<string, SynthVoice>();
 const activeNodes = new Set<DisposableNode>();
 
-export async function playEvolvingFmSynthScene(scene: SynthScene) {
+export async function playEvolvingFmSynthScene(
+  scene: SynthScene,
+  options: { fxPattern?: FxPatternInput | null } = {},
+) {
   const Tone = await import("tone");
   await Tone.start();
   await stopEvolvingFmSynthScene();
@@ -79,7 +95,7 @@ export async function playEvolvingFmSynthScene(scene: SynthScene) {
   transport.swing = scene.swing;
   transport.swingSubdivision = "16n";
 
-  const effects = await createEffects(Tone, scene);
+  const effects = await createEffects(Tone, scene, options.fxPattern);
   for (const voice of scene.voices) {
     const synth = createToneSynth(Tone, voice);
     synth.connect(effects.input);
@@ -126,6 +142,12 @@ export async function playEvolvingFmSynthScene(scene: SynthScene) {
       });
     }
   }, modulationEvents.map((event) => [event.timeSec, event] as const));
+  const fxAutomationPart = createFxAutomationPart({
+    fxGraph: effects.fxGraph,
+    fxPattern: options.fxPattern,
+    scene,
+    Tone,
+  });
 
   part.loop = true;
   part.loopEnd = getSynthSceneDurationSec(scene);
@@ -135,6 +157,8 @@ export async function playEvolvingFmSynthScene(scene: SynthScene) {
   modulationPart.loopEnd = getSynthSceneDurationSec(scene);
   modulationPart.start(0);
   activeModulationPart = modulationPart;
+  activeFxAutomationPart = fxAutomationPart;
+  activeFxAutomationPart?.start(0);
 
   transport.stop();
   transport.position = 0;
@@ -149,6 +173,9 @@ export async function stopEvolvingFmSynthScene() {
   activeModulationPart?.stop();
   activeModulationPart?.dispose();
   activeModulationPart = null;
+  activeFxAutomationPart?.stop();
+  activeFxAutomationPart?.dispose();
+  activeFxAutomationPart = null;
 
   for (const synth of activeSynths.values()) {
     synth.releaseAll();
@@ -161,6 +188,8 @@ export async function stopEvolvingFmSynthScene() {
     node.dispose();
   }
   activeNodes.clear();
+  activeFxGraph?.dispose();
+  activeFxGraph = null;
 
   Tone.getTransport().stop();
   Tone.getTransport().cancel();
@@ -212,7 +241,11 @@ export function buildCarrierOscillatorOptions(
   return { type: rootWaveform };
 }
 
-async function createEffects(Tone: ToneModule, scene: SynthScene) {
+async function createEffects(
+  Tone: ToneModule,
+  scene: SynthScene,
+  fxPattern?: FxPatternInput | null,
+) {
   const filter = new Tone.Filter(
     scene.effects.filter.cutoffHz,
     "lowpass",
@@ -245,18 +278,57 @@ async function createEffects(Tone: ToneModule, scene: SynthScene) {
   await reverb.ready;
 
   const limiter = new Tone.Limiter(scene.effects.masterDb) as DisposableNode;
+  const fxGraph = await createToneFxGraph({
+    fxPattern,
+    limiterDb: -1,
+    Tone,
+  });
   filter.connect(drive);
   drive.connect(chorus);
   chorus.connect(delay);
   delay.connect(reverb);
   reverb.connect(limiter);
-  limiter.connect(Tone.getDestination());
+  limiter.connect(fxGraph.input);
 
   for (const node of [filter, drive, chorus, delay, reverb, limiter]) {
     activeNodes.add(node);
   }
+  activeFxGraph = fxGraph;
 
-  return { input: filter, filter, drive, chorus, delay, reverb };
+  return { input: filter, filter, drive, chorus, delay, reverb, fxGraph };
+}
+
+function createFxAutomationPart({
+  fxGraph,
+  fxPattern,
+  scene,
+  Tone,
+}: {
+  fxGraph: ToneFxGraph;
+  fxPattern?: FxPatternInput | null;
+  scene: SynthScene;
+  Tone: ToneModule;
+}): DisposablePart | null {
+  const events = collectFxAutomationEvents({
+    fxPattern,
+    stepDurationSec: getSynthStepDurationSec(scene),
+    totalSteps: scene.bars * scene.stepsPerBar,
+  });
+  if (events.length === 0) {
+    return null;
+  }
+
+  const part = new Tone.Part((time: number, event: (typeof events)[number]) => {
+    fxGraph.setSlotWet(
+      event.slotId,
+      resolveFxAutomationWet(event),
+      Number(time),
+      event.smoothSec,
+    );
+  }, events.map((event) => [event.timeSec, event] as const));
+  part.loop = true;
+  part.loopEnd = getSynthSceneDurationSec(scene);
+  return part as DisposablePart;
 }
 
 function applyBarModulation(

@@ -6,7 +6,7 @@ export const cameraThereminManifest = {
   level: 1,
   origin: "installed",
   description:
-    "Camera-tracked hand synth that quantizes theremin-style motion into the selected key and scale.",
+    "Prompt-selectable camera synth that quantizes hand, gesture, face, eye, or body motion into the selected key and scale.",
   route: "/tools/camera-theremin",
   instrument: {
     type: "synth",
@@ -18,8 +18,13 @@ export const cameraThereminManifest = {
   capabilities: [
     "cameraTracking",
     "handLandmarks",
+    "gestureTracking",
+    "faceLandmarks",
+    "eyeTracking",
+    "poseLandmarks",
     "scaleQuantizedPitch",
     "continuousSynth",
+    "fxSlots",
     "recordOutput",
   ],
   inputs: {
@@ -46,6 +51,18 @@ export const cameraThereminManifest = {
     recording: true,
     files: false,
     manifest: false,
+  },
+  exports: {
+    document: "synth-scene",
+    audio: {
+      strategy: "live-recording",
+      formats: ["wav"],
+      maxDefaultDurationSec: 120,
+      requiresUserGestureForPreview: true,
+    },
+  },
+  fx: {
+    enabled: true,
   },
   autonomy: "manual",
   status: "enabled",

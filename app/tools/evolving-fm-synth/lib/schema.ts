@@ -118,7 +118,7 @@ export const SynthMacroSchema = z.object({
 
 export const SynthSceneMetadataSchema = z
   .object({
-    createdBy: z.enum(["manual", "ai", "local-agent"]).default("local-agent"),
+    createdBy: z.enum(["manual", "ai", "local-agent", "import"]).default("local-agent"),
     prompt: z.string().default(""),
     rationale: z.string().default(""),
     influences: z.array(z.string()).default([]),

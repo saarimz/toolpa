@@ -47,7 +47,8 @@ describe("sample tool playback contract", () => {
       expect(source).toContain("getSamplePlaybackHost");
       expect(source).toContain(`getSamplePlaybackHost("${manifest.slug}")`);
       expect(source).toContain("playbackHost.playPattern");
-      expect(source).toContain("renderPatternToWav");
+      expect(source).toContain("ToolExportPanel");
+      expect(source).toContain("exportPatternWavArtifact");
     },
   );
 
@@ -66,6 +67,7 @@ describe("sample tool playback contract", () => {
     });
     expect(client).toContain('getSamplePlaybackHost("generated-glitch")');
     expect(client).toContain("playbackHost.playPattern");
-    expect(client).toContain("renderPatternToWav");
+    expect(client).toContain("ToolExportPanel");
+    expect(client).toContain("exportPatternWavArtifact");
   });
 });

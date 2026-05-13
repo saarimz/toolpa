@@ -13,22 +13,32 @@ import { TransportBar } from "@/app/tools/intelligence-sampler/components/transp
 import { WaveformSlicer } from "@/app/tools/intelligence-sampler/components/waveform-slicer";
 import { useIntelligenceSamplerStore } from "@/app/tools/intelligence-sampler/store";
 import { getSamplePlaybackHost } from "@/lib/audio/sample-playback";
+import { useToolFxPattern } from "@/lib/audio/use-fx-pattern";
 import { useGlobalBpmSync } from "@/lib/music/use-global-context-sync";
+import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
 
 const playbackHost = getSamplePlaybackHost("intelligence-sampler");
 
 export function IntelligenceSamplerClient() {
   const pattern = useIntelligenceSamplerStore((state) => state.pattern);
+  const sampleId = useIntelligenceSamplerStore((state) => state.sampleId);
+  const slices = useIntelligenceSamplerStore((state) => state.slices);
   const setPattern = useIntelligenceSamplerStore((state) => state.setPattern);
   const isPlaying = useIntelligenceSamplerStore((state) => state.isPlaying);
   const setBpm = useIntelligenceSamplerStore((state) => state.setBpm);
+  const fxPattern = useToolFxPattern("intelligence-sampler");
+  const musicalContext = useGlobalMusicContextStore((state) => state.context);
   useGlobalBpmSync(setBpm);
 
   useUrlPatternState({ pattern, setPattern, isPlaying });
 
   useEffect(() => {
-    void playbackHost.updatePattern(pattern);
-  }, [pattern]);
+    void playbackHost.updatePattern(pattern, {
+      fxPattern,
+      musicalContext,
+      slicesBySampleId: slices.length > 0 ? new Map([[sampleId, slices]]) : undefined,
+    });
+  }, [fxPattern, musicalContext, pattern, sampleId, slices]);
 
   useEffect(
     () => () => {

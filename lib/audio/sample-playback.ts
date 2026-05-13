@@ -57,11 +57,17 @@ export type SampleAuditionOptions = {
   zeroCrossingWindowMs?: number;
 };
 
-export async function auditionSamplePlaybackSlice(
+export type SampleAuditionHandle = {
+  durationSec: number;
+  finished: Promise<void>;
+  stop: () => void;
+};
+
+export async function startSamplePlaybackSlice(
   sampleId: string,
   slot: number,
   options: SampleAuditionOptions = {},
-): Promise<void> {
+): Promise<SampleAuditionHandle> {
   const Tone = await import("tone");
   await Tone.start();
   const sample = await resolveSample(sampleId);
@@ -86,11 +92,52 @@ export async function auditionSamplePlaybackSlice(
   player.fadeOut = segment.envelope.releaseSec;
   player.start(undefined, segment.sourceOffsetSec);
   player.stop(`+${segment.releaseStartOffsetSec}`);
-  setTimeout(
-    () => {
-      player.dispose();
-      outputNode.dispose();
-    },
-    Math.max(250, (segment.audibleDurationSec + segment.envelope.releaseSec) * 1000 + 100),
+
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let didFinish = false;
+  let resolveFinished: () => void = () => undefined;
+  const finished = new Promise<void>((resolve) => {
+    resolveFinished = resolve;
+  });
+  const finish = () => {
+    if (didFinish) {
+      return;
+    }
+
+    didFinish = true;
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+    try {
+      player.stop();
+    } catch {
+      // The scheduled stop may have already fired.
+    }
+    player.dispose();
+    outputNode.dispose();
+    resolveFinished();
+  };
+
+  timeoutId = setTimeout(
+    finish,
+    Math.max(
+      250,
+      (segment.audibleDurationSec + segment.envelope.releaseSec) * 1000 + 100,
+    ),
   );
+
+  return {
+    durationSec: segment.audibleDurationSec,
+    finished,
+    stop: finish,
+  };
+}
+
+export async function auditionSamplePlaybackSlice(
+  sampleId: string,
+  slot: number,
+  options: SampleAuditionOptions = {},
+): Promise<void> {
+  await startSamplePlaybackSlice(sampleId, slot, options);
 }

@@ -25,6 +25,10 @@ describe("instantiateToolSkeleton", () => {
         usesSynthesis: false,
       },
       outputs: { pattern: true, synthScene: false, audio: true, recording: true },
+      exports: {
+        document: "pattern",
+        audio: { strategy: "offline-render", formats: ["wav"] },
+      },
       musicContext: { globalBpm: true, globalKey: true, scaleSearch: true },
     });
     expect([...instance.files.keys()]).toEqual([
@@ -66,10 +70,10 @@ describe("instantiateToolSkeleton", () => {
       "AbortController",
     );
     expect(instance.files.get("app/tools/vocal-stutter/client.tsx")).toContain(
-      "renderPatternToWav",
+      "ToolExportPanel",
     );
     expect(instance.files.get("app/tools/vocal-stutter/client.tsx")).toContain(
-      "copyPatternJson",
+      "exportPatternWavArtifact",
     );
     expect(instance.files.get("app/tools/vocal-stutter/render.ts")).toContain(
       "renderOffline",
@@ -116,19 +120,24 @@ describe("instantiateToolSkeleton", () => {
         usesSynthesis: true,
       },
       outputs: { pattern: false, synthScene: true, midi: true, audio: true, recording: true },
+      exports: {
+        document: "synth-scene",
+        audio: { strategy: "offline-render", formats: ["wav"] },
+        midi: { strategy: "standard-midi-file", format: "smf-1" },
+      },
       musicContext: { globalBpm: true, globalKey: true, scaleSearch: true },
     });
     expect(instance.files.get("app/tools/simple-synth/client.tsx")).toContain(
       "fetchSynthSceneFromGateway",
     );
     expect(instance.files.get("app/tools/simple-synth/client.tsx")).toContain(
-      "renderSynthSceneToWav",
+      "ToolExportPanel",
     );
     expect(instance.files.get("app/tools/simple-synth/client.tsx")).toContain(
-      "downloadSynthSceneMidi",
+      "exportSynthSceneMidiArtifact",
     );
     expect(instance.files.get("app/tools/simple-synth/client.tsx")).toContain(
-      "download midi",
+      "upload midi",
     );
     expect(instance.files.get("app/tools/simple-synth/client.tsx")).toContain(
       "generating synth scene",
@@ -159,6 +168,10 @@ describe("instantiateToolSkeleton", () => {
         usesSynthesis: false,
       },
       outputs: { pattern: false, synthScene: false, audio: true, recording: true },
+      exports: {
+        document: "audio-stream",
+        audio: { strategy: "live-recording", formats: ["wav"] },
+      },
       musicContext: { globalBpm: true, globalKey: false, scaleSearch: false },
     });
     expect(instance.files.get("app/tools/simple-effect/client.tsx")).toContain(
@@ -193,6 +206,11 @@ describe("instantiateToolSkeleton", () => {
         usesSynthesis: true,
       },
       outputs: { pattern: false, synthScene: true, midi: true, audio: true, recording: true },
+      exports: {
+        document: "synth-scene",
+        audio: { strategy: "offline-render", formats: ["wav"] },
+        midi: { strategy: "standard-midi-file", format: "smf-1" },
+      },
       musicContext: { globalBpm: true, globalKey: true, scaleSearch: true },
     });
     expect(instance.files.get("app/tools/simple-hybrid/client.tsx")).toContain(
@@ -202,7 +220,10 @@ describe("instantiateToolSkeleton", () => {
       "SamplePicker",
     );
     expect(instance.files.get("app/tools/simple-hybrid/client.tsx")).toContain(
-      "downloadSynthSceneMidi",
+      "ToolExportPanel",
+    );
+    expect(instance.files.get("app/tools/simple-hybrid/client.tsx")).toContain(
+      "upload midi",
     );
     expect(instance.files.get("app/tools/simple-hybrid/client.test.tsx")).toContain(
       'vi.mock("@/components/sample-picker"',

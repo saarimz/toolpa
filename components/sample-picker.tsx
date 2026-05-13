@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { computeWaveformBars } from "@/lib/audio/waveform";
 import type { Track } from "@/lib/pattern/schema";
 import { getSampleSchema } from "@/lib/samples/analysis";
 import { hasLibraryAnalysis } from "@/lib/samples/analysis/library-cache";
@@ -17,6 +18,7 @@ import {
   listUploadedSamples,
   type UploadedSampleRecord,
 } from "@/lib/samples/storage";
+import { resolveSample } from "@/lib/samples/resolver";
 import { persistUploadedSample } from "@/lib/samples/upload";
 
 export type PickedSample = {
@@ -40,6 +42,18 @@ type AnalysisState =
   | { status: "ready"; analysis: SampleAnalysis }
   | { status: "error"; message: string };
 
+type WaveformState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | {
+      status: "ready";
+      bars: number[];
+      durationSec: number;
+      sampleRate: number;
+      channelCount: number;
+    }
+  | { status: "error"; message: string };
+
 export function SamplePicker({
   id,
   label,
@@ -50,6 +64,9 @@ export function SamplePicker({
   const [uploads, setUploads] = useState<UploadedSampleRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [analysisState, setAnalysisState] = useState<AnalysisState>({
+    status: "idle",
+  });
+  const [waveformState, setWaveformState] = useState<WaveformState>({
     status: "idle",
   });
   const [showRawSchema, setShowRawSchema] = useState(false);
@@ -136,6 +153,62 @@ export function SamplePicker({
     };
   }, [value, runAnalysis]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const setIdle = () => {
+      queueMicrotask(() => {
+        if (!cancelled) {
+          setWaveformState({ status: "idle" });
+        }
+      });
+    };
+    const setLoading = () => {
+      queueMicrotask(() => {
+        if (!cancelled) {
+          setWaveformState({ status: "loading" });
+        }
+      });
+    };
+
+    if (!value) {
+      setIdle();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setLoading();
+    void resolveSample(value)
+      .then((resolved) => {
+        if (cancelled) {
+          return;
+        }
+
+        setWaveformState({
+          status: "ready",
+          bars: computeWaveformBars(resolved.audioBuffer, 96),
+          durationSec: resolved.audioBuffer.duration,
+          sampleRate: resolved.audioBuffer.sampleRate,
+          channelCount: resolved.audioBuffer.numberOfChannels,
+        });
+      })
+      .catch((unknownError) => {
+        if (!cancelled) {
+          setWaveformState({
+            status: "error",
+            message:
+              unknownError instanceof Error
+                ? unknownError.message
+                : "Could not decode waveform",
+          });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [value]);
+
   async function handleUpload(file: File | null) {
     if (!file) {
       return;
@@ -180,7 +253,7 @@ export function SamplePicker({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-1 basis-[30rem] flex-col gap-2">
       <div className="flex flex-wrap items-center gap-3">
         <label className="text-xs text-zinc-500" htmlFor={id}>
           {label}
@@ -228,6 +301,7 @@ export function SamplePicker({
       <AnalysisPanel
         sampleId={value}
         state={analysisState}
+        waveform={waveformState}
         showRaw={showRawSchema}
         onToggleRaw={() => setShowRawSchema((prev) => !prev)}
         onAnalyze={() => void runAnalysis(value)}
@@ -239,6 +313,7 @@ export function SamplePicker({
 type AnalysisPanelProps = {
   sampleId: string;
   state: AnalysisState;
+  waveform: WaveformState;
   showRaw: boolean;
   onToggleRaw: () => void;
   onAnalyze: () => void;
@@ -247,6 +322,7 @@ type AnalysisPanelProps = {
 function AnalysisPanel({
   sampleId,
   state,
+  waveform,
   showRaw,
   onToggleRaw,
   onAnalyze,
@@ -279,6 +355,7 @@ function AnalysisPanel({
           </button>
         ) : null}
       </div>
+      <WaveformPreview state={waveform} />
       {state.status === "ready" ? (
         <AnalysisSummary analysis={state.analysis} />
       ) : null}
@@ -289,6 +366,70 @@ function AnalysisPanel({
       ) : null}
     </div>
   );
+}
+
+const loadingWaveformBars = Array.from(
+  { length: 96 },
+  (_, index) => 0.12 + Math.abs(Math.sin(index * 0.65)) * 0.36,
+);
+
+function WaveformPreview({ state }: { state: WaveformState }) {
+  const bars = state.status === "ready" ? state.bars : loadingWaveformBars;
+  const label =
+    state.status === "ready"
+      ? `${formatDuration(state.durationSec)} / ${formatSampleRate(state.sampleRate)} / ${state.channelCount} ch`
+      : state.status === "loading"
+        ? "loading waveform"
+        : state.status === "error"
+          ? `waveform unavailable: ${state.message}`
+          : "waveform not loaded";
+  const isReady = state.status === "ready";
+  const isError = state.status === "error";
+
+  return (
+    <div className="mt-2">
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+        <span className="text-zinc-500">waveform</span>
+        <span className={isError ? "text-red-300" : "text-zinc-300"}>{label}</span>
+      </div>
+      <div
+        role="img"
+        aria-label={`full waveform, ${label}`}
+        className="flex h-16 items-center gap-px overflow-hidden rounded-sm border border-zinc-800 bg-black/60 px-1 py-2"
+      >
+        {bars.map((height, index) => (
+          <span
+            key={index}
+            className={isReady ? "flex-1 bg-zinc-200" : "flex-1 bg-zinc-700/50"}
+            style={{ height: `${Math.max(isReady ? 3 : 8, Math.round(height * 100))}%` }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function formatDuration(durationSec: number) {
+  if (!Number.isFinite(durationSec) || durationSec < 0) {
+    return "unknown length";
+  }
+
+  if (durationSec >= 60) {
+    const minutes = Math.floor(durationSec / 60);
+    const seconds = (durationSec % 60).toFixed(1).padStart(4, "0");
+    return `${minutes}:${seconds}`;
+  }
+
+  return `${durationSec.toFixed(durationSec >= 10 ? 1 : 2)}s`;
+}
+
+function formatSampleRate(sampleRate: number) {
+  if (!Number.isFinite(sampleRate) || sampleRate <= 0) {
+    return "unknown rate";
+  }
+
+  const khz = sampleRate / 1000;
+  return `${khz.toFixed(Number.isInteger(khz) ? 0 : 1)} kHz`;
 }
 
 function AnalysisSummary({ analysis }: { analysis: SampleAnalysis }) {

@@ -1,12 +1,31 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { act } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { GridCanvas } from "@/app/tools/grid-sampler/components/grid-canvas";
 import { createGridSamplerState } from "@/app/tools/grid-sampler/lib/pattern";
 import { publishPatternPlaybackTrace } from "@/lib/audio/playback-agency";
 import { useGridSamplerStore } from "@/app/tools/grid-sampler/store";
+
+vi.mock("@/lib/samples/resolver", () => ({
+  resolveSample: vi.fn(async (sampleId: string) => ({
+    id: sampleId,
+    name: "sample",
+    origin: "library",
+    audioBuffer: {
+      duration: 1,
+      sampleRate: 44100,
+      numberOfChannels: 1,
+      length: 4,
+      getChannelData: () => Float32Array.from([0, 0.5, -0.75, 1]),
+    },
+  })),
+}));
+
+vi.mock("@/lib/samples/analysis/library-cache", () => ({
+  hasLibraryAnalysis: vi.fn(() => false),
+}));
 
 describe("GridCanvas", () => {
   it("toggles cells and changes traversal", async () => {

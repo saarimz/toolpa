@@ -2,6 +2,69 @@
 
 AI-native browser instruments and builders.
 
+## Start Here: Run The App Locally
+
+The full builder workflow needs a local writable checkout. Vercel is suitable
+only for a frozen/demo viewer of tools that are already committed to the repo.
+
+To share the full app today, share this repository or a zip of it and have the
+recipient run:
+
+```bash
+cd ai-daw-tools
+corepack enable
+corepack prepare pnpm@10.26.2 --activate
+cp .env.example .env.local
+# Add AI_GATEWAY_API_KEY=... to .env.local
+pnpm install --frozen-lockfile
+pnpm dev --port 3010
+```
+
+Open:
+
+```text
+http://localhost:3010/dashboard
+```
+
+Use `pnpm dev --port 3010` for creating or rebuilding generated tools. The
+builder writes new source files under `app/tools/<slug>/`, rewrites
+`.audit/generated-tools.json`, snapshots generated tools, and runs verification
+commands before registration.
+
+For local production playback of tools already in the checkout:
+
+```bash
+pnpm build
+pnpm start --port 3010
+```
+
+Production playback is good for the currently committed tools. For brand-new
+generated routes, use dev mode while building them, or rebuild and restart after
+the generated tool has been written.
+
+## Vercel Deployment
+
+Vercel can host a demo/viewer build, but it cannot run the current full builder
+workflow. Vercel can bundle and read committed files such as
+`.audit/generated-tools.json` and `app/tools/*/manifest.ts`, but serverless
+functions do not provide the writable project filesystem and build-time route
+updates that the builder needs.
+
+Use these settings for a demo deployment:
+
+- Root directory: this repo.
+- Install command: `pnpm install --frozen-lockfile`.
+- Build command: `pnpm build`.
+- Environment variables: `AI_GATEWAY_API_KEY`, and optionally
+  `AI_GATEWAY_MODEL`.
+- Treat `/build` as demo-only unless the architecture changes.
+
+To support the builder on Vercel, the app needs a different write/deploy model:
+write generated tools to GitHub and redeploy from the committed branch, replace
+source-file-generated tools with a dynamic `/tools/[slug]` renderer backed by
+storage, or run the current app on a writable machine/container instead of
+serverless functions.
+
 The app is now centered on `/dashboard`. That page is the product surface: it
 shows installed L1 instruments, generated L1 instruments, and the specialized L2
 builders used to create or rebuild L1s.
@@ -44,15 +107,22 @@ Current installed L1 surfaces include:
 - `drum-machine`: probability and condition driven one-shot sequencing.
 - `evolving-fm-synth`: SynthScene generation, macro editing, WAV render, and
   MIDI export.
-- `camera-theremin`: camera-tracked hand motion mapped into a scale-locked synth.
+- `camera-theremin`: prompt-selectable hand, gesture, face, eye, and body motion
+  mapped into a scale-locked synth.
+- `sample-analysis`: sample upload/library analysis with DSP features, AI
+  descriptors, production ideas, and full-clip audition.
+- `midi-generator`: prompt-driven standalone MIDI clips with global context
+  sync, sine preview, visualization, and Standard MIDI export.
 
-Generated examples such as `microtonal-sampler` and `vocal-stutter` follow the
-same route and manifest contract as installed L1 tools.
+Current generated examples such as `sine-wave-synth` and
+`harmonic-distrotion-effect` follow the same route and manifest contract as
+installed L1 tools after they pass the generated-tool registration gates.
 
 ## L2 Builders
 
-`/build` is the general L1 builder. It can create new generated tools or rebuild
-an existing generated tool when opened with `?edit=<slug>`.
+`/build` is the general L1 builder. It uses the LLM tool-loop builder path to
+create new generated tools, and it can rebuild an existing generated tool when
+opened with `?edit=<slug>`.
 
 Specialized L2 builder profiles live in `lib/agents/builder-profiles.ts` and are
 mounted at:
@@ -91,12 +161,15 @@ Every generated L1 should have:
 - A valid `AgentManifestSchema` with `origin: "generated"` and `level: 1`
 
 The generated audit is implemented in `lib/agents/generated-audit.ts`. With file
-checks enabled, it verifies that the registry and in-tree manifest agree on slug,
-route, name, instrument type, workflow, document type, and status. It also
-checks that the generated route is `/tools/<slug>` and that the manifest declares
-the output matching its saved document contract. File checks also require the
-offline renderer and browser audio-gate test so generated tools prove audible,
-finite, unclipped output before they are considered dashboard-ready.
+checks enabled, it reconciles `.audit/generated-tools.json` with in-tree
+generated manifests so a generated route cannot appear in the dashboard while
+missing from the generated registry. It verifies that the registry and in-tree
+manifest agree on slug, route, name, instrument type, workflow, document type,
+and status. It also checks that the generated route is `/tools/<slug>` and that
+the manifest declares the output matching its saved document contract. File
+checks also require the offline renderer and browser audio-gate test so
+generated tools prove audible, finite, unclipped output before they are
+considered dashboard-ready.
 
 The broader L1/L2 platform audit is implemented in
 `lib/agents/platform-hardening.ts`. It translates the web-audio reference set
@@ -141,9 +214,9 @@ The rebuild path is deterministic around the model output:
    updated tool, and streams verification chunks back to the UI.
 
 Registration is not left solely to the model. The server re-validates and
-re-registers after a successful edit when registration is enabled. The model can
-write files only through the sandbox; `.audit/generated-tools.json` is rewritten
-server-side from the validated manifest.
+re-registers after a successful create or edit when registration is enabled. The
+model can write files only through the sandbox; `.audit/generated-tools.json` is
+rewritten server-side from the validated manifest.
 
 ## L2 Verification Gauntlet
 
@@ -192,14 +265,14 @@ Set `AI_GATEWAY_API_KEY` in `.env.local`, or use Vercel OIDC auth in deployment.
 ## Development
 
 ```bash
-pnpm install
-pnpm dev
+pnpm install --frozen-lockfile
+pnpm dev --port 3010
 ```
 
 Open:
 
 ```text
-http://localhost:3000/dashboard
+http://localhost:3010/dashboard
 ```
 
 ## Verification

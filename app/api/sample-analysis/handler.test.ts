@@ -7,7 +7,9 @@ vi.mock("@/lib/ai/gateway", () => ({
 }));
 vi.mock("ai", () => ({
   Output: { object: vi.fn((input) => ({ output: input })) },
-  generateText: vi.fn(async () => ({ output: { timbre: [], mood: [], use_case: [], suggested_genres: [] } })),
+  generateText: vi.fn(async () => ({
+    output: { timbre: [], mood: [], use_case: [], suggested_genres: [] },
+  })),
 }));
 
 import { handleSampleAnalysisRequest } from "@/app/api/sample-analysis/handler";
@@ -77,6 +79,15 @@ const FAKE_DESCRIPTORS: LlmDescriptors = {
   suggested_genres: ["techno", "industrial"],
 };
 
+const FAKE_IDEAS = {
+  ideas: Array.from({ length: 5 }, (_, index) => ({
+    title: `idea ${index + 1}`,
+    approach: "sequence it as the main hook",
+    complement: "pair with a dry kick and filtered bass",
+    productionMove: "trim the transient and send slot B to delay",
+  })),
+};
+
 describe("handleSampleAnalysisRequest", () => {
   it("returns 503 when the gateway is not configured", async () => {
     const response = await handleSampleAnalysisRequest(
@@ -130,6 +141,74 @@ describe("handleSampleAnalysisRequest", () => {
       analysis: { source: { sha256: "c".repeat(64) } },
       sourceName: "kick.wav",
     });
+  });
+
+  it("returns structured use ideas when an intent prompt is provided", async () => {
+    const describe = vi.fn().mockResolvedValue(FAKE_DESCRIPTORS);
+    const suggestIdeas = vi.fn().mockResolvedValue(FAKE_IDEAS);
+    const response = await handleSampleAnalysisRequest(
+      new Request("http://localhost/api/sample-analysis", {
+        method: "POST",
+        body: JSON.stringify({
+          analysis: makeAnalysis(),
+          intentPrompt: "how can I use this as a transition",
+          sourceName: "texture.wav",
+        }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { isConfigured: () => true, describe, suggestIdeas },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      descriptors: FAKE_DESCRIPTORS,
+      ideas: FAKE_IDEAS,
+    });
+    expect(suggestIdeas).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intentPrompt: "how can I use this as a transition",
+        sourceName: "texture.wav",
+      }),
+    );
+  });
+
+  it("returns ideas without re-describing when task is ideas", async () => {
+    const describe = vi.fn().mockResolvedValue(FAKE_DESCRIPTORS);
+    const suggestIdeas = vi.fn().mockResolvedValue(FAKE_IDEAS);
+    const response = await handleSampleAnalysisRequest(
+      new Request("http://localhost/api/sample-analysis", {
+        method: "POST",
+        body: JSON.stringify({
+          analysis: makeAnalysis(),
+          intentPrompt: "how can I use this as a transition",
+          sourceName: "texture.wav",
+          task: "ideas",
+        }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { isConfigured: () => true, describe, suggestIdeas },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ideas: FAKE_IDEAS });
+    expect(describe).not.toHaveBeenCalled();
+    expect(suggestIdeas).toHaveBeenCalledOnce();
+  });
+
+  it("rejects ideas-only requests without an intent prompt", async () => {
+    const response = await handleSampleAnalysisRequest(
+      new Request("http://localhost/api/sample-analysis", {
+        method: "POST",
+        body: JSON.stringify({
+          analysis: makeAnalysis(),
+          task: "ideas",
+        }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { isConfigured: () => true },
+    );
+
+    expect(response.status).toBe(400);
   });
 
   it("returns 500 when describe throws", async () => {

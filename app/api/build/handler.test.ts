@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { handleBuildRequest } from "@/app/api/build/handler";
-import type { RunBuilderAgentInput } from "@/app/tools/_builder/lib/builder-agent";
+import type { RunBuilderToolLoopAgentInput } from "@/app/tools/_builder/lib/builder-agent";
 
 async function readNdjson(response: Response) {
   const text = await response.text();
@@ -14,7 +14,7 @@ async function readNdjson(response: Response) {
 
 describe("build handler", () => {
   it("streams builder chunks from the L2 runner", async () => {
-    const runBuilder = vi.fn(async (input: RunBuilderAgentInput) => {
+    const runBuilder = vi.fn(async (input: RunBuilderToolLoopAgentInput) => {
       input.onChunk?.({ type: "decision", message: "choose skeleton" });
       input.onChunk?.({
         type: "complete",

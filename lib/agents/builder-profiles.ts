@@ -17,6 +17,7 @@ export const BuilderProfileDomainSchema = z.enum([
 export type BuilderProfileDomain = z.infer<typeof BuilderProfileDomainSchema>;
 
 type TargetDocument = "pattern" | "synth-scene" | "audio-stream";
+type BuilderTargetInstrumentType = Exclude<InstrumentType, "builder" | "midi">;
 
 type MusicContextFlags = {
   globalBpm: boolean;
@@ -30,7 +31,7 @@ type BuilderProfileBlueprint = {
   builderSlug: `_${string}-builder`;
   builderName: string;
   route: string;
-  targetInstrumentType: Exclude<InstrumentType, "builder">;
+  targetInstrumentType: BuilderTargetInstrumentType;
   targetDocument: TargetDocument;
   targetWorkflow: string;
   referenceAgent: string;
@@ -51,7 +52,7 @@ export type BuilderProfilePlan = {
   summary: string;
   builderManifest: AgentManifest;
   target: {
-    instrumentType: Exclude<InstrumentType, "builder">;
+    instrumentType: BuilderTargetInstrumentType;
     document: TargetDocument;
     workflow: string;
     musicContext: MusicContextFlags;

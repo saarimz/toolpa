@@ -1,3 +1,9 @@
+export type MidiCcEvent = {
+  beatOffset?: number;
+  controller: number;
+  value: number;
+};
+
 export type MidiNoteEvent = {
   midi: number;
   startBeat: number;
@@ -6,14 +12,23 @@ export type MidiNoteEvent = {
   channel?: number;
   pitchBendCents?: number;
   pitchBendRangeCents?: number;
+  cc?: MidiCcEvent[];
+};
+
+export type MidiTrackInput = {
+  name?: string;
+  notes: MidiNoteEvent[];
+  textEvents?: string[];
 };
 
 export type MidiExportInput = {
+  format?: 0 | 1;
   name?: string;
   bpm?: number;
   ticksPerQuarter?: number;
-  notes: MidiNoteEvent[];
+  notes?: MidiNoteEvent[];
   textEvents?: string[];
+  tracks?: MidiTrackInput[];
 };
 
 type TimedMidiEvent = {
@@ -32,27 +47,17 @@ export function encodeMidiFile(input: MidiExportInput): Uint8Array {
     24,
     9600,
   );
-  const bpm = clampNumber(input.bpm ?? DEFAULT_BPM, 20, 320);
-  const timedEvents: TimedMidiEvent[] = [
-    { tick: 0, order: 0, bytes: encodeTrackName(input.name ?? "ai-daw-tools") },
-    { tick: 0, order: 1, bytes: encodeTempoEvent(bpm) },
-    { tick: 0, order: 2, bytes: encodeTimeSignatureEvent() },
-    ...encodeTextEvents(input.textEvents ?? []),
-    ...encodeNoteEvents(input.notes, ticksPerQuarter),
-  ].sort((left, right) => left.tick - right.tick || left.order - right.order);
+  const format = input.format ?? (input.tracks && input.tracks.length > 1 ? 1 : 0);
+  const tracks =
+    input.tracks && input.tracks.length > 0
+      ? input.tracks
+      : [{ name: input.name, notes: input.notes ?? [] }];
 
-  const trackBytes = encodeTrack(timedEvents);
+  if (format === 1) {
+    return encodeFormatOneMidiFile(input, tracks, ticksPerQuarter);
+  }
 
-  return new Uint8Array([
-    ...asciiBytes("MThd"),
-    ...uint32Bytes(6),
-    ...uint16Bytes(0),
-    ...uint16Bytes(1),
-    ...uint16Bytes(ticksPerQuarter),
-    ...asciiBytes("MTrk"),
-    ...uint32Bytes(trackBytes.length),
-    ...trackBytes,
-  ]);
+  return encodeFormatZeroMidiFile(input, tracks, ticksPerQuarter);
 }
 
 export function createMidiBlob(bytes: Uint8Array): Blob {
@@ -81,9 +86,88 @@ export function sanitizeMidiFilename(filename: string) {
   return /\.(mid|midi)$/i.test(sanitized) ? sanitized : `${sanitized}.mid`;
 }
 
+function encodeFormatZeroMidiFile(
+  input: MidiExportInput,
+  tracks: MidiTrackInput[],
+  ticksPerQuarter: number,
+) {
+  const timedEvents: TimedMidiEvent[] = [
+    ...createConductorEvents(input),
+    ...tracks.flatMap((track, trackIndex) => [
+      ...(track.name ? [{ tick: 0, order: 10 + trackIndex, bytes: encodeTrackName(track.name) }] : []),
+      ...encodeTextEvents(track.textEvents ?? [], 20 + trackIndex * 10),
+      ...encodeNoteEvents(track.notes, ticksPerQuarter, 1000 + trackIndex * 10000),
+    ]),
+  ].sort(sortTimedEvents);
+
+  const trackBytes = encodeTrack(timedEvents);
+  return encodeMidiContainer({
+    format: 0,
+    ticksPerQuarter,
+    tracks: [trackBytes],
+  });
+}
+
+function encodeFormatOneMidiFile(
+  input: MidiExportInput,
+  tracks: MidiTrackInput[],
+  ticksPerQuarter: number,
+) {
+  const conductorTrack = encodeTrack(createConductorEvents(input).sort(sortTimedEvents));
+  const noteTracks = tracks.map((track, trackIndex) =>
+    encodeTrack(
+      [
+        { tick: 0, order: 0, bytes: encodeTrackName(track.name ?? `track-${trackIndex + 1}`) },
+        ...encodeTextEvents(track.textEvents ?? [], 10),
+        ...encodeNoteEvents(track.notes, ticksPerQuarter, 100),
+      ].sort(sortTimedEvents),
+    ),
+  );
+
+  return encodeMidiContainer({
+    format: 1,
+    ticksPerQuarter,
+    tracks: [conductorTrack, ...noteTracks],
+  });
+}
+
+function createConductorEvents(input: MidiExportInput): TimedMidiEvent[] {
+  const bpm = clampNumber(input.bpm ?? DEFAULT_BPM, 20, 320);
+  return [
+    { tick: 0, order: 0, bytes: encodeTrackName(input.name ?? "ai-daw-tools") },
+    { tick: 0, order: 1, bytes: encodeTempoEvent(bpm) },
+    { tick: 0, order: 2, bytes: encodeTimeSignatureEvent() },
+    ...encodeTextEvents(input.textEvents ?? [], 3),
+  ];
+}
+
+function encodeMidiContainer({
+  format,
+  ticksPerQuarter,
+  tracks,
+}: {
+  format: 0 | 1;
+  ticksPerQuarter: number;
+  tracks: number[][];
+}) {
+  return new Uint8Array([
+    ...asciiBytes("MThd"),
+    ...uint32Bytes(6),
+    ...uint16Bytes(format),
+    ...uint16Bytes(tracks.length),
+    ...uint16Bytes(ticksPerQuarter),
+    ...tracks.flatMap((trackBytes) => [
+      ...asciiBytes("MTrk"),
+      ...uint32Bytes(trackBytes.length),
+      ...trackBytes,
+    ]),
+  ]);
+}
+
 function encodeNoteEvents(
   notes: MidiNoteEvent[],
   ticksPerQuarter: number,
+  orderBase = 20,
 ): TimedMidiEvent[] {
   return notes.flatMap((note, index) => {
     const midi = clampInt(note.midi, 0, 127);
@@ -96,13 +180,25 @@ function encodeNoteEvents(
     const endTick = startTick + durationTicks;
     const velocity = clampInt(Math.round((note.velocity ?? 0.8) * 127), 1, 127);
     const pitchBendCents = note.pitchBendCents ?? 0;
-    const orderBase = 20 + index * 4;
+    const order = orderBase + index * 10;
     const events: TimedMidiEvent[] = [];
+
+    for (const [ccIndex, cc] of (note.cc ?? []).entries()) {
+      events.push({
+        tick: startTick + Math.max(0, Math.round((cc.beatOffset ?? 0) * ticksPerQuarter)),
+        order: order + ccIndex,
+        bytes: [
+          0xb0 | channel,
+          clampInt(cc.controller, 0, 127),
+          clampInt(cc.value, 0, 127),
+        ],
+      });
+    }
 
     if (Math.abs(pitchBendCents) >= 0.01) {
       events.push({
         tick: startTick,
-        order: orderBase,
+        order: order + 3,
         bytes: encodePitchBendEvent(
           channel,
           pitchBendCents,
@@ -114,12 +210,12 @@ function encodeNoteEvents(
     events.push(
       {
         tick: startTick,
-        order: orderBase + 1,
+        order: order + 4,
         bytes: [0x90 | channel, midi, velocity],
       },
       {
         tick: endTick,
-        order: orderBase + 2,
+        order: order + 5,
         bytes: [0x80 | channel, midi, 0],
       },
     );
@@ -127,7 +223,7 @@ function encodeNoteEvents(
     if (Math.abs(pitchBendCents) >= 0.01) {
       events.push({
         tick: endTick,
-        order: orderBase + 3,
+        order: order + 6,
         bytes: encodePitchBendEvent(channel, 0, note.pitchBendRangeCents ?? 200),
       });
     }
@@ -153,10 +249,10 @@ function encodeTrackName(name: string) {
   return encodeMetaTextEvent(0x03, name);
 }
 
-function encodeTextEvents(textEvents: string[]): TimedMidiEvent[] {
+function encodeTextEvents(textEvents: string[], orderStart: number): TimedMidiEvent[] {
   return textEvents.map((text, index) => ({
     tick: 0,
-    order: 3 + index,
+    order: orderStart + index,
     bytes: encodeMetaTextEvent(0x01, text),
   }));
 }
@@ -191,6 +287,10 @@ function encodePitchBendEvent(
   const bend = clampNumber(cents / range, -1, 1);
   const value = clampInt(Math.round(8192 + bend * 8191), 0, 16383);
   return [0xe0 | channel, value & 0x7f, (value >> 7) & 0x7f];
+}
+
+function sortTimedEvents(left: TimedMidiEvent, right: TimedMidiEvent) {
+  return left.tick - right.tick || left.order - right.order;
 }
 
 function asciiBytes(text: string) {
@@ -229,3 +329,4 @@ function clampNumber(value: number, min: number, max: number) {
 function clampInt(value: number, min: number, max: number) {
   return Math.round(clampNumber(value, min, max));
 }
+

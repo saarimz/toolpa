@@ -8,7 +8,9 @@ import { DrumGrid } from "@/app/tools/drum-machine/components/drum-grid";
 import { DrumTransportBar } from "@/app/tools/drum-machine/components/transport-bar";
 import { useDrumMachineStore } from "@/app/tools/drum-machine/store";
 import { getSamplePlaybackHost } from "@/lib/audio/sample-playback";
+import { useToolFxPattern } from "@/lib/audio/use-fx-pattern";
 import { useGlobalBpmSync } from "@/lib/music/use-global-context-sync";
+import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
 
 const playbackHost = getSamplePlaybackHost("drum-machine");
 
@@ -17,11 +19,13 @@ export function DrumMachineClient() {
   const setBpm = useDrumMachineStore((state) => state.setBpm);
   const bpm = useDrumMachineStore((state) => state.pattern.bpm);
   const pattern = useDrumMachineStore((state) => state.pattern);
+  const fxPattern = useToolFxPattern("drum-machine");
+  const musicalContext = useGlobalMusicContextStore((state) => state.context);
   useGlobalBpmSync(setBpm);
 
   useEffect(() => {
-    void playbackHost.updatePattern(pattern);
-  }, [pattern]);
+    void playbackHost.updatePattern(pattern, { fxPattern, musicalContext, sliceCount: 8 });
+  }, [fxPattern, musicalContext, pattern]);
 
   useEffect(
     () => () => {

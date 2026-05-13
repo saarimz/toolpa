@@ -14,7 +14,7 @@ export const intelligenceSamplerManifest: AgentManifest = {
     usesSamples: true,
     usesSynthesis: false,
   },
-  capabilities: ["slice", "generatePattern", "play", "share", "recordOutput"],
+  capabilities: ["slice", "generatePattern", "play", "share", "fxSlots", "recordOutput"],
   inputs: {
     samples: ["loop", "pad", "melodic", "fx", "oneshot", "break"],
     bpm: true,
@@ -39,6 +39,18 @@ export const intelligenceSamplerManifest: AgentManifest = {
     recording: true,
     files: false,
     manifest: false,
+  },
+  exports: {
+    document: "pattern",
+    audio: {
+      strategy: "offline-render",
+      formats: ["wav"],
+      maxDefaultDurationSec: 120,
+      requiresUserGestureForPreview: true,
+    },
+  },
+  fx: {
+    enabled: true,
   },
   autonomy: "assist",
   status: "enabled",

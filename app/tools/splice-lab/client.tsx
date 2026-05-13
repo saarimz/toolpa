@@ -9,7 +9,9 @@ import { SpliceSourcePanel } from "@/app/tools/splice-lab/components/source-pane
 import { SpliceTransportBar } from "@/app/tools/splice-lab/components/transport-bar";
 import { useSpliceLabStore } from "@/app/tools/splice-lab/store";
 import { getSamplePlaybackHost } from "@/lib/audio/sample-playback";
+import { useToolFxPattern } from "@/lib/audio/use-fx-pattern";
 import { useGlobalBpmSync } from "@/lib/music/use-global-context-sync";
+import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
 
 const playbackHost = getSamplePlaybackHost("splice-lab");
 
@@ -21,17 +23,35 @@ export function SpliceLabClient() {
   const playbackRate = useSpliceLabStore((state) => state.playbackRate);
   const toPattern = useSpliceLabStore((state) => state.toPattern);
   const setBpm = useSpliceLabStore((state) => state.setBpm);
+  const fxPattern = useToolFxPattern("splice-lab");
+  const musicalContext = useGlobalMusicContextStore((state) => state.context);
   useGlobalBpmSync(setBpm);
   useEffect(() => {
     if (!playbackHost.isPlaying()) {
       return;
     }
     const pattern = toPattern();
-    void playbackHost.updatePattern({
-      ...pattern,
-      bpm: Math.max(40, Math.min(260, Math.round(pattern.bpm * playbackRate))),
-    });
-  }, [sources, sliceCount, bpm, swing, playbackRate, toPattern]);
+    void playbackHost.updatePattern(
+      {
+        ...pattern,
+        bpm: Math.max(40, Math.min(260, Math.round(pattern.bpm * playbackRate))),
+      },
+      {
+        fxPattern,
+        musicalContext,
+        sliceCount,
+      },
+    );
+  }, [
+    bpm,
+    fxPattern,
+    musicalContext,
+    playbackRate,
+    sliceCount,
+    sources,
+    swing,
+    toPattern,
+  ]);
   useEffect(
     () => () => {
       void playbackHost.stopPattern();

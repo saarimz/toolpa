@@ -37,11 +37,17 @@ type MockLimiter = {
   dispose: Mock;
 };
 
+type MockGain = {
+  connect: Mock;
+  dispose: Mock;
+};
+
 const resolverState = vi.hoisted(() => ({
   resolveSample: vi.fn(),
 }));
 
 const toneState = vi.hoisted(() => ({
+  gains: [] as MockGain[],
   limiters: [] as MockLimiter[],
   players: [] as MockPlayer[],
   parts: [] as MockPart[],
@@ -112,6 +118,15 @@ vi.mock("tone", () => {
     }
   }
 
+  class Gain {
+    connect = vi.fn(() => this);
+    dispose = vi.fn();
+
+    constructor(readonly value: number) {
+      toneState.gains.push(this);
+    }
+  }
+
   return {
     start: vi.fn().mockResolvedValue(undefined),
     getTransport: vi.fn(() => toneState.transport),
@@ -119,6 +134,7 @@ vi.mock("tone", () => {
     gainToDb: vi.fn((gain: number) => gain),
     Player,
     Part,
+    Gain,
     Limiter,
   };
 });
@@ -135,6 +151,7 @@ function createSixteenthSteps(activeIndex: number, slot: number) {
 describe("intelligence sampler playback", () => {
   beforeEach(() => {
     clearIntelligenceSamplerPlaybackState();
+    toneState.gains.length = 0;
     toneState.limiters.length = 0;
     toneState.players.length = 0;
     toneState.parts.length = 0;

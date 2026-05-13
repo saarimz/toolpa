@@ -183,4 +183,105 @@ describe("AgentManifestSchema", () => {
       capabilities: ["recordOutput"],
     });
   });
+
+  it("accepts dedicated MIDI clip L1 manifests", () => {
+    expect(
+      AgentManifestSchema.parse({
+        name: "midi generator",
+        slug: "midi-generator",
+        level: 1,
+        description: "Prompt-generated MIDI clip arranger.",
+        route: "/tools/midi-generator",
+        instrument: {
+          type: "midi",
+          workflow: "midi-generator",
+          document: "midi-clip",
+          usesSamples: false,
+          usesSynthesis: true,
+        },
+        capabilities: ["generateMidi", "editMidi", "play", "exportMidi", "recordOutput"],
+        inputs: { globalBpm: true, globalKey: true, scaleSearch: true },
+        musicContext: { globalBpm: true, globalKey: true, scaleSearch: true },
+        outputs: { midi: true, audio: true, recording: true },
+        exports: {
+          document: "midi-clip",
+          audio: {
+            strategy: "live-recording",
+            formats: ["wav"],
+            maxDefaultDurationSec: 120,
+            requiresUserGestureForPreview: true,
+          },
+          midi: {
+            strategy: "standard-midi-file",
+            format: "smf-1",
+            ticksPerQuarter: 480,
+            preservesTracks: true,
+            supportsPitchBend: true,
+            supportsCc: true,
+          },
+        },
+      }),
+    ).toMatchObject({
+      instrument: {
+        type: "midi",
+        document: "midi-clip",
+      },
+      outputs: {
+        midi: true,
+        audio: true,
+        recording: true,
+      },
+      exports: {
+        document: "midi-clip",
+        midi: {
+          format: "smf-1",
+          strategy: "standard-midi-file",
+        },
+      },
+    });
+  });
+
+  it("accepts manifest-declared FX slots for installed pattern tools", () => {
+    const fx = AgentManifestSchema.parse({
+      name: "drum machine",
+      slug: "drum-machine",
+      level: 1,
+      description: "sequencer",
+      route: "/tools/drum-machine",
+      capabilities: ["sequence", "fxSlots", "recordOutput"],
+      outputs: { pattern: true, audio: true, recording: true },
+      fx: {
+        enabled: true,
+        slots: ["A", "B"],
+        allowedEffects: ["none", "repeat", "chorus", "delay", "reverb"],
+        defaultPattern: {
+          schemaVersion: 1,
+          slots: [
+            { id: "A", effect: "repeat", wet: 0.42 },
+            { id: "B", effect: "none", wet: 0.35 },
+          ],
+        },
+      },
+    }).fx;
+
+    expect(fx).toMatchObject({
+      enabled: true,
+      slots: ["A", "B"],
+    });
+    if (!fx) {
+      throw new Error("manifest FX contract was not parsed");
+    }
+    expect(fx.defaultPattern?.slots).toHaveLength(4);
+    expect(fx.defaultPattern?.slots[0]).toMatchObject({
+      id: "A",
+      effect: "repeat",
+      params: { delayTime: "16n", feedback: 0.62 },
+      wet: 0.42,
+    });
+    expect(fx.defaultPattern?.slots[1]).toMatchObject({
+      id: "B",
+      effect: "none",
+      wet: 0.35,
+    });
+  });
 });

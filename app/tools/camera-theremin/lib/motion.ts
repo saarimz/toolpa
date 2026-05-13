@@ -7,32 +7,56 @@ export type MotionLandmark = {
   z?: number;
 };
 
+export type TrackingMode = "body" | "eyes" | "face" | "gestures" | "hands";
+
+export type MotionConnection = readonly [number, number];
+
 export type HandMotionFrame = {
+  connections?: readonly MotionConnection[];
+  gesture?: string | null;
   handedness: string | null;
+  label?: string;
   landmarks: MotionLandmark[];
   pinch: number;
+  role?: "pitch" | "volume";
   score: number | null;
+  source: TrackingMode;
   x: number;
   y: number;
   z: number;
 };
 
+export type ThereminHandsFrame = {
+  hands: HandMotionFrame[];
+  source: TrackingMode;
+  pitchHand: HandMotionFrame | null;
+  volumeHand: HandMotionFrame | null;
+};
+
 export type ScaleLockSettings = {
+  chordCycle?: ChordCycleMode;
   chordMode?: ChordMode;
   degreeSpan: number;
   octaveShift: number;
   referenceFrequency: number;
   scaleId: string;
   tonic: Tonic;
+  volumeHand?: HandMotionFrame | null;
 };
+
+export type ChordCycleMode = "cadence" | "modal" | "static" | "walk";
 
 export type ChordMode = "fifth" | "mono" | "seventh" | "sus4" | "triad";
 
 export type QuantizedThereminNote = {
   brightness: number;
+  chordCycle: ChordCycleMode;
+  chordCycleIndex: number;
+  chordCycleLabel: string;
   chordDegrees: number[];
   chordLabel: string;
   chordMode: ChordMode;
+  chordRootDegree: number;
   degree: number;
   degreeLabel: string;
   detuneCents: number;
@@ -49,9 +73,29 @@ export type QuantizedThereminNote = {
 };
 
 type CreateHandMotionFrameInput = {
+  connections?: readonly MotionConnection[];
+  gesture?: string | null;
   handedness?: string | null;
+  label?: string;
   landmarks: MotionLandmark[];
+  role?: "pitch" | "volume";
   score?: number | null;
+  source?: TrackingMode;
+};
+
+type CreateMotionPointFrameInput = {
+  connections?: readonly MotionConnection[];
+  gesture?: string | null;
+  handedness?: string | null;
+  label?: string;
+  landmarks?: MotionLandmark[];
+  pinch?: number;
+  role?: "pitch" | "volume";
+  score?: number | null;
+  source: TrackingMode;
+  x: number;
+  y: number;
+  z?: number;
 };
 
 const tonicPitchClasses: Record<Tonic, number> = {
@@ -82,10 +126,40 @@ const chordDegreeOffsets = {
   triad: [0, 2, 4],
 } as const satisfies Record<ChordMode, readonly number[]>;
 
+const chordCyclePatterns = {
+  cadence: [
+    { label: "I", offset: 0 },
+    { label: "V", offset: 4 },
+    { label: "vi", offset: 5 },
+    { label: "IV", offset: 3 },
+  ],
+  modal: [
+    { label: "home", offset: 0 },
+    { label: "second", offset: 1 },
+    { label: "fourth", offset: 3 },
+    { label: "fifth", offset: 4 },
+  ],
+  static: [{ label: "static", offset: 0 }],
+  walk: [
+    { label: "1", offset: 0 },
+    { label: "2", offset: 1 },
+    { label: "3", offset: 2 },
+    { label: "4", offset: 3 },
+  ],
+} as const satisfies Record<
+  ChordCycleMode,
+  readonly { label: string; offset: number }[]
+>;
+
 export function createHandMotionFrame({
+  connections,
+  gesture = null,
   handedness = null,
+  label,
   landmarks,
+  role,
   score = null,
+  source = "hands",
 }: CreateHandMotionFrameInput): HandMotionFrame | null {
   const indexTip = landmarks[8];
   const thumbTip = landmarks[4];
@@ -94,13 +168,48 @@ export function createHandMotionFrame({
   }
 
   return {
+    connections,
+    gesture,
     handedness,
+    label,
     landmarks,
     pinch: round(distance(indexTip, thumbTip), 4),
+    role,
     score,
+    source,
     x: clamp01(indexTip.x),
     y: clamp01(indexTip.y),
     z: normalizeDepth(indexTip.z ?? 0),
+  };
+}
+
+export function createMotionPointFrame({
+  connections,
+  gesture = null,
+  handedness = null,
+  label,
+  landmarks = [],
+  pinch = 0.16,
+  role,
+  score = null,
+  source,
+  x,
+  y,
+  z = 0,
+}: CreateMotionPointFrameInput): HandMotionFrame {
+  return {
+    connections,
+    gesture,
+    handedness,
+    label,
+    landmarks,
+    pinch: round(clamp(pinch, 0, 0.36), 4),
+    role,
+    score,
+    source,
+    x: clamp01(x),
+    y: clamp01(y),
+    z: normalizeDepth(z),
   };
 }
 
@@ -125,21 +234,120 @@ export function smoothHandMotionFrame(
   };
 }
 
+export function createThereminHandsFrame(
+  hands: HandMotionFrame[],
+  source: TrackingMode = "hands",
+): ThereminHandsFrame | null {
+  const trackedHands = hands.slice(0, 2);
+  if (trackedHands.length === 0) {
+    return null;
+  }
+
+  const rightHand = trackedHands.find((hand) => isHandedness(hand, "right"));
+  const leftHand = trackedHands.find((hand) => isHandedness(hand, "left"));
+  const screenSorted = [...trackedHands].sort((left, right) => left.x - right.x);
+  const pitchHand =
+    rightHand ?? screenSorted[screenSorted.length - 1] ?? trackedHands[0] ?? null;
+  const volumeHand =
+    leftHand && leftHand !== pitchHand
+      ? leftHand
+      : trackedHands.length > 1
+        ? screenSorted.find((hand) => hand !== pitchHand) ?? null
+        : null;
+
+  return {
+    hands: trackedHands,
+    source,
+    pitchHand,
+    volumeHand,
+  };
+}
+
+export function createThereminMotionFrame({
+  points,
+  source,
+}: {
+  points: HandMotionFrame[];
+  source: TrackingMode;
+}): ThereminHandsFrame | null {
+  const trackedPoints = points.slice(0, 2);
+  if (trackedPoints.length === 0) {
+    return null;
+  }
+
+  const pitchPoint =
+    trackedPoints.find((point) => point.role === "pitch") ??
+    trackedPoints[0] ??
+    null;
+  const volumePoint =
+    trackedPoints.find((point) => point.role === "volume" && point !== pitchPoint) ??
+    trackedPoints.find((point) => point !== pitchPoint) ??
+    null;
+
+  return {
+    hands: trackedPoints,
+    source,
+    pitchHand: pitchPoint,
+    volumeHand: volumePoint,
+  };
+}
+
+export function smoothThereminHandsFrame(
+  previous: ThereminHandsFrame | null,
+  next: ThereminHandsFrame,
+  smoothing: number,
+): ThereminHandsFrame {
+  const pitchHand = next.pitchHand
+    ? smoothHandMotionFrame(previous?.pitchHand ?? null, next.pitchHand, smoothing)
+    : null;
+  const volumeHand = next.volumeHand
+    ? smoothHandMotionFrame(
+        previous?.volumeHand ?? null,
+        next.volumeHand,
+        smoothing,
+      )
+    : null;
+
+  return {
+    hands: next.hands.map((hand) => {
+      if (hand === next.pitchHand && pitchHand) {
+        return pitchHand;
+      }
+      if (hand === next.volumeHand && volumeHand) {
+        return volumeHand;
+      }
+      return hand;
+    }),
+    source: next.source,
+    pitchHand,
+    volumeHand,
+  };
+}
+
 export function quantizeMotionToScale(
   frame: HandMotionFrame,
   settings: ScaleLockSettings,
 ): QuantizedThereminNote {
   const scale = getScaleDefinition(settings.scaleId);
   const chordMode = settings.chordMode ?? "mono";
+  const chordCycle =
+    chordMode === "mono" ? "static" : (settings.chordCycle ?? "static");
   const degreeSpan = Math.max(1, Math.round(settings.degreeSpan));
   const pitchPosition = clamp01(1 - frame.y);
   const degree = Math.round(pitchPosition * degreeSpan);
+  const chordCycleStep = getChordCycleStep(
+    chordCycle,
+    settings.volumeHand?.x ?? frame.x,
+  );
+  const chordRootDegree = degree + chordCycleStep.offset;
   const degreeCents = getScaleDegreeCents(scale.id, degree);
   const rootFrequency =
     getTonicFrequency(settings.tonic, settings.referenceFrequency) *
     2 ** settings.octaveShift;
   const frequency = round(rootFrequency * 2 ** (degreeCents / 1200), 3);
-  const chordDegrees = chordDegreeOffsets[chordMode].map((offset) => degree + offset);
+  const chordDegrees = chordDegreeOffsets[chordMode].map(
+    (offset) => chordRootDegree + offset,
+  );
   const frequencies = chordDegrees.map((chordDegree) =>
     round(
       rootFrequency * 2 ** (getScaleDegreeCents(scale.id, chordDegree) / 1200),
@@ -148,19 +356,44 @@ export function quantizeMotionToScale(
   );
   const nearestSemitone = Math.round(degreeCents / 100);
   const detuneCents = round(degreeCents - nearestSemitone * 100, 2);
-  const volume = round(clamp((frame.pinch - 0.035) / 0.18, 0, 1), 3);
-  const brightness = round(clamp01(frame.x * 0.78 + frame.z * 0.22), 3);
+  const volume = settings.volumeHand
+    ? mapVolumeHandToLevel(settings.volumeHand)
+    : round(clamp((frame.pinch - 0.035) / 0.18, 0, 1), 3);
+  const brightnessHand = settings.volumeHand;
+  const brightness = round(
+    clamp01(
+      brightnessHand
+        ? frame.x * 0.5 +
+            frame.z * 0.18 +
+            brightnessHand.x * 0.2 +
+            brightnessHand.z * 0.12
+        : frame.x * 0.78 + frame.z * 0.22,
+    ),
+    3,
+  );
   const filterHz = Math.round(420 + brightness ** 1.7 * 7600);
   const pan = round(clamp((frame.x - 0.5) * 1.6, -0.8, 0.8), 3);
 
   return {
     brightness,
+    chordCycle,
+    chordCycleIndex: chordCycleStep.index,
+    chordCycleLabel: formatChordCycleLabel(chordCycle, chordCycleStep.label),
     chordDegrees,
     chordLabel:
       chordMode === "mono"
         ? formatDegreeLabel(degree)
-        : `${formatDegreeLabel(degree)} ${formatChordMode(chordMode)}`,
+        : [
+            formatDegreeLabel(chordRootDegree),
+            chordCycle === "static"
+              ? null
+              : formatChordCycleLabel(chordCycle, chordCycleStep.label),
+            formatChordMode(chordMode),
+          ]
+            .filter(Boolean)
+            .join(" "),
     chordMode,
+    chordRootDegree,
     degree,
     degreeLabel: formatDegreeLabel(degree),
     detuneCents,
@@ -177,9 +410,38 @@ export function quantizeMotionToScale(
   };
 }
 
+function getChordCycleStep(chordCycle: ChordCycleMode, position: number) {
+  const pattern = chordCyclePatterns[chordCycle];
+  const index =
+    pattern.length <= 1
+      ? 0
+      : Math.min(pattern.length - 1, Math.floor(clamp01(position) * pattern.length));
+  const step = pattern[index] ?? pattern[0];
+
+  return {
+    index,
+    label: step.label,
+    offset: step.offset,
+  };
+}
+
+export function mapVolumeHandToLevel(frame: HandMotionFrame) {
+  const liftedAwayFromLoop = clamp((0.86 - frame.y) / 0.62, 0, 1);
+  const openHandArticulation = clamp((frame.pinch - 0.035) / 0.2, 0, 1);
+
+  return round(
+    clamp(liftedAwayFromLoop * 0.82 + openHandArticulation * 0.18, 0, 1),
+    3,
+  );
+}
+
 export function getTonicFrequency(tonic: Tonic, referenceFrequency = 440) {
   const rootMidi = 60 + (tonicPitchClasses[tonic] ?? 0);
   return round(referenceFrequency * 2 ** ((rootMidi - 69) / 12), 3);
+}
+
+function isHandedness(frame: HandMotionFrame, handedness: "left" | "right") {
+  return frame.handedness?.toLowerCase() === handedness;
 }
 
 function normalizeDepth(z: number) {
@@ -196,6 +458,14 @@ function formatChordMode(chordMode: ChordMode) {
   }
 
   return chordMode;
+}
+
+function formatChordCycleLabel(chordCycle: ChordCycleMode, stepLabel: string) {
+  if (chordCycle === "static") {
+    return "static";
+  }
+
+  return `${chordCycle} ${stepLabel}`;
 }
 
 function distance(left: MotionLandmark, right: MotionLandmark) {

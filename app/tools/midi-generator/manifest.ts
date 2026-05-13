@@ -1,0 +1,70 @@
+import type { AgentManifest } from "@/lib/agents/contract";
+
+export const midiGeneratorManifest = {
+  name: "MIDI Generator",
+  slug: "midi-generator",
+  level: 1,
+  origin: "installed",
+  description:
+    "Prompt expressive MIDI clips, edit them with follow-up prompts, preview through a sine synth, and export the MIDI anywhere.",
+  route: "/tools/midi-generator",
+  instrument: {
+    type: "midi",
+    workflow: "midi-generator",
+    document: "midi-clip",
+    usesSamples: false,
+    usesSynthesis: true,
+  },
+  capabilities: [
+    "generateMidi",
+    "editMidi",
+    "exportMidi",
+    "sinePreview",
+    "globalContextWrite",
+    "recordOutput",
+  ],
+  inputs: {
+    samples: [],
+    bpm: true,
+    globalBpm: true,
+    globalKey: true,
+    scaleSearch: true,
+    prompt: true,
+    description: false,
+    referenceAgent: false,
+    requiredAnalysis: [],
+  },
+  musicContext: {
+    globalBpm: true,
+    globalKey: true,
+    scaleSearch: true,
+  },
+  outputs: {
+    pattern: false,
+    synthScene: false,
+    midi: true,
+    audio: true,
+    recording: true,
+    files: false,
+    manifest: false,
+  },
+  exports: {
+    document: "midi-clip",
+    audio: {
+      strategy: "live-recording",
+      formats: ["wav"],
+      maxDefaultDurationSec: 120,
+      requiresUserGestureForPreview: true,
+    },
+    midi: {
+      strategy: "standard-midi-file",
+      format: "smf-1",
+      ticksPerQuarter: 480,
+      preservesTracks: true,
+      supportsPitchBend: true,
+      supportsCc: true,
+    },
+  },
+  autonomy: "assist",
+  status: "enabled",
+} satisfies AgentManifest;

@@ -2,8 +2,6 @@ import { z } from "zod";
 
 import {
   AgentManifestSchema,
-  InstrumentDocumentSchema,
-  InstrumentTypeSchema,
 } from "@/lib/agents/contract";
 
 export const BuilderSpecializationDomainSchema = z.enum([
@@ -14,11 +12,24 @@ export const BuilderSpecializationDomainSchema = z.enum([
   "microtonal",
 ]);
 
+export const BuilderTargetInstrumentTypeSchema = z.enum([
+  "sample",
+  "synth",
+  "effect",
+  "hybrid",
+]);
+
+export const BuilderTargetDocumentSchema = z.enum([
+  "pattern",
+  "synth-scene",
+  "audio-stream",
+]);
+
 export const BuildToolSpecializationSchema = z.object({
   domain: BuilderSpecializationDomainSchema,
   builderSlug: z.string().regex(/^_[a-z0-9][a-z0-9-]*$/),
-  targetInstrumentType: InstrumentTypeSchema.exclude(["builder"]),
-  targetDocument: InstrumentDocumentSchema,
+  targetInstrumentType: BuilderTargetInstrumentTypeSchema,
+  targetDocument: BuilderTargetDocumentSchema,
   targetWorkflow: z.string().min(1).max(120),
   templateKit: z.string().min(1).max(160),
   referenceAgent: z.string().min(1).max(80),
@@ -30,7 +41,7 @@ export const BuildToolRequestSchema = z.object({
   description: z.string().min(8).max(4000),
   slug: z.string().regex(/^[a-z0-9][a-z0-9-]*$/).optional(),
   name: z.string().min(1).max(80).optional(),
-  instrumentType: InstrumentTypeSchema.exclude(["builder"]).optional(),
+  instrumentType: BuilderTargetInstrumentTypeSchema.optional(),
   referenceAgent: z.string().min(1).optional(),
   builderSpecialization: BuildToolSpecializationSchema.optional(),
   tokenBudget: z.number().int().min(1000).max(250000).default(50000),

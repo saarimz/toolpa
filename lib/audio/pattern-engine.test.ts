@@ -32,11 +32,23 @@ type MockLimiter = {
   dispose: Mock;
 };
 
+type MockWetNode = MockLimiter & {
+  options: unknown;
+  wet: { value: number };
+};
+
+type MockGain = {
+  connect: Mock;
+  dispose: Mock;
+};
+
 const resolverState = vi.hoisted(() => ({
   resolveSample: vi.fn(),
 }));
 
 const toneState = vi.hoisted(() => ({
+  delays: [] as MockWetNode[],
+  gains: [] as MockGain[],
   limiters: [] as MockLimiter[],
   players: [] as MockPlayer[],
   parts: [] as MockPart[],
@@ -110,6 +122,25 @@ vi.mock("tone", () => {
     }
   }
 
+  class Gain {
+    connect = vi.fn(() => this);
+    dispose = vi.fn();
+
+    constructor(readonly value: number) {
+      toneState.gains.push(this);
+    }
+  }
+
+  class FeedbackDelay {
+    connect = vi.fn(() => this);
+    dispose = vi.fn();
+    wet = { value: 0 };
+
+    constructor(readonly options: unknown) {
+      toneState.delays.push(this);
+    }
+  }
+
   return {
     start: vi.fn().mockResolvedValue(undefined),
     getTransport: vi.fn(() => toneState.transport),
@@ -117,6 +148,8 @@ vi.mock("tone", () => {
     gainToDb: vi.fn((gain: number) => gain),
     Player,
     Part,
+    FeedbackDelay,
+    Gain,
     Limiter,
   };
 });
@@ -136,6 +169,8 @@ function singleStepTrack(stepIndex: number, sampleId = "library:test/sample") {
 describe("PatternEngine.updatePattern", () => {
   beforeEach(() => {
     resetTransportOwnership();
+    toneState.delays.length = 0;
+    toneState.gains.length = 0;
     toneState.limiters.length = 0;
     toneState.players.length = 0;
     toneState.parts.length = 0;
@@ -154,6 +189,8 @@ describe("PatternEngine.updatePattern", () => {
 
   afterEach(() => {
     resetTransportOwnership();
+    toneState.delays.length = 0;
+    toneState.gains.length = 0;
     toneState.limiters.length = 0;
     toneState.players.length = 0;
     toneState.parts.length = 0;
@@ -309,5 +346,80 @@ describe("PatternEngine.updatePattern", () => {
     await engine.updatePattern(next);
 
     expect(resolverState.resolveSample).toHaveBeenCalledWith("library:added");
+  });
+
+  it("rebuilds the output graph when the FX pattern changes", async () => {
+    const engine = createPatternEngine({ id: "test-engine" });
+    const pattern = createPattern({
+      id: "p",
+      name: "p",
+      bpm: 120,
+      tracks: [singleStepTrack(0)],
+    });
+
+    await engine.play(pattern);
+    const initialLimiter = toneState.limiters[0];
+
+    await engine.updatePattern(pattern, {
+      fxPattern: {
+        schemaVersion: 1,
+        slots: [
+          { id: "A", effect: "delay", wet: 0.4 },
+          { id: "B", effect: "none", wet: 0.35 },
+        ],
+      },
+    });
+
+    expect(toneState.delays).toHaveLength(1);
+    expect(toneState.limiters).toHaveLength(2);
+    expect(initialLimiter?.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("schedules probabilistic FX wet changes at interval boundaries", async () => {
+    const engine = createPatternEngine({ id: "test-engine" });
+    const random = vi.fn()
+      .mockReturnValueOnce(0.1)
+      .mockReturnValueOnce(0.5)
+      .mockReturnValueOnce(0.1)
+      .mockReturnValueOnce(1);
+    const pattern = createPattern({
+      id: "p",
+      name: "p",
+      bpm: 120,
+      bars: 1,
+      stepsPerBar: 4,
+      tracks: [singleStepTrack(0)],
+    });
+
+    await engine.play(pattern, {
+      random,
+      fxPattern: {
+        schemaVersion: 1,
+        slots: [
+          {
+            id: "A",
+            effect: "delay",
+            wet: 0,
+            probability: {
+              enabled: true,
+              intervalSteps: 2,
+              chance: 1,
+              missWet: 0,
+              minWet: 0.2,
+              maxWet: 0.8,
+              smoothMs: 0,
+            },
+          },
+          { id: "B", effect: "none", wet: 0.35 },
+        ],
+      },
+    });
+
+    const fxPart = toneState.parts[2];
+    expect(fxPart?.entries).toEqual([
+      [0, expect.objectContaining({ slotId: "A" })],
+      [1, expect.objectContaining({ slotId: "A" })],
+    ]);
+    expect(toneState.delays[0]?.wet.value).toBeCloseTo(0.8);
   });
 });

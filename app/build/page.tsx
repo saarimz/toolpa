@@ -1,6 +1,7 @@
 import { ToolBuilderClient } from "@/app/tools/_builder/client";
 import { createGeneratedToolAudit } from "@/lib/agents/generated-audit";
 import { readGeneratedAgentManifests } from "@/lib/agents/generated-registry";
+import { readInTreeAgentManifests } from "@/lib/agents/manifest-source";
 
 export default async function BuildPage({
   searchParams,
@@ -19,6 +20,7 @@ export default async function BuildPage({
     : undefined;
   const generatedAudit = createGeneratedToolAudit(generatedManifests, {
     checkFiles: true,
+    inTreeManifests: readInTreeAgentManifests(),
   });
 
   return (

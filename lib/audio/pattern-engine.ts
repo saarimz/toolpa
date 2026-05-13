@@ -8,6 +8,16 @@ import {
   type ScheduledStepEvent,
 } from "@/lib/audio/pattern";
 import type { DeclickPreset } from "@/lib/audio/declick";
+import {
+  createToneFxGraph,
+  type ToneFxGraph,
+} from "@/lib/audio/fx-chain";
+import {
+  collectFxAutomationEvents,
+  resolveFxAutomationWet,
+  serializeFxPattern,
+  type FxPatternInput,
+} from "@/lib/audio/fx-manifest";
 import { publishPatternPlaybackTrace } from "@/lib/audio/playback-agency";
 import { resolveSamplePlaybackSegment } from "@/lib/audio/sample-engine";
 import {
@@ -21,9 +31,9 @@ import { type SliceRegion } from "@/lib/audio/slices";
 
 type ToneModule = typeof import("tone");
 type TonePlayer = InstanceType<ToneModule["Player"]>;
-type ToneLimiter = InstanceType<ToneModule["Limiter"]>;
 type ToneTransportTime = Parameters<TonePlayer["stop"]>[0];
 type ResolvedSample = Awaited<ReturnType<typeof resolveSample>>;
+type ToneOutputNode = ToneFxGraph["input"];
 
 type DisposablePart = {
   loop: boolean | number;
@@ -38,6 +48,7 @@ const DEFAULT_POOL_BUCKET_MAX = 8;
 
 export type PatternEnginePlayOptions = {
   declickPreset?: DeclickPreset;
+  fxPattern?: FxPatternInput;
   sliceCount?: number;
   slicesBySampleId?: Map<string, SliceRegion[]>;
   musicalContext?: GlobalMusicContext;
@@ -57,8 +68,9 @@ export class PatternEngine {
   readonly id: string;
 
   #activePart: DisposablePart | null = null;
+  #activeFxAutomationPart: DisposablePart | null = null;
   #activeTracePart: DisposablePart | null = null;
-  #activeOutputNode: ToneLimiter | null = null;
+  #activeOutputGraph: ToneFxGraph | null = null;
   #activePlayers = new Set<TonePlayer>();
   #activeChokePlayers = new Map<string, TonePlayer>();
   #disposeTimers = new Set<ReturnType<typeof setTimeout>>();
@@ -84,12 +96,21 @@ export class PatternEngine {
     transport.swing = pattern.swing;
     transport.swingSubdivision = "16n";
 
-    const outputNode = this.#createSampleOutputNode(Tone);
-    this.#activeOutputNode = outputNode;
+    const outputGraph = await createToneFxGraph({
+      fxPattern: options.fxPattern,
+      Tone,
+    });
+    this.#activeOutputGraph = outputGraph;
     this.#lastOptions = options;
 
     const sampleMap = await this.#resolveSampleMap(pattern);
-    this.#scheduleParts({ pattern, sampleMap, options, Tone, outputNode });
+    this.#scheduleParts({
+      pattern,
+      sampleMap,
+      options,
+      Tone,
+      outputGraph,
+    });
 
     const ownership = registerActiveEngine(this.id);
     if (ownership === "first") {
@@ -103,7 +124,7 @@ export class PatternEngine {
     pattern: Pattern,
     options: PatternEnginePlayOptions = this.#lastOptions,
   ): Promise<void> {
-    if (!this.#activePart || !this.#activeOutputNode) {
+    if (!this.#activePart || !this.#activeOutputGraph) {
       return;
     }
 
@@ -119,16 +140,29 @@ export class PatternEngine {
     this.#activePart.stop();
     this.#activePart.dispose();
     this.#activePart = null;
+    this.#activeFxAutomationPart?.stop();
+    this.#activeFxAutomationPart?.dispose();
+    this.#activeFxAutomationPart = null;
     this.#activeTracePart?.stop();
     this.#activeTracePart?.dispose();
     this.#activeTracePart = null;
+
+    let outputGraph = this.#activeOutputGraph;
+    if (serializeFxPattern(options.fxPattern) !== outputGraph.signature) {
+      this.clearPlaybackState({ graceful: false });
+      outputGraph = await createToneFxGraph({
+        fxPattern: options.fxPattern,
+        Tone,
+      });
+      this.#activeOutputGraph = outputGraph;
+    }
 
     this.#scheduleParts({
       pattern,
       sampleMap,
       options,
       Tone,
-      outputNode: this.#activeOutputNode,
+      outputGraph,
     });
   }
 
@@ -137,6 +171,9 @@ export class PatternEngine {
     this.#activePart?.stop();
     this.#activePart?.dispose();
     this.#activePart = null;
+    this.#activeFxAutomationPart?.stop();
+    this.#activeFxAutomationPart?.dispose();
+    this.#activeFxAutomationPart = null;
     this.#activeTracePart?.stop();
     this.#activeTracePart?.dispose();
     this.#activeTracePart = null;
@@ -152,18 +189,24 @@ export class PatternEngine {
     this.clearPlaybackState({ graceful: false });
     this.#activePart?.dispose();
     this.#activePart = null;
+    this.#activeFxAutomationPart?.dispose();
+    this.#activeFxAutomationPart = null;
     this.#activeTracePart?.dispose();
     this.#activeTracePart = null;
   }
 
   clearPlaybackState({ graceful = false }: { graceful?: boolean } = {}): void {
+    this.#activeFxAutomationPart?.stop();
+    this.#activeFxAutomationPart?.dispose();
+    this.#activeFxAutomationPart = null;
+
     for (const timer of this.#disposeTimers) {
       clearTimeout(timer);
     }
     this.#disposeTimers.clear();
 
-    const outputNode = this.#activeOutputNode;
-    this.#activeOutputNode = null;
+    const outputGraph = this.#activeOutputGraph;
+    this.#activeOutputGraph = null;
 
     if (graceful) {
       for (const player of this.#activePlayers) {
@@ -177,8 +220,8 @@ export class PatternEngine {
         }
       }
       this.#playerPool.clear();
-      if (outputNode) {
-        this.#scheduleDispose(outputNode, MANUAL_STOP_RELEASE_SEC * 1000 + 100);
+      if (outputGraph) {
+        this.#scheduleDispose(outputGraph, MANUAL_STOP_RELEASE_SEC * 1000 + 100);
       }
       return;
     }
@@ -195,7 +238,7 @@ export class PatternEngine {
       }
     }
     this.#playerPool.clear();
-    outputNode?.dispose();
+    outputGraph?.dispose();
   }
 
   async #resolveSampleMap(pattern: Pattern): Promise<Map<string, ResolvedSample>> {
@@ -212,13 +255,13 @@ export class PatternEngine {
     sampleMap,
     options,
     Tone,
-    outputNode,
+    outputGraph,
   }: {
     pattern: Pattern;
     sampleMap: Map<string, ResolvedSample>;
     options: PatternEnginePlayOptions;
     Tone: ToneModule;
-    outputNode: ToneLimiter;
+    outputGraph: ToneFxGraph;
   }): void {
     const random = options.random ?? Math.random;
     const { events, traces } = collectPatternPlaybackPlan(pattern, {
@@ -228,6 +271,7 @@ export class PatternEngine {
     });
     const eventEntries = events.map((event) => [event.timeSec, event] as const);
     const traceEntries = traces.map((event) => [event.timeSec, event] as const);
+    const outputNode = outputGraph.input;
     this.#activeChokePlayers.clear();
 
     const tracePart = new Tone.Part((_time, event: PatternStepTraceEvent) => {
@@ -286,16 +330,63 @@ export class PatternEngine {
     part.loopEnd = getStepDurationSec(pattern) * pattern.stepsPerBar * pattern.bars;
     tracePart.loop = true;
     tracePart.loopEnd = part.loopEnd;
+    this.#activeFxAutomationPart = this.#createFxAutomationPart({
+      fxPattern: options.fxPattern,
+      loopEnd: Number(part.loopEnd),
+      pattern,
+      random,
+      Tone,
+      outputGraph,
+    });
     tracePart.start(0);
     part.start(0);
     this.#activePart = part;
     this.#activeTracePart = tracePart;
   }
 
+  #createFxAutomationPart({
+    fxPattern,
+    loopEnd,
+    pattern,
+    random,
+    Tone,
+    outputGraph,
+  }: {
+    fxPattern?: FxPatternInput;
+    loopEnd: number;
+    pattern: Pattern;
+    random: () => number;
+    Tone: ToneModule;
+    outputGraph: ToneFxGraph;
+  }): DisposablePart | null {
+    const events = collectFxAutomationEvents({
+      fxPattern,
+      stepDurationSec: getStepDurationSec(pattern),
+      totalSteps: pattern.stepsPerBar * pattern.bars,
+    });
+    if (events.length === 0) {
+      return null;
+    }
+
+    const part = new Tone.Part((time, event: (typeof events)[number]) => {
+      outputGraph.setSlotWet(
+        event.slotId,
+        resolveFxAutomationWet(event, random),
+        Number(time),
+        event.smoothSec,
+      );
+    }, events.map((event) => [event.timeSec, event] as const));
+
+    part.loop = true;
+    part.loopEnd = loopEnd;
+    part.start(0);
+    return part;
+  }
+
   #acquirePlayer(
     Tone: ToneModule,
     buffer: ResolvedSample["audioBuffer"],
-    outputNode: ToneLimiter,
+    outputNode: ToneOutputNode,
   ): TonePlayer {
     const bucket = this.#playerPool.get(buffer);
     const pooled = bucket?.pop();
@@ -303,7 +394,8 @@ export class PatternEngine {
       this.#activePlayers.add(pooled);
       return pooled;
     }
-    const player = new Tone.Player(buffer).connect(outputNode);
+    const player = new Tone.Player(buffer);
+    player.connect(outputNode as Parameters<TonePlayer["connect"]>[0]);
     this.#activePlayers.add(player);
     return player;
   }
@@ -342,11 +434,6 @@ export class PatternEngine {
     this.#disposeTimers.add(disposeTimer);
   }
 
-  #createSampleOutputNode(Tone: ToneModule): ToneLimiter {
-    const outputNode = new Tone.Limiter(-1);
-    outputNode.connect(Tone.getDestination());
-    return outputNode;
-  }
 }
 
 export function createPatternEngine(options: PatternEngineOptions): PatternEngine {

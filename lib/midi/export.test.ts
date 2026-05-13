@@ -5,6 +5,7 @@ import {
   sanitizeMidiFilename,
   type MidiExportInput,
 } from "@/lib/midi/export";
+import { parseMidiFileSummary } from "@/lib/midi/parse";
 
 describe("MIDI export framework", () => {
   it("encodes a deterministic Standard MIDI File with tempo and note events", () => {
@@ -34,6 +35,12 @@ describe("MIDI export framework", () => {
     expect(text).toContain("MTrk");
     expect(text).toContain("Test Clip");
     expect(Array.from(first.slice(8, 14))).toEqual([0, 0, 0, 1, 1, 224]);
+    expect(parseMidiFileSummary(first)).toMatchObject({
+      format: 0,
+      noteOnCount: 2,
+      trackCount: 1,
+      valid: true,
+    });
     expect(Array.from(first)).toEqual(
       expect.arrayContaining([0xff, 0x51, 0x03, 0x07, 0xa1, 0x20]),
     );
@@ -42,6 +49,44 @@ describe("MIDI export framework", () => {
     );
     expect(Array.from(first)).toEqual(expect.arrayContaining([0xe1]));
     expect(Array.from(first.slice(-4))).toEqual([0x00, 0xff, 0x2f, 0x00]);
+  });
+
+  it("encodes format 1 files with conductor and named note tracks", () => {
+    const bytes = encodeMidiFile({
+      bpm: 140,
+      format: 1,
+      name: "Tracked Clip",
+      tracks: [
+        {
+          name: "bass",
+          notes: [
+            {
+              cc: [{ beatOffset: 0, controller: 74, value: 96 }],
+              midi: 36,
+              startBeat: 0,
+              durationBeats: 1,
+            },
+          ],
+        },
+        {
+          name: "lead",
+          notes: [{ channel: 2, midi: 72, startBeat: 1, durationBeats: 0.5 }],
+        },
+      ],
+    });
+    const text = String.fromCharCode(...bytes);
+
+    expect(Array.from(bytes.slice(8, 14))).toEqual([0, 1, 0, 3, 1, 224]);
+    expect(text).toContain("Tracked Clip");
+    expect(text).toContain("bass");
+    expect(text).toContain("lead");
+    expect(Array.from(bytes)).toEqual(expect.arrayContaining([0xb0, 74, 96]));
+    expect(parseMidiFileSummary(bytes)).toMatchObject({
+      format: 1,
+      noteOnCount: 2,
+      trackCount: 3,
+      valid: true,
+    });
   });
 
   it("sanitizes MIDI filenames for browser downloads", () => {

@@ -9,6 +9,7 @@ import {
 } from "@/lib/agents/builder-profiles";
 import { createGeneratedToolAudit } from "@/lib/agents/generated-audit";
 import { readGeneratedAgentManifests } from "@/lib/agents/generated-registry";
+import { readInTreeAgentManifests } from "@/lib/agents/manifest-source";
 
 export default async function SpecializedBuildPage({
   params,
@@ -31,6 +32,7 @@ export default async function SpecializedBuildPage({
   const slug = firstParam(resolvedSearchParams?.slug) ?? getDefaultToolSlug(domain);
   const generatedAudit = createGeneratedToolAudit(readGeneratedAgentManifests(), {
     checkFiles: true,
+    inTreeManifests: readInTreeAgentManifests(),
   });
 
   return (

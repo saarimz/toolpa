@@ -19,13 +19,26 @@ describe("GlobalMusicControls", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders separate tempo and scale modules with manual controls", async () => {
+  it("renders a macro prompt first and hides manual controls until requested", async () => {
     render(<GlobalMusicControls />);
+
+    expect(screen.getByText("1. macro context")).toBeInTheDocument();
+    expect(screen.getByText("2. set manually")).toBeInTheDocument();
+    expect(screen.getByLabelText(/tempo \+ key prompt/i)).toHaveAttribute(
+      "placeholder",
+      "Describe tempo, swing, key, and scale...",
+    );
+    expect(screen.getByRole("button", { name: "enter prompt" })).toBeDisabled();
+    expect(screen.getByText("Enter a prompt to enable macro context.")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/genre prompt/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/scale prompt/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("bpm + swing")).not.toBeInTheDocument();
+    expect(screen.queryByText("root + scale")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "set manually" }));
 
     expect(screen.getByText("bpm + swing")).toBeInTheDocument();
     expect(screen.getByText("root + scale")).toBeInTheDocument();
-    expect(screen.getByLabelText(/genre prompt/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/scale prompt/i)).toBeInTheDocument();
     expect(screen.getByLabelText("bpm")).toBeInTheDocument();
     expect(screen.getByLabelText("swing")).toBeInTheDocument();
 
@@ -37,66 +50,121 @@ describe("GlobalMusicControls", () => {
     });
   });
 
-  it("applies suggested BPM and swing values from the genre prompt", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      Response.json({
-        selected: {
-          bpm: 134,
-          swing: 0.16,
-          rationale: "UK garage wants a shuffled mid-130s grid.",
-        },
-        alternatives: [
-          {
-            bpm: 168,
-            swing: 0.07,
-            rationale: "Jungle alternative.",
-          },
-        ],
-        querySummary: "picked from groove references",
-      }),
-    );
+  it("applies tempo, swing, root, and scale from one macro prompt", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/music/tempo-suggest") {
+        return Promise.resolve(
+          Response.json({
+            selected: {
+              bpm: 140,
+              swing: 0.12,
+              rationale: "The prompt wants a swung club tempo.",
+            },
+            alternatives: [],
+            querySummary: "macro tempo",
+          }),
+        );
+      }
+      if (url === "/api/music/scale-search") {
+        return Promise.resolve(
+          Response.json({
+            selected: {
+              tonic: "F#",
+              scaleId: "dorian",
+              rationale: "F# Dorian keeps the prompt bright but minor.",
+            },
+            alternatives: [],
+            querySummary: "macro scale",
+          }),
+        );
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
 
     render(<GlobalMusicControls />);
 
-    await userEvent.clear(screen.getByLabelText(/genre prompt/i));
-    await userEvent.type(screen.getByLabelText(/genre prompt/i), "uk garage shuffle");
-    await userEvent.click(screen.getByRole("button", { name: "suggest" }));
+    await userEvent.clear(screen.getByLabelText(/tempo \+ key prompt/i));
+    await userEvent.type(
+      screen.getByLabelText(/tempo \+ key prompt/i),
+      "swung techno in F sharp dorian",
+    );
+    expect(screen.getByRole("button", { name: "set both" })).toBeEnabled();
+    await userEvent.click(screen.getByRole("button", { name: "set both" }));
 
     await waitFor(() => {
-      expect(screen.getByText("134 BPM / 16% swing")).toBeInTheDocument();
+      expect(screen.getByText("140 BPM / 12% swing / F# Dorian")).toBeInTheDocument();
     });
-    expect(screen.getByLabelText("bpm")).toHaveValue(134);
-    expect(screen.getByLabelText("swing")).toHaveValue(0.16);
+    expect(screen.getByRole("button", { name: /applied/i })).toBeInTheDocument();
+    expect(screen.getByText("Macro context applied to BPM, swing, root, and scale.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("bpm")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "set manually" }));
+
+    expect(screen.getByLabelText("bpm")).toHaveValue(140);
+    expect(screen.getByLabelText("swing")).toHaveValue(0.12);
+    expect(screen.getAllByText("F# Dorian").length).toBeGreaterThan(0);
     expect(globalThis.fetch).toHaveBeenCalledWith(
       "/api/music/tempo-suggest",
       expect.objectContaining({
+        body: expect.stringContaining("swung techno in F sharp dorian"),
         method: "POST",
+      }),
+    );
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "/api/music/scale-search",
+      expect.objectContaining({
+        body: expect.stringContaining("swung techno in F sharp dorian"),
+        method: "POST",
+      }),
+    );
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "/api/music/scale-search",
+      expect.objectContaining({
+        body: expect.stringContaining('"tonic":"F#"'),
       }),
     );
   });
 
-  it("shows a scoped overlay while BPM and swing are being generated", async () => {
-    let resolveFetch!: (response: Response) => void;
-    vi.spyOn(globalThis, "fetch").mockReturnValue(
-      new Promise<Response>((resolve) => {
-        resolveFetch = resolve;
-      }),
-    );
+  it("shows a scoped overlay while macro context is being generated", async () => {
+    let resolveTempo!: (response: Response) => void;
+    let resolveScale!: (response: Response) => void;
+    let pendingFetches = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation((input: RequestInfo | URL) => {
+      pendingFetches += 1;
+      const url = String(input);
+      if (url === "/api/music/tempo-suggest") {
+        return new Promise<Response>((resolve) => {
+          resolveTempo = resolve;
+        });
+      }
+      if (url === "/api/music/scale-search") {
+        return new Promise<Response>((resolve) => {
+          resolveScale = resolve;
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
 
     render(<GlobalMusicControls />);
 
-    await userEvent.click(screen.getByRole("button", { name: "suggest" }));
+    await userEvent.type(
+      screen.getByLabelText(/tempo \+ key prompt/i),
+      "124 bpm C dorian",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "set both" }));
 
     await waitFor(() => {
       expect(screen.getByRole("status")).toHaveTextContent(
-        "generating BPM and swing",
+        "generating tempo and key",
       );
     });
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Prompting the LLM for genre-aware tempo and groove.",
+      "Prompting both music agents from one context prompt.",
     );
+    expect(pendingFetches).toBe(2);
 
-    resolveFetch(
+    resolveTempo(
       Response.json({
         selected: {
           bpm: 124,
@@ -107,33 +175,7 @@ describe("GlobalMusicControls", () => {
         querySummary: "test",
       }),
     );
-    await waitFor(() => {
-      expect(screen.queryByRole("status")).not.toBeInTheDocument();
-    });
-  });
-
-  it("shows a scoped overlay while root and scale are being generated", async () => {
-    let resolveFetch!: (response: Response) => void;
-    vi.spyOn(globalThis, "fetch").mockReturnValue(
-      new Promise<Response>((resolve) => {
-        resolveFetch = resolve;
-      }),
-    );
-
-    render(<GlobalMusicControls />);
-
-    await userEvent.click(screen.getByRole("button", { name: "agent pick" }));
-
-    await waitFor(() => {
-      expect(screen.getByRole("status")).toHaveTextContent(
-        "generating root and scale",
-      );
-    });
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Prompting the LLM for a matching root and scale.",
-    );
-
-    resolveFetch(
+    resolveScale(
       Response.json({
         selected: {
           tonic: "C",

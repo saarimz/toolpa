@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  Check,
   Gauge,
+  Loader2,
   Music2,
-  Search,
   SlidersHorizontal,
-  Waves,
+  Sparkles,
 } from "lucide-react";
 
 import { LlmGeneratingOverlay } from "@/components/llm-generating-overlay";
@@ -14,6 +15,7 @@ import {
   ChromaticTonics,
   GlobalBpmSchema,
   GlobalSwingSchema,
+  type Tonic,
 } from "@/lib/music/context";
 import {
   ScaleAgentOutputSchema,
@@ -23,14 +25,21 @@ import {
   getScaleDefinitions,
   getScaleDefinition,
   resolveScaleKey,
-  searchScaleKeys,
 } from "@/lib/music/scale-catalog";
 import {
   TempoAgentOutputSchema,
-  type TempoAgentChoice,
   type TempoAgentOutput,
 } from "@/lib/music/tempo-agent.shared";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
+
+type MacroMusicChoice = {
+  scale: ScaleAgentOutput;
+  tempo: TempoAgentOutput;
+};
+
+type ScaleSuggestionOptions = {
+  tonic?: Tonic;
+};
 
 export function GlobalMusicControls() {
   const context = useGlobalMusicContextStore((state) => state.context);
@@ -40,22 +49,19 @@ export function GlobalMusicControls() {
   const setScaleKey = useGlobalMusicContextStore((state) => state.setScaleKey);
   const selectedScale = getScaleDefinition(context.key.scaleId);
   const scaleDefinitions = getScaleDefinitions();
-  const [tempoPrompt, setTempoPrompt] = useState("jungle breakbeat");
-  const [tempoChoice, setTempoChoice] = useState<TempoAgentOutput | null>(null);
-  const [tempoError, setTempoError] = useState<string | null>(null);
-  const [isTempoSearching, setIsTempoSearching] = useState(false);
-  const [query, setQuery] = useState(selectedScale?.name ?? "minor");
-  const [agentChoice, setAgentChoice] = useState<ScaleAgentOutput | null>(null);
-  const [agentError, setAgentError] = useState<string | null>(null);
-  const [isAgentSearching, setIsAgentSearching] = useState(false);
-  const results = useMemo(
-    () =>
-      searchScaleKeys(query || selectedScale?.name || "minor", {
-        tonic: context.key.tonic,
-        limit: 6,
-      }),
-    [context.key.tonic, query, selectedScale?.name],
-  );
+  const [isManualOpen, setIsManualOpen] = useState(false);
+  const [macroPrompt, setMacroPrompt] = useState("");
+  const [macroChoice, setMacroChoice] = useState<MacroMusicChoice | null>(null);
+  const [macroError, setMacroError] = useState<string | null>(null);
+  const [isMacroSearching, setIsMacroSearching] = useState(false);
+  const [macroAppliedPrompt, setMacroAppliedPrompt] = useState<string | null>(null);
+  const macroSelectedScale = macroChoice
+    ? getScaleDefinition(macroChoice.scale.selected.scaleId)
+    : null;
+  const trimmedMacroPrompt = macroPrompt.trim();
+  const canRunMacroSuggestion = trimmedMacroPrompt.length > 0 && !isMacroSearching;
+  const hasAppliedCurrentPrompt =
+    Boolean(macroChoice) && macroAppliedPrompt === trimmedMacroPrompt;
 
   useEffect(() => {
     hydrate();
@@ -64,11 +70,13 @@ export function GlobalMusicControls() {
   function chooseTonic(tonic: string) {
     const next = resolveScaleKey({ tonic, scaleId: context.key.scaleId });
     setScaleKey(next);
+    setMacroChoice(null);
   }
 
   function chooseScale(scaleId: string) {
     const next = resolveScaleKey({ tonic: context.key.tonic, scaleId });
     setScaleKey(next);
+    setMacroChoice(null);
   }
 
   function updateBpm(value: string) {
@@ -78,6 +86,7 @@ export function GlobalMusicControls() {
       : { success: false as const };
     if (parsed.success) {
       setBpm(parsed.data);
+      setMacroChoice(null);
     }
   }
 
@@ -88,85 +97,91 @@ export function GlobalMusicControls() {
       : { success: false as const };
     if (parsed.success) {
       setSwing(parsed.data);
+      setMacroChoice(null);
     }
   }
 
-  function applyTempoChoice(choice: TempoAgentChoice) {
+  function applyTempoChoice(choice: TempoAgentOutput["selected"]) {
     setBpm(choice.bpm);
     setSwing(choice.swing);
   }
 
-  async function runTempoSuggestion() {
-    setIsTempoSearching(true);
-    setTempoError(null);
-
-    try {
-      const response = await fetch("/api/music/tempo-suggest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: tempoPrompt.trim() || `${context.bpm} bpm ${formatSwingPercent(context.swing)} swing`,
-          context,
-        }),
-      });
-      const body: unknown = await response.json();
-      if (!response.ok) {
-        throw new Error(getErrorMessage(body) ?? "Tempo suggestion failed");
-      }
-      const parsed = TempoAgentOutputSchema.safeParse(body);
-      if (!parsed.success) {
-        throw new Error("Tempo suggestion returned malformed data");
-      }
-      const result = parsed.data;
-
-      applyTempoChoice(result.selected);
-      setTempoChoice(result);
-    } catch (unknownError) {
-      setTempoError(
-        unknownError instanceof Error ? unknownError.message : "Tempo suggestion failed",
-      );
-    } finally {
-      setIsTempoSearching(false);
+  async function fetchTempoSuggestion(prompt: string) {
+    const response = await fetch("/api/music/tempo-suggest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt,
+        context,
+      }),
+    });
+    const body: unknown = await response.json();
+    if (!response.ok) {
+      throw new Error(getErrorMessage(body) ?? "Tempo suggestion failed");
     }
+    const parsed = TempoAgentOutputSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new Error("Tempo suggestion returned malformed data");
+    }
+    return parsed.data;
   }
 
-  async function runAgenticScaleSearch() {
-    setIsAgentSearching(true);
-    setAgentError(null);
+  async function fetchScaleSuggestion(
+    prompt: string,
+    options: ScaleSuggestionOptions = {},
+  ) {
+    const response = await fetch("/api/music/scale-search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt,
+        tonic: options.tonic ?? context.key.tonic,
+        context,
+        limit: 12,
+      }),
+    });
+    const body: unknown = await response.json();
+    if (!response.ok) {
+      throw new Error(getErrorMessage(body) ?? "Scale search failed");
+    }
+    const parsed = ScaleAgentOutputSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new Error("Scale search returned malformed data");
+    }
+    return parsed.data;
+  }
+
+  async function runMacroSuggestion() {
+    if (!trimmedMacroPrompt) {
+      return;
+    }
+
+    setIsMacroSearching(true);
+    setMacroError(null);
 
     try {
-      const response = await fetch("/api/music/scale-search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: query.trim() || `${context.key.tonic} ${selectedScale?.name ?? "minor"}`,
-          tonic: context.key.tonic,
-          context,
-          limit: 12,
-        }),
-      });
-      const body: unknown = await response.json();
-      if (!response.ok) {
-        throw new Error(getErrorMessage(body) ?? "Scale search failed");
-      }
-      const parsed = ScaleAgentOutputSchema.safeParse(body);
-      if (!parsed.success) {
-        throw new Error("Scale search returned malformed data");
-      }
-      const result = parsed.data;
-
+      const prompt = trimmedMacroPrompt;
+      const requestedTonic = inferPromptTonic(prompt);
+      const [tempoResult, scaleResult] = await Promise.all([
+        fetchTempoSuggestion(prompt),
+        fetchScaleSuggestion(prompt, { tonic: requestedTonic ?? context.key.tonic }),
+      ]);
       const selected = resolveScaleKey({
-        tonic: result.selected.tonic,
-        scaleId: result.selected.scaleId,
+        tonic: scaleResult.selected.tonic,
+        scaleId: scaleResult.selected.scaleId,
       });
+
+      applyTempoChoice(tempoResult.selected);
       setScaleKey(selected);
-      setAgentChoice(result);
+      setMacroChoice({ scale: scaleResult, tempo: tempoResult });
+      setMacroAppliedPrompt(prompt);
     } catch (unknownError) {
-      setAgentError(
-        unknownError instanceof Error ? unknownError.message : "Scale search failed",
+      setMacroError(
+        unknownError instanceof Error ? unknownError.message : "Macro suggestion failed",
       );
+      setMacroAppliedPrompt(null);
     } finally {
-      setIsAgentSearching(false);
+      setIsMacroSearching(false);
     }
   }
 
@@ -183,269 +198,225 @@ export function GlobalMusicControls() {
         </div>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-2">
-        <div className="relative overflow-hidden border border-zinc-800 bg-zinc-950 p-4">
-          {isTempoSearching ? (
-            <LlmGeneratingOverlay
-              detail="Prompting the LLM for genre-aware tempo and groove."
-              label="generating BPM and swing"
-            />
-          ) : null}
+      <div className="relative overflow-hidden border border-zinc-800 bg-zinc-950 p-4">
+        {isMacroSearching ? (
+          <LlmGeneratingOverlay
+            detail="Prompting both music agents from one context prompt."
+            label="generating tempo and key"
+          />
+        ) : null}
 
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-zinc-500">
-              <Gauge className="size-4 text-zinc-200" />
-              bpm + swing
-            </div>
-            <div className="text-xs text-zinc-500">
-              {context.bpm} bpm / {formatSwingPercent(context.swing)}
-            </div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-zinc-500">
+            <Sparkles className="size-4 text-zinc-200" />
+            1. macro context
           </div>
-
-          <div className="space-y-1">
-            <label
-              className="flex items-center gap-1 text-xs text-zinc-500"
-              htmlFor="global-tempo-prompt"
-            >
-              <Waves className="size-3" />
-              genre prompt
-            </label>
-            <div className="flex gap-2">
-              <input
-                id="global-tempo-prompt"
-                className="h-9 min-w-0 flex-1 rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-sm text-zinc-100"
-                value={tempoPrompt}
-                onChange={(event) => setTempoPrompt(event.currentTarget.value)}
-                placeholder="jungle, uk garage, lofi hip-hop, warehouse techno..."
-              />
-              <button
-                type="button"
-                className="h-9 shrink-0 rounded-sm border border-zinc-200/50 px-3 text-xs text-zinc-100 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-700"
-                disabled={isTempoSearching}
-                onClick={() => void runTempoSuggestion()}
-              >
-                {isTempoSearching ? "thinking" : "suggest"}
-              </button>
-            </div>
-          </div>
-
-          {tempoChoice ? (
-            <div className="mt-3 border border-zinc-200/20 bg-white/5 p-2 text-xs text-zinc-300">
-              <div className="text-zinc-100">
-                {tempoChoice.selected.bpm} BPM /{" "}
-                {formatSwingPercent(tempoChoice.selected.swing)} swing
-              </div>
-              <div className="mt-1 text-zinc-500">{tempoChoice.selected.rationale}</div>
-              {tempoChoice.alternatives.length > 0 ? (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {tempoChoice.alternatives.map((alternative) => (
-                    <button
-                      key={`${alternative.bpm}:${alternative.swing}`}
-                      type="button"
-                      className="rounded-sm border border-zinc-800 px-2 py-1 text-[10px] text-zinc-500 hover:border-zinc-600 hover:text-zinc-100"
-                      title={alternative.rationale}
-                      onClick={() => applyTempoChoice(alternative)}
-                    >
-                      {alternative.bpm} / {formatSwingPercent(alternative.swing)}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-          {tempoError ? <div className="mt-2 text-xs text-red-300">{tempoError}</div> : null}
-
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <label className="space-y-1">
-              <span className="flex items-center gap-1 text-xs text-zinc-500">
-                <Gauge className="size-3" />
-                bpm
-              </span>
-              <input
-                className="h-9 w-full rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-sm text-zinc-100"
-                type="number"
-                min={40}
-                max={260}
-                value={context.bpm}
-                onChange={(event) => updateBpm(event.currentTarget.value)}
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="text-xs text-zinc-500">swing</span>
-              <input
-                className="h-9 w-full rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-sm text-zinc-100"
-                type="number"
-                min={0}
-                max={0.5}
-                step={0.01}
-                value={context.swing}
-                onChange={(event) => updateSwing(event.currentTarget.value)}
-              />
-            </label>
-            <label className="col-span-2 space-y-1">
-              <span className="text-xs text-zinc-500">
-                swing amount ({formatSwingPercent(context.swing)})
-              </span>
-              <input
-                className="w-full accent-zinc-200"
-                type="range"
-                min={0}
-                max={0.5}
-                step={0.01}
-                value={context.swing}
-                onChange={(event) => updateSwing(event.currentTarget.value)}
-              />
-            </label>
+          <div className="text-xs text-zinc-500">
+            {context.bpm} bpm / {formatSwingPercent(context.swing)} swing /{" "}
+            {context.key.tonic} {selectedScale?.name ?? context.key.scaleId}
           </div>
         </div>
 
-        <div className="relative overflow-hidden border border-zinc-800 bg-zinc-950 p-4">
-          {isAgentSearching ? (
-            <LlmGeneratingOverlay
-              detail="Prompting the LLM for a matching root and scale."
-              label="generating root and scale"
+        <div className="space-y-1">
+          <label
+            className="flex items-center gap-1 text-xs text-zinc-500"
+            htmlFor="global-macro-prompt"
+          >
+            <Sparkles className="size-3" />
+            tempo + key prompt
+          </label>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              id="global-macro-prompt"
+              className="h-9 min-w-0 flex-1 rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-sm text-zinc-100 placeholder:text-zinc-700"
+              value={macroPrompt}
+              onChange={(event) => {
+                setMacroPrompt(event.currentTarget.value);
+                setMacroChoice(null);
+                setMacroAppliedPrompt(null);
+              }}
+              placeholder="Describe tempo, swing, key, and scale..."
             />
-          ) : null}
-
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-zinc-500">
-              <Music2 className="size-4 text-zinc-200" />
-              root + scale
-            </div>
-            <div className="text-xs text-zinc-500">
-              {context.key.tonic} {selectedScale?.name ?? context.key.scaleId}
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <label
-              className="flex items-center gap-1 text-xs text-zinc-500"
-              htmlFor="global-scale-prompt"
+            <button
+              type="button"
+              className={[
+                "inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-sm border px-3 text-xs transition disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-700",
+                hasAppliedCurrentPrompt
+                  ? "border-emerald-300/60 bg-emerald-400/10 text-emerald-100"
+                  : "border-zinc-200/50 text-zinc-100 hover:border-zinc-200",
+              ].join(" ")}
+              disabled={!canRunMacroSuggestion}
+              onClick={() => void runMacroSuggestion()}
             >
-              <Search className="size-3" />
-              scale prompt
-            </label>
-            <div className="flex gap-2">
-              <input
-                id="global-scale-prompt"
-                className="h-9 min-w-0 flex-1 rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-sm text-zinc-100"
-                value={query}
-                onChange={(event) => setQuery(event.currentTarget.value)}
-                placeholder="microtonal quarter tone, persian, dorian, pelog..."
-              />
-              <button
-                type="button"
-                className="h-9 shrink-0 rounded-sm border border-zinc-200/50 px-3 text-xs text-zinc-100 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-700"
-                disabled={isAgentSearching}
-                onClick={() => void runAgenticScaleSearch()}
-              >
-                {isAgentSearching ? "thinking" : "agent pick"}
-              </button>
+              {isMacroSearching ? <Loader2 className="size-3 animate-spin" /> : null}
+              {hasAppliedCurrentPrompt && !isMacroSearching ? <Check className="size-3" /> : null}
+              {isMacroSearching
+                ? "setting"
+                : hasAppliedCurrentPrompt
+                  ? "applied"
+                  : trimmedMacroPrompt
+                    ? "set both"
+                    : "enter prompt"}
+            </button>
+          </div>
+          <div className="mt-1 text-xs text-zinc-600" aria-live="polite">
+            {trimmedMacroPrompt
+              ? hasAppliedCurrentPrompt
+                ? "Macro context applied to BPM, swing, root, and scale."
+                : "Ready to set tempo and key from this prompt."
+              : "Enter a prompt to enable macro context."}
+          </div>
+        </div>
+
+        {macroChoice ? (
+          <div className="mt-3 border border-zinc-200/20 bg-white/5 p-2 text-xs text-zinc-300">
+            <div className="text-zinc-100">
+              {macroChoice.tempo.selected.bpm} BPM /{" "}
+              {formatSwingPercent(macroChoice.tempo.selected.swing)} swing /{" "}
+              {macroChoice.scale.selected.tonic}{" "}
+              {macroSelectedScale?.name ?? macroChoice.scale.selected.scaleId}
+            </div>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <div className="text-zinc-500">{macroChoice.tempo.selected.rationale}</div>
+              <div className="text-zinc-500">{macroChoice.scale.selected.rationale}</div>
             </div>
           </div>
+        ) : null}
+        {macroError ? <div className="mt-2 text-xs text-red-300">{macroError}</div> : null}
+      </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <label className="space-y-1">
-              <span className="text-xs text-zinc-500">root</span>
-              <select
-                className="h-9 w-full rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-sm text-zinc-100"
-                value={context.key.tonic}
-                onChange={(event) => chooseTonic(event.currentTarget.value)}
-              >
-                {ChromaticTonics.map((tonic) => (
-                  <option key={tonic} value={tonic}>
-                    {tonic}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1">
-              <span className="text-xs text-zinc-500">scale</span>
-              <select
-                className="h-9 w-full rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-sm text-zinc-100"
-                value={context.key.scaleId}
-                onChange={(event) => chooseScale(event.currentTarget.value)}
-              >
-                {scaleDefinitions.map((scaleDefinition) => (
-                  <option key={scaleDefinition.id} value={scaleDefinition.id}>
-                    {scaleDefinition.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <div className="mt-2 border border-zinc-900 bg-black/20 p-2 text-xs text-zinc-400">
-            <div className="text-zinc-200">
+      <div className="border border-zinc-800 bg-zinc-950 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-zinc-500">
+              <SlidersHorizontal className="size-4 text-zinc-200" />
+              2. set manually
+            </div>
+            <div className="mt-1 text-sm text-zinc-300">
+              {context.bpm} bpm / {formatSwingPercent(context.swing)} swing /{" "}
               {context.key.tonic} {selectedScale?.name ?? context.key.scaleId}
             </div>
-            <div className="mt-1 text-zinc-600">
-              {selectedScale?.microtonal ? "microtonal" : selectedScale?.family}
-            </div>
           </div>
+          <button
+            type="button"
+            className="h-9 shrink-0 rounded-sm border border-zinc-200/50 px-3 text-xs text-zinc-100 hover:border-zinc-200 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-700"
+            disabled={isMacroSearching}
+            onClick={() => setIsManualOpen((current) => !current)}
+          >
+            {isManualOpen ? "hide manual" : "set manually"}
+          </button>
+        </div>
 
-          <div className="mt-3">
-            <div className="mb-2 text-xs text-zinc-500">prompt matches</div>
-            <div className="flex flex-wrap gap-2">
-              {results.map((result) => (
-                <button
-                  key={result.id}
-                  type="button"
-                  className={`rounded-sm border px-2 py-1 text-left text-xs transition ${
-                    result.scale.id === context.key.scaleId
-                      ? "border-zinc-200 text-zinc-100"
-                      : "border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-100"
-                  }`}
-                  onClick={() => {
-                    setScaleKey(result);
-                  }}
-                >
-                  <span className="block">{result.label}</span>
-                  <span className="block text-[10px] text-zinc-600">
-                    {result.scale.microtonal ? "microtonal" : result.scale.family}
+        {isManualOpen ? (
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            <div className="border border-zinc-900 bg-black/20 p-3">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-zinc-500">
+                  <Gauge className="size-4 text-zinc-200" />
+                  bpm + swing
+                </div>
+                <div className="text-xs text-zinc-500">
+                  {context.bpm} bpm / {formatSwingPercent(context.swing)}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <label className="space-y-1">
+                  <span className="flex items-center gap-1 text-xs text-zinc-500">
+                    <Gauge className="size-3" />
+                    bpm
                   </span>
-                </button>
-              ))}
+                  <input
+                    className="h-9 w-full rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-sm text-zinc-100"
+                    type="number"
+                    min={40}
+                    max={260}
+                    value={context.bpm}
+                    onChange={(event) => updateBpm(event.currentTarget.value)}
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs text-zinc-500">swing</span>
+                  <input
+                    className="h-9 w-full rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-sm text-zinc-100"
+                    type="number"
+                    min={0}
+                    max={0.5}
+                    step={0.01}
+                    value={context.swing}
+                    onChange={(event) => updateSwing(event.currentTarget.value)}
+                  />
+                </label>
+                <label className="col-span-2 space-y-1">
+                  <span className="text-xs text-zinc-500">
+                    swing amount ({formatSwingPercent(context.swing)})
+                  </span>
+                  <input
+                    className="w-full accent-zinc-200"
+                    type="range"
+                    min={0}
+                    max={0.5}
+                    step={0.01}
+                    value={context.swing}
+                    onChange={(event) => updateSwing(event.currentTarget.value)}
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="border border-zinc-900 bg-black/20 p-3">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-zinc-500">
+                  <Music2 className="size-4 text-zinc-200" />
+                  root + scale
+                </div>
+                <div className="text-xs text-zinc-500">
+                  {context.key.tonic} {selectedScale?.name ?? context.key.scaleId}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <label className="space-y-1">
+                  <span className="text-xs text-zinc-500">root</span>
+                  <select
+                    className="h-9 w-full rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-sm text-zinc-100"
+                    value={context.key.tonic}
+                    onChange={(event) => chooseTonic(event.currentTarget.value)}
+                  >
+                    {ChromaticTonics.map((tonic) => (
+                      <option key={tonic} value={tonic}>
+                        {tonic}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs text-zinc-500">scale</span>
+                  <select
+                    className="h-9 w-full rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-sm text-zinc-100"
+                    value={context.key.scaleId}
+                    onChange={(event) => chooseScale(event.currentTarget.value)}
+                  >
+                    {scaleDefinitions.map((scaleDefinition) => (
+                      <option key={scaleDefinition.id} value={scaleDefinition.id}>
+                        {scaleDefinition.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="mt-2 border border-zinc-900 bg-black/20 p-2 text-xs text-zinc-400">
+                <div className="text-zinc-200">
+                  {context.key.tonic} {selectedScale?.name ?? context.key.scaleId}
+                </div>
+                <div className="mt-1 text-zinc-600">
+                  {selectedScale?.microtonal ? "microtonal" : selectedScale?.family}
+                </div>
+              </div>
             </div>
           </div>
-
-          {agentChoice ? (
-            <div className="mt-3 border border-zinc-200/20 bg-white/5 p-2 text-xs text-zinc-300">
-              <div className="text-zinc-100">
-                {agentChoice.selected.tonic}{" "}
-                {getScaleDefinition(agentChoice.selected.scaleId)?.name ??
-                  agentChoice.selected.scaleId}
-              </div>
-              <div className="mt-1 text-zinc-500">{agentChoice.selected.rationale}</div>
-              {agentChoice.alternatives.length > 0 ? (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {agentChoice.alternatives.map((alternative) => {
-                    const alternativeScale = getScaleDefinition(alternative.scaleId);
-                    return (
-                      <button
-                        key={`${alternative.tonic}:${alternative.scaleId}`}
-                        type="button"
-                        className="rounded-sm border border-zinc-800 px-2 py-1 text-[10px] text-zinc-500 hover:border-zinc-600 hover:text-zinc-100"
-                        title={alternative.rationale}
-                        onClick={() =>
-                          setScaleKey(
-                            resolveScaleKey({
-                              tonic: alternative.tonic,
-                              scaleId: alternative.scaleId,
-                            }),
-                          )
-                        }
-                      >
-                        {alternative.tonic} {alternativeScale?.name ?? alternative.scaleId}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-          {agentError ? <div className="mt-2 text-xs text-red-300">{agentError}</div> : null}
-        </div>
+        ) : null}
       </div>
     </section>
   );
@@ -462,4 +433,39 @@ function getErrorMessage(body: unknown) {
 
   const error = body.error;
   return typeof error === "string" ? error : null;
+}
+
+const PromptTonicAliases: Array<{ aliases: string[]; tonic: Tonic }> = [
+  { tonic: "C#", aliases: ["c#", "c sharp", "db", "d flat"] },
+  { tonic: "Eb", aliases: ["eb", "e flat", "d#", "d sharp"] },
+  { tonic: "F#", aliases: ["f#", "f sharp", "gb", "g flat"] },
+  { tonic: "Ab", aliases: ["ab", "a flat", "g#", "g sharp"] },
+  { tonic: "Bb", aliases: ["bb", "b flat", "a#", "a sharp"] },
+  { tonic: "C", aliases: ["c"] },
+  { tonic: "D", aliases: ["d"] },
+  { tonic: "E", aliases: ["e"] },
+  { tonic: "F", aliases: ["f"] },
+  { tonic: "G", aliases: ["g"] },
+  { tonic: "A", aliases: ["a"] },
+  { tonic: "B", aliases: ["b"] },
+];
+
+function inferPromptTonic(prompt: string): Tonic | null {
+  const normalized = prompt
+    .toLowerCase()
+    .replaceAll("♯", "#")
+    .replaceAll("♭", "b");
+
+  for (const { aliases, tonic } of PromptTonicAliases) {
+    if (aliases.some((alias) => promptContainsAlias(normalized, alias))) {
+      return tonic;
+    }
+  }
+
+  return null;
+}
+
+function promptContainsAlias(prompt: string, alias: string) {
+  const escapedAlias = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^a-z0-9#])${escapedAlias}([^a-z0-9#]|$)`).test(prompt);
 }

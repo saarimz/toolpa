@@ -6,6 +6,7 @@ import {
   type InstrumentDocument,
   type InstrumentType,
 } from "@/lib/agents/contract";
+import { createExportHardeningIssues } from "@/lib/agents/export-hardening";
 import {
   createBuilderProfilePlan,
   getBuilderProfileDomains,
@@ -14,6 +15,7 @@ import {
 const DOCUMENT_OUTPUT_BY_TYPE = {
   "audio-stream": "audio",
   files: "files",
+  "midi-clip": "midi",
   pattern: "pattern",
   "synth-scene": "synthScene",
 } as const satisfies Record<InstrumentDocument, keyof AgentManifest["outputs"]>;
@@ -89,6 +91,7 @@ export function createPlatformHardeningAudit(
   const l2Manifests = parsed.filter((manifest) => manifest.level === 2);
   const issues = [
     ...l1Manifests.flatMap(createL1Issues),
+    ...l1Manifests.flatMap(createExportHardeningIssues),
     ...l2Manifests.flatMap(createL2Issues),
     ...createSpecializedBuilderIssues(l2Manifests),
   ];

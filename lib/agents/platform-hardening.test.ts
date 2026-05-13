@@ -9,14 +9,17 @@ import type { AgentManifest } from "@/lib/agents/contract";
 
 describe("platform hardening audit", () => {
   it("keeps the shipped L1/L2 suite aligned with reference web-audio conventions", () => {
-    const audit = createPlatformHardeningAudit(getAgentManifests());
+    const manifests = getAgentManifests();
+    const l1Count = manifests.filter((manifest) => manifest.level === 1).length;
+    const l2Count = manifests.filter((manifest) => manifest.level === 2).length;
+    const audit = createPlatformHardeningAudit(manifests);
 
     expect(audit).toMatchObject({
-      l1Count: 6,
-      l2Count: 6,
+      l1Count,
+      l2Count,
       specializedBuilderCount: 5,
       status: "ready",
-      summary: "6 L1 tools and 6 L2 builders pass platform hardening gates.",
+      summary: `${l1Count} L1 tools and ${l2Count} L2 builders pass platform hardening gates.`,
     });
     expect(audit.issues).toEqual([]);
     expect(WEB_AUDIO_REFERENCE_CONVENTIONS.map((rule) => rule.id)).toEqual([
@@ -66,12 +69,30 @@ describe("platform hardening audit", () => {
         pattern: false,
         synthScene: true,
       },
+      exports: {
+        document: "synth-scene",
+        audio: {
+          strategy: "offline-render",
+          formats: ["wav"],
+          maxDefaultDurationSec: 120,
+          requiresUserGestureForPreview: true,
+        },
+      },
       route: "/tools/weak-synth",
       slug: "weak-synth",
     };
     const liveSynth: AgentManifest = {
       ...weakSynth,
       capabilities: ["cameraTracking", "continuousSynth", "recordOutput"],
+      exports: {
+        document: "synth-scene",
+        audio: {
+          strategy: "live-recording",
+          formats: ["wav"],
+          maxDefaultDurationSec: 120,
+          requiresUserGestureForPreview: true,
+        },
+      },
       route: "/tools/live-synth",
       slug: "live-synth",
     };
@@ -147,6 +168,15 @@ const validL1: AgentManifest = {
     pattern: true,
     recording: true,
     synthScene: false,
+  },
+  exports: {
+    document: "pattern",
+    audio: {
+      strategy: "offline-render",
+      formats: ["wav"],
+      maxDefaultDurationSec: 120,
+      requiresUserGestureForPreview: true,
+    },
   },
   route: "/tools/weak-pattern",
   slug: "weak-pattern",

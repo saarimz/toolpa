@@ -1,0 +1,288 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { Copy, Loader2, SlidersHorizontal, Square, Wand2 } from "lucide-react";
+
+import { AudioOutputRecorder } from "@/components/audio-output-recorder";
+import { LlmGeneratingOverlay } from "@/components/llm-generating-overlay";
+import { Button } from "@/components/ui/button";
+import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
+import { usePromptParamState } from "@/lib/tools/use-prompt-param";
+
+const TOOL_SLUG = "harmonic-distrotion-effect";
+const TOOL_NAME = "Harmonic Distrotion Effect";
+const TOOL_DESCRIPTION = "create a harmonic distrotion effect that is not super harsh";
+
+type EffectPatch = {
+  delayFeedback: number;
+  delayTimeSeconds: number;
+  drive: number;
+  filterCutoffHz: number;
+  filterResonance: number;
+  outputDb: number;
+  wet: number;
+};
+
+type EffectRuntime = {
+  apply: (patch: EffectPatch) => void;
+  dispose: () => void;
+};
+
+const defaultPatch: EffectPatch = {
+  delayFeedback: 0.32,
+  delayTimeSeconds: 0.25,
+  drive: 0.08,
+  filterCutoffHz: 2400,
+  filterResonance: 1.2,
+  outputDb: -8,
+  wet: 0.45,
+};
+
+export function HarmonicDistrotionEffectClient() {
+  const runtimeRef = useRef<EffectRuntime | null>(null);
+  const [prompt, setPrompt] = usePromptParamState(TOOL_DESCRIPTION);
+  const [patch, setPatchState] = useState<EffectPatch>(defaultPatch);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
+  const [copiedPatch, setCopiedPatch] = useState(false);
+  const [agentStatus, setAgentStatus] = useState("local effect patch ready");
+  const [error, setError] = useState<string | null>(null);
+  const context = useGlobalMusicContextStore((state) => state.context);
+  const hydrateGlobalContext = useGlobalMusicContextStore((state) => state.hydrate);
+
+  useEffect(() => {
+    hydrateGlobalContext();
+    return () => {
+      runtimeRef.current?.dispose();
+      runtimeRef.current = null;
+    };
+  }, [hydrateGlobalContext]);
+
+  function setPatch(nextPatch: EffectPatch) {
+    const bounded = normalizePatch(nextPatch);
+    setPatchState(bounded);
+    runtimeRef.current?.apply(bounded);
+  }
+
+  function patchField<K extends keyof EffectPatch>(key: K, value: EffectPatch[K]) {
+    setPatch({ ...patch, [key]: value });
+  }
+
+  async function generatePatch() {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const nextPatch = inferPatchFromPrompt(prompt, context.bpm);
+      setPatch(nextPatch);
+      setAgentStatus(`prompt patch ready at ${context.bpm} bpm`);
+    } finally {
+      window.setTimeout(() => setIsGenerating(false), 180);
+    }
+  }
+
+  async function toggleInput() {
+    if (runtimeRef.current) {
+      runtimeRef.current.dispose();
+      runtimeRef.current = null;
+      setIsRunning(false);
+      return;
+    }
+
+    try {
+      const runtime = await createToneEffectRuntime(patch);
+      runtimeRef.current = runtime;
+      setIsRunning(true);
+      setAgentStatus("live input routed through effect graph");
+    } catch (unknownError) {
+      setError(unknownError instanceof Error ? unknownError.message : "Could not start live input");
+      setIsRunning(false);
+    }
+  }
+
+  async function copyPatchJson() {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify({ context, patch, prompt, toolSlug: TOOL_SLUG }, null, 2));
+      setCopiedPatch(true);
+      window.setTimeout(() => setCopiedPatch(false), 1500);
+    } catch (unknownError) {
+      setError(unknownError instanceof Error ? unknownError.message : "Clipboard copy failed");
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-zinc-950 text-zinc-100">
+      <section className="mx-auto flex max-w-6xl flex-col">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 p-4">
+          <div>
+            <Link href="/dashboard" className="text-xs text-zinc-500 hover:text-zinc-200">
+              /dashboard
+            </Link>
+            <h1 className="mt-1 text-lg text-zinc-100">{TOOL_NAME}</h1>
+            <p className="mt-1 max-w-3xl text-xs text-zinc-500">{TOOL_DESCRIPTION}</p>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-zinc-500">
+            <span>L1</span>
+            <span className="text-zinc-200">generated effect</span>
+            <span>{context.bpm} bpm</span>
+          </div>
+        </header>
+
+        <div className="relative grid border-b border-zinc-800 lg:grid-cols-[minmax(0,1fr)_360px]">
+          {isGenerating ? (
+            <LlmGeneratingOverlay
+              detail="Prompting the local effect agent for a live audio-stream patch."
+              label="generating effect patch"
+              tone="solid"
+            />
+          ) : null}
+          <section className="p-4">
+            <label className="block text-xs text-zinc-500">
+              effect prompt
+              <textarea
+                className="mt-2 h-28 w-full resize-none rounded-sm border border-zinc-700 bg-zinc-950 p-3 text-xs text-zinc-100 outline-none focus:border-zinc-200"
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
+              />
+            </label>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button disabled={isGenerating} onClick={() => void generatePatch()}>
+                {isGenerating ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
+                generate patch
+              </Button>
+              <Button variant={isRunning ? "danger" : "solid"} onClick={() => void toggleInput()}>
+                <Square className="size-4" />
+                {isRunning ? "stop input" : "start input"}
+              </Button>
+              <AudioOutputRecorder filename={TOOL_SLUG} sourceId={TOOL_SLUG} />
+              <Button onClick={() => void copyPatchJson()}>
+                <Copy className="size-4" />
+                {copiedPatch ? "copied" : "copy patch json"}
+              </Button>
+            </div>
+            <div className="mt-3 text-xs text-zinc-500">agent {agentStatus}</div>
+            {error ? <p className="mt-3 text-xs text-red-300">{error}</p> : null}
+          </section>
+
+          <aside className="border-t border-zinc-800 p-4 lg:border-l lg:border-t-0">
+            <div className="mb-3 flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-zinc-500">
+              <SlidersHorizontal className="size-4 text-zinc-200" />
+              effect controls
+            </div>
+            <EffectSlider label="filter" max={12000} min={120} step={10} value={patch.filterCutoffHz} onChange={(value) => patchField("filterCutoffHz", value)} />
+            <EffectSlider label="resonance" max={12} min={0.1} step={0.1} value={patch.filterResonance} onChange={(value) => patchField("filterResonance", value)} />
+            <EffectSlider label="delay seconds" max={1.5} min={0.03} step={0.01} value={patch.delayTimeSeconds} onChange={(value) => patchField("delayTimeSeconds", value)} />
+            <EffectSlider label="feedback" max={0.9} min={0} step={0.01} value={patch.delayFeedback} onChange={(value) => patchField("delayFeedback", value)} />
+            <EffectSlider label="drive" max={0.9} min={0} step={0.01} value={patch.drive} onChange={(value) => patchField("drive", value)} />
+            <EffectSlider label="wet" max={0.95} min={0} step={0.01} value={patch.wet} onChange={(value) => patchField("wet", value)} />
+          </aside>
+        </div>
+
+        <pre className="m-4 max-h-72 overflow-auto border border-zinc-800 bg-black p-3 text-[11px] leading-5 text-zinc-500">
+          {JSON.stringify({ patch, prompt, context: { bpm: context.bpm } }, null, 2)}
+        </pre>
+      </section>
+    </main>
+  );
+}
+
+function EffectSlider({
+  label,
+  max,
+  min,
+  onChange,
+  step,
+  value,
+}: {
+  label: string;
+  max: number;
+  min: number;
+  onChange: (value: number) => void;
+  step: number;
+  value: number;
+}) {
+  return (
+    <label className="mb-3 block text-xs text-zinc-500">
+      <span className="flex justify-between gap-2">
+        <span>{label}</span>
+        <span className="text-zinc-300">{Number(value.toFixed(2))}</span>
+      </span>
+      <input
+        className="mt-1 w-full accent-zinc-200"
+        max={max}
+        min={min}
+        step={step}
+        type="range"
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+    </label>
+  );
+}
+
+function inferPatchFromPrompt(prompt: string, bpm: number): EffectPatch {
+  const lower = prompt.toLowerCase();
+  const slowDelay = Math.min(1.5, Math.max(0.08, 60 / Math.max(40, bpm)));
+  return normalizePatch({
+    delayFeedback: lower.includes("feedback") || lower.includes("dub") ? 0.72 : 0.34,
+    delayTimeSeconds: lower.includes("slap") ? 0.09 : slowDelay / (lower.includes("fast") ? 2 : 1),
+    drive: lower.includes("distort") || lower.includes("grit") ? 0.42 : 0.1,
+    filterCutoffHz: lower.includes("dark") || lower.includes("low") ? 900 : lower.includes("bright") ? 6200 : 2400,
+    filterResonance: lower.includes("resonant") || lower.includes("acid") ? 6 : 1.2,
+    outputDb: -8,
+    wet: lower.includes("subtle") || lower.includes("dry") ? 0.22 : 0.52,
+  });
+}
+
+function normalizePatch(patch: EffectPatch): EffectPatch {
+  return {
+    delayFeedback: clamp(patch.delayFeedback, 0, 0.9),
+    delayTimeSeconds: clamp(patch.delayTimeSeconds, 0.03, 1.5),
+    drive: clamp(patch.drive, 0, 0.9),
+    filterCutoffHz: clamp(patch.filterCutoffHz, 120, 12000),
+    filterResonance: clamp(patch.filterResonance, 0.1, 12),
+    outputDb: clamp(patch.outputDb, -36, 0),
+    wet: clamp(patch.wet, 0, 0.95),
+  };
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+async function createToneEffectRuntime(initialPatch: EffectPatch): Promise<EffectRuntime> {
+  const Tone = await import("tone");
+  await Tone.start();
+  const input = new Tone.UserMedia();
+  const filter = new Tone.Filter(initialPatch.filterCutoffHz, "lowpass");
+  const drive = new Tone.Distortion(initialPatch.drive);
+  const delay = new Tone.FeedbackDelay(initialPatch.delayTimeSeconds, initialPatch.delayFeedback);
+  const output = new Tone.Volume(initialPatch.outputDb).toDestination();
+
+  input.chain(filter, drive, delay, output);
+  await input.open();
+
+  function apply(nextPatch: EffectPatch) {
+    filter.frequency.value = nextPatch.filterCutoffHz;
+    filter.Q.value = nextPatch.filterResonance;
+    drive.distortion = nextPatch.drive;
+    drive.wet.value = nextPatch.wet;
+    delay.delayTime.value = nextPatch.delayTimeSeconds;
+    delay.feedback.value = nextPatch.delayFeedback;
+    delay.wet.value = nextPatch.wet;
+    output.volume.value = nextPatch.outputDb;
+  }
+
+  apply(initialPatch);
+  return {
+    apply,
+    dispose: () => {
+      input.close();
+      input.dispose();
+      filter.dispose();
+      drive.dispose();
+      delay.dispose();
+      output.dispose();
+    },
+  };
+}

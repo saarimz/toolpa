@@ -13,7 +13,6 @@ import { z } from "zod";
 
 import {
   type AgentManifest,
-  InstrumentTypeSchema,
 } from "@/lib/agents/contract";
 import { writeGeneratedAgentManifest } from "@/lib/agents/generated-registry";
 import {
@@ -312,6 +311,7 @@ export function readSchema(runtime: BuilderToolRuntime) {
   const files = [
     "lib/pattern/schema.ts",
     "lib/agents/contract.ts",
+    "lib/audio/fx-manifest.ts",
     "lib/samples/roles.ts",
     "app/tools/evolving-fm-synth/lib/schema.ts",
   ];
@@ -724,5 +724,5 @@ const InstantiateSkeletonInputSchema = z.object({
   description: z.string().min(1),
   capabilities: z.array(z.string().min(1)).optional(),
   sampleRoles: z.array(SampleRoleSchema).optional(),
-  instrumentType: InstrumentTypeSchema.exclude(["builder"]).optional(),
+  instrumentType: z.enum(["sample", "synth", "effect", "hybrid"]).optional(),
 });

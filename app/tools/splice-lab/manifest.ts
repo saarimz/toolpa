@@ -14,7 +14,15 @@ export const spliceLabManifest: AgentManifest = {
     usesSamples: true,
     usesSynthesis: false,
   },
-  capabilities: ["selectSources", "mapSplices", "generatePattern", "play", "render", "recordOutput"],
+  capabilities: [
+    "selectSources",
+    "mapSplices",
+    "generatePattern",
+    "play",
+    "render",
+    "fxSlots",
+    "recordOutput",
+  ],
   inputs: {
     samples: ["break", "loop", "oneshot", "melodic", "pad", "fx"],
     bpm: true,
@@ -39,6 +47,18 @@ export const spliceLabManifest: AgentManifest = {
     recording: true,
     files: false,
     manifest: false,
+  },
+  exports: {
+    document: "pattern",
+    audio: {
+      strategy: "offline-render",
+      formats: ["wav"],
+      maxDefaultDurationSec: 120,
+      requiresUserGestureForPreview: true,
+    },
+  },
+  fx: {
+    enabled: true,
   },
   autonomy: "assist",
   status: "enabled",

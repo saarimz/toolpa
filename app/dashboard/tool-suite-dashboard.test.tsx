@@ -1,13 +1,91 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ToolSuiteDashboard } from "@/app/dashboard/tool-suite-dashboard";
 import type { AgentManifest } from "@/lib/agents/contract";
 import type { GeneratedToolAudit } from "@/lib/agents/generated-audit";
 import type { PlatformHardeningAudit } from "@/lib/agents/platform-hardening";
+import { DEFAULT_GLOBAL_MUSIC_CONTEXT } from "@/lib/music/context";
+import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
 
 describe("ToolSuiteDashboard", () => {
+  beforeEach(() => {
+    mockMatchMedia(false);
+    window.localStorage.clear();
+    useGlobalMusicContextStore.setState({
+      context: DEFAULT_GLOBAL_MUSIC_CONTEXT,
+      hydrated: false,
+    });
+  });
+
+  it("shows a swipeable onboarding intro on desktop", async () => {
+    const user = userEvent.setup();
+    render(
+      <ToolSuiteDashboard
+        generatedAudit={readyAudit}
+        hasGatewayKey
+        manifests={[installedTool, generatedTool, sampleBuilder, synthBuilder]}
+        platformAudit={readyPlatformAudit}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("dialog", { name: /instrument suite intro/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Make your own DAW tools.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /use installed instrument/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /build an instrument/i })).toHaveAttribute(
+      "href",
+      "/build",
+    );
+
+    await user.click(screen.getByRole("button", { name: /next intro card/i }));
+
+    expect(screen.getByText("Prompt, edit, and keep control.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /dismiss intro/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: /instrument suite intro/i }),
+      ).not.toBeInTheDocument();
+    });
+    expect(window.localStorage.getItem("ai-daw-tools:dashboard-intro-dismissed:v2")).toBe(
+      "true",
+    );
+  });
+
+  it("shows a dismissible desktop-required modal on mobile", async () => {
+    mockMatchMedia(true);
+    const user = userEvent.setup();
+    render(
+      <ToolSuiteDashboard
+        generatedAudit={readyAudit}
+        hasGatewayKey
+        manifests={[installedTool, generatedTool, sampleBuilder, synthBuilder]}
+        platformAudit={readyPlatformAudit}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("dialog", { name: /desktop required/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Desktop required")).toBeInTheDocument();
+    expect(screen.getByText(/currently requires a desktop browser/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "dismiss" }));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: /desktop required/i }),
+      ).not.toBeInTheDocument();
+    });
+    expect(
+      window.localStorage.getItem("ai-daw-tools:mobile-desktop-required-dismissed:v1"),
+    ).toBe("true");
+  });
+
   it("renders the installed L1 catalog as the primary product surface", () => {
     render(
       <ToolSuiteDashboard
@@ -20,6 +98,11 @@ describe("ToolSuiteDashboard", () => {
 
     expect(screen.getByRole("heading", { name: "AI-native instrument suite" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /build L1 tool/i })).toHaveAttribute("href", "/build");
+    expect(screen.getByText("global music context")).toBeInTheDocument();
+    expect(screen.getByText("1. macro context")).toBeInTheDocument();
+    expect(screen.getByText("2. set manually")).toBeInTheDocument();
+    expect(screen.queryByText("bpm + swing")).not.toBeInTheDocument();
+    expect(screen.queryByText("root + scale")).not.toBeInTheDocument();
     expect(screen.getByText("Break Slicer")).toBeInTheDocument();
     expect(screen.queryByText("Generated Stutter")).not.toBeInTheDocument();
     expect(screen.queryByText("Sample Builder")).not.toBeInTheDocument();
@@ -120,6 +203,22 @@ describe("ToolSuiteDashboard", () => {
     expect(screen.getByText(/generated-stutter route must be/)).toBeInTheDocument();
   });
 });
+
+function mockMatchMedia(matches: boolean) {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      addEventListener: vi.fn(),
+      addListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+      matches,
+      media: query,
+      onchange: null,
+      removeEventListener: vi.fn(),
+      removeListener: vi.fn(),
+    })),
+  });
+}
 
 const installedTool = toolManifest({
   name: "Break Slicer",
