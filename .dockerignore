@@ -1,0 +1,17 @@
+.git
+.next
+node_modules
+coverage
+.audit/typecheck
+.audit/ui
+
+.env
+.env.*
+!.env.example
+
+*.log
+*.pem
+*.tsbuildinfo
+next-env.d.ts
+README.pdf
+.DS_Store
