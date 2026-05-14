@@ -1,3 +1,5 @@
+import { MAX_BPM, MIN_BPM } from "@/lib/music/context";
+
 export type TransportLike = {
   bpm: { value: number };
   swing: number;
@@ -19,7 +21,7 @@ export function createTransportController(
 ): TransportController {
   return {
     setBpm(bpm) {
-      transport.bpm.value = clamp(bpm, 40, 260);
+      transport.bpm.value = clamp(bpm, MIN_BPM, MAX_BPM);
     },
     setSwing(swing) {
       transport.swing = clamp(swing, 0, 0.5);

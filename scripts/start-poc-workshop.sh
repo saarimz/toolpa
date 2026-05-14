@@ -25,28 +25,31 @@ if [[ "${AI_DAW_RESET_WORKSPACE:-0}" == "1" ]]; then
   find "$WORKSPACE_ROOT" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
 fi
 
-if [[ ! -f "${WORKSPACE_ROOT}/package.json" ]]; then
-  log "seeding writable workspace from ${IMAGE_APP_ROOT}"
-  rsync -a \
-    --include='.env.example' \
-    --exclude='.git' \
-    --exclude='node_modules' \
-    --exclude='.next' \
-    --exclude='coverage' \
-    --exclude='.env' \
-    --exclude='.env.*' \
-    --exclude='*.tsbuildinfo' \
-    --exclude='next-env.d.ts' \
-    "${IMAGE_APP_ROOT}/" \
-    "${WORKSPACE_ROOT}/"
-else
-  log "using existing writable workspace at ${WORKSPACE_ROOT}"
-fi
+log "syncing image source into writable workspace"
+rsync -a \
+  --include='.env.example' \
+  --exclude='.git' \
+  --exclude='node_modules' \
+  --exclude='.next' \
+  --exclude='coverage' \
+  --exclude='.env' \
+  --exclude='.env.*' \
+  --exclude='.audit' \
+  --exclude='*.tsbuildinfo' \
+  --exclude='next-env.d.ts' \
+  "${IMAGE_APP_ROOT}/" \
+  "${WORKSPACE_ROOT}/"
 
 cd "$WORKSPACE_ROOT"
+rm -rf "${WORKSPACE_ROOT}/.next"
 
-log "installing dependencies in writable workspace"
-pnpm install --frozen-lockfile
+if [[ -L "${WORKSPACE_ROOT}/node_modules" ]]; then
+  log "removing external node_modules symlink"
+  rm -rf "${WORKSPACE_ROOT}/node_modules"
+fi
+
+log "materializing dependencies in writable workspace"
+CI=true pnpm install --frozen-lockfile --prefer-offline
 
 log "starting Next dev server on ${HOST}:${APP_PORT}"
 exec pnpm dev --hostname "$HOST" --port "$APP_PORT"

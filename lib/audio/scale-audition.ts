@@ -1,7 +1,7 @@
 "use client";
 
 import { getScaleDegreeCents } from "@/lib/music/scale-catalog";
-import type { Tonic } from "@/lib/music/context";
+import { MIN_BPM, type Tonic } from "@/lib/music/context";
 
 export type ScaleAuditionChoice = {
   referenceFrequency?: number;
@@ -48,7 +48,7 @@ export async function auditionScaleChoice(
   }
 
   const bpm = options.bpm ?? 120;
-  const noteDurationSec = options.noteDurationSec ?? 60 / Math.max(40, bpm);
+  const noteDurationSec = options.noteDurationSec ?? 60 / Math.max(MIN_BPM, bpm);
   const stepSec = noteDurationSec * 0.55;
   const now = Tone.now();
   const synth = new Tone.Synth({

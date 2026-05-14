@@ -16,6 +16,7 @@ import { useGridSamplerStore } from "@/app/tools/grid-sampler/store";
 import { getStepDurationSec } from "@/lib/audio/pattern";
 import { getSamplePlaybackHost } from "@/lib/audio/sample-playback";
 import { useToolFxPattern } from "@/lib/audio/use-fx-pattern";
+import { MAX_BPM, MIN_BPM } from "@/lib/music/context";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
 import { exportPatternWavArtifact } from "@/lib/tool-exports/adapters/pattern";
 
@@ -95,8 +96,8 @@ export function GridTransportBar() {
           <input
             className="h-9 w-20 rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-zinc-100"
             type="number"
-            min={40}
-            max={260}
+            min={MIN_BPM}
+            max={MAX_BPM}
             value={bpm}
             onChange={(event) => setBpm(Number(event.target.value))}
           />

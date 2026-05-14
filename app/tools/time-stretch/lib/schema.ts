@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { GlobalBpmSchema } from "@/lib/music/context";
+
 export const TIME_STRETCH_SCHEMA_VERSION = 1;
 
 export const TimeStretchModeSchema = z.enum([
@@ -40,7 +42,7 @@ export const TimeStretchPatchSchema = z.object({
   schemaVersion: z.literal(TIME_STRETCH_SCHEMA_VERSION).default(TIME_STRETCH_SCHEMA_VERSION),
   sourceId: z.string().min(1),
   sourceName: z.string().min(1),
-  bpm: z.number().min(40).max(260),
+  bpm: GlobalBpmSchema,
   targetBars: z.number().min(0.25).max(256),
   mode: TimeStretchModeSchema,
   windowMs: z.number().min(20).max(2000),

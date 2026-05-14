@@ -8,6 +8,7 @@ kill_timeout = "30s"
 
 [env]
   AI_DAW_VOLUME_ROOT = "/data"
+  AI_DAW_BUILDER_MODE = "scaffold"
   WORKSPACE_ROOT = "/data/ai-daw-tools"
   NEXT_TELEMETRY_DISABLED = "1"
   PORT = "3000"

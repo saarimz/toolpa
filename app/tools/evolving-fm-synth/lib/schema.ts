@@ -4,6 +4,7 @@ import {
   getScaleDefinition,
   getScaleSemitoneApproximation,
 } from "@/lib/music/scale-catalog";
+import { GlobalBpmSchema } from "@/lib/music/context";
 
 export const SynthSceneSchemaVersion = 1;
 
@@ -138,7 +139,7 @@ export const SynthSceneSchema = z.object({
   schemaVersion: z.literal(SynthSceneSchemaVersion).default(SynthSceneSchemaVersion),
   id: z.string().min(1),
   name: z.string().min(1),
-  bpm: z.number().min(40).max(260),
+  bpm: GlobalBpmSchema,
   swing: z.number().min(0).max(0.5).default(0),
   key: z.string().min(1).max(3),
   scale: ScaleSchema,

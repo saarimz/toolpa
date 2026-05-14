@@ -6,6 +6,7 @@ import {
   type TimeStretchPerformanceMode,
   type TimeStretchTransientMode,
 } from "@/app/tools/time-stretch/lib/schema";
+import { MAX_BPM, MIN_BPM } from "@/lib/music/context";
 
 export type TimeStretchPromptResult = {
   patch: TimeStretchPatch;
@@ -13,7 +14,7 @@ export type TimeStretchPromptResult = {
 };
 
 const BAR_MATCH = /\b(\d+(?:\.\d+)?)\s*(?:bar|bars)\b/;
-const BPM_MATCH = /\b(\d{2,3})\s*(?:bpm|beats per minute)\b/;
+const BPM_MATCH = /\b(\d{1,3})\s*(?:bpm|beats per minute)\b/;
 const WINDOW_MATCH = /\b(\d+(?:\.\d+)?)\s*(?:ms|millisecond|milliseconds)\s*(?:window|grain|grain size)?\b/;
 
 export function buildTimeStretchSystemPrompt() {
@@ -221,7 +222,7 @@ function getPromptBpm(prompt: string) {
   if (!match?.[1]) {
     return null;
   }
-  return clamp(Number.parseInt(match[1], 10), 40, 260);
+  return clamp(Number.parseInt(match[1], 10), MIN_BPM, MAX_BPM);
 }
 
 function getPromptWindowMs(prompt: string, mode: TimeStretchMode) {

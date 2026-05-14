@@ -267,7 +267,7 @@ export function renderSampleClient(slug: string, name: string, description: stri
     "            <input",
     "              className=\"h-9 w-20 rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-zinc-100\"",
     "              type=\"number\"",
-    "              min={40}",
+    "              min={1}",
     "              max={260}",
     "              value={pattern.bpm}",
     "              onChange={(event) => setBpm(Number(event.target.value))}",

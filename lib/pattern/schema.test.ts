@@ -99,6 +99,23 @@ describe("stepConditionsHold", () => {
 });
 
 describe("pattern round-trips", () => {
+  it("accepts very slow but positive runtime BPM values", () => {
+    const pattern = createPattern({
+      id: "slow",
+      name: "slow",
+      bpm: 1,
+      tracks: [
+        createTrack({
+          id: "track",
+          name: "track",
+          sampleId: "library:test",
+        }),
+      ],
+    });
+
+    expect(pattern.bpm).toBe(1);
+  });
+
   it("round-trips generated valid patterns through zod", () => {
     fc.assert(
       fc.property(

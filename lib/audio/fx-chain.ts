@@ -12,6 +12,7 @@ import {
   type FxSlot,
   type FxSlotId,
 } from "@/lib/audio/fx-manifest";
+import { MAX_BPM, MIN_BPM } from "@/lib/music/context";
 
 type ToneModule = typeof import("tone");
 type ToneFeedbackDelayCtor = typeof import("tone").FeedbackDelay;
@@ -1482,7 +1483,7 @@ function setOfflineWetAtTime(
 }
 
 export function fxDelayTimeToSeconds(value: string, bpm: number): number {
-  const quarter = 60 / clamp(bpm, 40, 260);
+  const quarter = 60 / clamp(bpm, MIN_BPM, MAX_BPM);
   if (value === "32n") {
     return quarter / 8;
   }

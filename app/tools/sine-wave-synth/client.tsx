@@ -16,6 +16,7 @@ import { createSynthSceneFromMidiFile } from "@/app/tools/evolving-fm-synth/lib/
 import { getScaleDisplayName, SynthSceneSchema, type SynthScale, type SynthScene } from "@/app/tools/evolving-fm-synth/lib/schema";
 import { playEvolvingFmSynthScene, stopEvolvingFmSynthScene } from "@/app/tools/evolving-fm-synth/lib/tone-playback";
 import { sineWaveSynthManifest } from "@/app/tools/sine-wave-synth/manifest";
+import { MAX_BPM, MIN_BPM } from "@/lib/music/context";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
 import { usePromptParamState } from "@/lib/tools/use-prompt-param";
 import { useToolFxPattern } from "@/lib/audio/use-fx-pattern";
@@ -251,8 +252,8 @@ export function SineWaveSynthClient() {
               <input
                 className="mt-1 h-9 w-full rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-zinc-100"
                 type="number"
-                min={40}
-                max={260}
+                min={MIN_BPM}
+                max={MAX_BPM}
                 value={scene.bpm}
                 onChange={(event) => updateScene({ bpm: Number(event.target.value) })}
               />

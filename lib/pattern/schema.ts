@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { GlobalBpmSchema } from "@/lib/music/context";
 import { SampleRoleSchema } from "@/lib/samples/roles";
 
 export const PatternSchemaVersion = 1;
@@ -65,7 +66,7 @@ export const PatternSchema = z.object({
   schemaVersion: z.literal(PatternSchemaVersion).default(PatternSchemaVersion),
   id: z.string().min(1),
   name: z.string().min(1),
-  bpm: z.number().min(40).max(260).default(160),
+  bpm: GlobalBpmSchema.default(160),
   swing: z.number().min(0).max(0.5).default(0),
   bars: z.number().int().min(1).max(16),
   stepsPerBar: z.number().int().min(1).max(64),

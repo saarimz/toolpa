@@ -8,6 +8,7 @@ import { AudioOutputRecorder } from "@/components/audio-output-recorder";
 import { LlmGeneratingOverlay } from "@/components/llm-generating-overlay";
 import { PromptFirstSection } from "@/components/prompt-first-section";
 import { Button } from "@/components/ui/button";
+import { MIN_BPM } from "@/lib/music/context";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
 import { usePromptParamState } from "@/lib/tools/use-prompt-param";
 
@@ -223,7 +224,7 @@ function EffectSlider({
 
 function inferPatchFromPrompt(prompt: string, bpm: number): EffectPatch {
   const lower = prompt.toLowerCase();
-  const slowDelay = Math.min(1.5, Math.max(0.08, 60 / Math.max(40, bpm)));
+  const slowDelay = Math.min(1.5, Math.max(0.08, 60 / Math.max(MIN_BPM, bpm)));
   return normalizePatch({
     delayFeedback: lower.includes("feedback") || lower.includes("dub") ? 0.72 : 0.34,
     delayTimeSeconds: lower.includes("slap") ? 0.09 : slowDelay / (lower.includes("fast") ? 2 : 1),

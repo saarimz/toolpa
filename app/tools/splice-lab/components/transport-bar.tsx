@@ -16,6 +16,7 @@ import { useSpliceLabStore } from "@/app/tools/splice-lab/store";
 import { getStepDurationSec } from "@/lib/audio/pattern";
 import { getSamplePlaybackHost } from "@/lib/audio/sample-playback";
 import { useToolFxPattern } from "@/lib/audio/use-fx-pattern";
+import { MAX_BPM, MIN_BPM } from "@/lib/music/context";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
 import type { Pattern } from "@/lib/pattern/schema";
 import { exportPatternWavArtifact } from "@/lib/tool-exports/adapters/pattern";
@@ -45,7 +46,7 @@ export function SpliceTransportBar() {
     currentStepIndex === null ? null : (currentStepIndex * 4) / pattern.stepsPerBar;
   const progressPercent =
     currentStepIndex === null ? 0 : ((currentStepIndex + 1) / sliceCount) * 100;
-  const effectiveBpm = clamp(Math.round(bpm * playbackRate), 40, 260);
+  const effectiveBpm = clamp(Math.round(bpm * playbackRate), MIN_BPM, MAX_BPM);
 
   useEffect(
     () => () => {
@@ -128,8 +129,8 @@ export function SpliceTransportBar() {
             <input
               className="h-9 w-20 rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-zinc-100"
               type="number"
-              min={40}
-              max={260}
+              min={MIN_BPM}
+              max={MAX_BPM}
               value={bpm}
               onChange={(event) => setBpm(Number(event.target.value))}
             />
@@ -177,7 +178,7 @@ export function SpliceTransportBar() {
 function withPlaybackRate(pattern: Pattern, playbackRate: number): Pattern {
   return {
     ...pattern,
-    bpm: clamp(Math.round(pattern.bpm * playbackRate), 40, 260),
+    bpm: clamp(Math.round(pattern.bpm * playbackRate), MIN_BPM, MAX_BPM),
   };
 }
 

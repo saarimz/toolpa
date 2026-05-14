@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { GlobalMusicContextSchema } from "@/lib/music/context";
+import { GlobalBpmSchema, GlobalMusicContextSchema } from "@/lib/music/context";
 import { SampleAnalysisSchema } from "@/lib/samples/analysis/schema";
 import { SampleRoleSchema } from "@/lib/samples/roles";
 
@@ -19,7 +19,7 @@ export const GeneratePatternRequestSchema = z.object({
     secondarySampleName: z.string().min(1).optional(),
     secondarySampleRole: z.union([SampleRoleSchema, z.literal("unknown")]).optional(),
     secondarySampleAnalysis: SampleAnalysisSchema.optional(),
-    bpm: z.number().min(40).max(260),
+    bpm: GlobalBpmSchema,
     swing: z.number().min(0).max(0.5).default(0),
     musicalContext: GlobalMusicContextSchema.optional(),
     sliceCount: z.number().int().min(1).max(256).optional(),
@@ -40,7 +40,7 @@ export const PromptSuggestionsRequestSchema = z.object({
       secondarySampleId: z.string().min(1).optional(),
       secondarySampleName: z.string().min(1).optional(),
       secondarySampleRole: z.union([SampleRoleSchema, z.literal("unknown")]).optional(),
-      bpm: z.number().min(40).max(260).optional(),
+      bpm: GlobalBpmSchema.optional(),
       swing: z.number().min(0).max(0.5).optional(),
       musicalContext: GlobalMusicContextSchema.optional(),
     })

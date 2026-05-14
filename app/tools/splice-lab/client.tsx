@@ -13,6 +13,7 @@ import { SpliceTransportBar } from "@/app/tools/splice-lab/components/transport-
 import { useSpliceLabStore } from "@/app/tools/splice-lab/store";
 import { getSamplePlaybackHost } from "@/lib/audio/sample-playback";
 import { useToolFxPattern } from "@/lib/audio/use-fx-pattern";
+import { MAX_BPM, MIN_BPM } from "@/lib/music/context";
 import { useGlobalBpmSync } from "@/lib/music/use-global-context-sync";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
 
@@ -37,7 +38,7 @@ export function SpliceLabClient() {
     void playbackHost.updatePattern(
       {
         ...pattern,
-        bpm: Math.max(40, Math.min(260, Math.round(pattern.bpm * playbackRate))),
+        bpm: Math.max(MIN_BPM, Math.min(MAX_BPM, Math.round(pattern.bpm * playbackRate))),
       },
       {
         fxPattern,

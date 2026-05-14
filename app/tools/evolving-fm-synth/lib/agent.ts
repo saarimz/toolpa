@@ -4,7 +4,7 @@ import {
   getScalePitchOffsets,
   searchScaleKeys,
 } from "@/lib/music/scale-catalog";
-import type { GlobalMusicContext } from "@/lib/music/context";
+import { MAX_BPM, MIN_BPM, type GlobalMusicContext } from "@/lib/music/context";
 import {
   SynthSceneSchema,
   type EvolutionBars,
@@ -201,7 +201,7 @@ export function updateSceneMacro(
 }
 
 export function updateSceneBpm(scene: SynthScene, bpm: number): SynthScene {
-  return SynthSceneSchema.parse({ ...scene, bpm: clampInt(bpm, 40, 260) });
+  return SynthSceneSchema.parse({ ...scene, bpm: clampInt(bpm, MIN_BPM, MAX_BPM) });
 }
 
 export function updateSceneEvolutionBars(
@@ -840,12 +840,12 @@ function inferScale(prompt: string): SynthScale {
 }
 
 function parseBpm(prompt: string): number | null {
-  const match = prompt.match(/\b(\d{2,3})\s*bpm\b/i);
+  const match = prompt.match(/\b(\d{1,3})\s*bpm\b/i);
   if (!match?.[1]) {
     return null;
   }
 
-  return clampInt(Number(match[1]), 40, 260);
+  return clampInt(Number(match[1]), MIN_BPM, MAX_BPM);
 }
 
 function parseEvolutionBars(prompt: string): EvolutionBars | null {

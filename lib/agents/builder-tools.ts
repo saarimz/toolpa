@@ -56,6 +56,7 @@ const SUBPROCESS_ENV_ALLOWLIST = [
   "TMP",
   "LANG",
   "LC_ALL",
+  "PLAYWRIGHT_BROWSERS_PATH",
 ] as const;
 
 export type BuilderCommandResult = {

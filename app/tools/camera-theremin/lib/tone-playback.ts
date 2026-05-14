@@ -4,6 +4,7 @@ import {
   type ToneFxGraph,
 } from "@/lib/audio/fx-chain";
 import type { FxPatternInput } from "@/lib/audio/fx-manifest";
+import { MAX_BPM, MIN_BPM } from "@/lib/music/context";
 
 export type CameraThereminPatch = {
   attack: number;
@@ -193,7 +194,7 @@ export function createCameraThereminPatch({
   prompt: string;
 }): CameraThereminPatch {
   const lower = prompt.toLowerCase();
-  const beatSec = 60 / clamp(bpm, 40, 260);
+  const beatSec = 60 / clamp(bpm, MIN_BPM, MAX_BPM);
   const glassy = /\b(glassy?|bell|crystal|ice|choir)\b/.test(lower);
   const gritty = /\b(grit|noise|acid|saw|bright|brass|fuzz|distort|dirty)\b/.test(
     lower,

@@ -36,6 +36,24 @@ read_env_value() {
   grep -E "^${key}=" "$file" | tail -n 1 | cut -d= -f2-
 }
 
+read_gateway_key_from_env_files() {
+  local file
+  local value
+  for file in .env.developme .env.development .env.local; do
+    value="$(read_env_value AI_GATEWAY_API_KEY "$file" || true)"
+    if [[ -n "$value" ]]; then
+      value="${value%\"}"
+      value="${value#\"}"
+      value="${value%\'}"
+      value="${value#\'}"
+      printf '%s\n' "$value"
+      log "read AI_GATEWAY_API_KEY from ${file}" >&2
+      return 0
+    fi
+  done
+  return 1
+}
+
 require_flyctl
 
 if ! fly auth whoami >/dev/null 2>&1; then
@@ -68,7 +86,7 @@ fi
 
 GATEWAY_KEY="${AI_GATEWAY_API_KEY:-}"
 if [[ -z "$GATEWAY_KEY" ]]; then
-  GATEWAY_KEY="$(read_env_value AI_GATEWAY_API_KEY || true)"
+  GATEWAY_KEY="$(read_gateway_key_from_env_files || true)"
 fi
 
 if [[ -n "$GATEWAY_KEY" ]]; then
@@ -82,7 +100,11 @@ else
 fi
 
 log "deploying ${APP_NAME} with ${CONFIG_PATH}"
-fly deploy --app "$APP_NAME" --config "$CONFIG_PATH"
+fly deploy \
+  --app "$APP_NAME" \
+  --config "$CONFIG_PATH" \
+  --smoke-checks=false \
+  --wait-timeout 10m
 
 log "ensuring a single Machine for the writable-volume POC"
 fly scale count 1 --app "$APP_NAME" --yes

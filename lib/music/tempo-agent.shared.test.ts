@@ -28,7 +28,7 @@ describe("tempo agent shared helpers", () => {
 
     expect(prompt).toContain("Genre prompt: uk garage shuffle");
     expect(prompt).toContain("Swing is a decimal fraction");
-    expect(prompt).toContain("between 40 and 260");
+    expect(prompt).toContain("between 1 and 260");
     expect(prompt).toContain("between 0 and 0.5");
   });
 

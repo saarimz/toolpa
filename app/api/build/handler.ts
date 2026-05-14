@@ -4,6 +4,7 @@ import {
 } from "@/lib/agents/builder-contracts";
 import { SandboxBreach } from "@/lib/agents/sandbox";
 import {
+  runBuilderAgent,
   runBuilderToolLoopAgent,
   type RunBuilderToolLoopAgentInput,
 } from "@/app/tools/_builder/lib/builder-agent";
@@ -24,7 +25,7 @@ export async function handleBuildRequest(
     );
   }
 
-  const runBuilder = deps.runBuilder ?? runBuilderToolLoopAgent;
+  const runBuilder = deps.runBuilder ?? getDefaultBuildRunner();
 
   return new Response(
     new ReadableStream({
@@ -60,4 +61,22 @@ export async function handleBuildRequest(
       },
     },
   );
+}
+
+function getDefaultBuildRunner() {
+  return (input: RunBuilderToolLoopAgentInput) => {
+    if (process.env.AI_DAW_BUILDER_MODE === "tool-loop") {
+      return runBuilderToolLoopAgent({
+        ...input,
+        timeoutMs: input.timeoutMs ?? getBuilderTimeoutMs(),
+      });
+    }
+
+    return runBuilderAgent(input);
+  };
+}
+
+function getBuilderTimeoutMs() {
+  const raw = Number(process.env.AI_DAW_BUILDER_TIMEOUT_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : 90_000;
 }

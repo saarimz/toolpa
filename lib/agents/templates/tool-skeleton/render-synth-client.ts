@@ -256,7 +256,7 @@ export function renderSynthClient(slug: string, name: string, description: strin
     "              <input",
     "                className=\"mt-1 h-9 w-full rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-zinc-100\"",
     "                type=\"number\"",
-    "                min={40}",
+    "                min={1}",
     "                max={260}",
     "                value={scene.bpm}",
     "                onChange={(event) => updateScene({ bpm: Number(event.target.value) })}",

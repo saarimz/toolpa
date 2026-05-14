@@ -2,7 +2,12 @@ import {
   getScaleDefinition,
   getScaleDegreeCents,
 } from "@/lib/music/scale-catalog";
-import type { GlobalMusicContext, Tonic } from "@/lib/music/context";
+import {
+  MAX_BPM,
+  MIN_BPM,
+  type GlobalMusicContext,
+  type Tonic,
+} from "@/lib/music/context";
 
 import {
   MIDI_CLIP_BAR_OPTIONS,
@@ -854,8 +859,8 @@ function keyToMidi(key: string, octave: number) {
 }
 
 function parseBpm(prompt: string) {
-  const match = prompt.match(/\b([4-9]\d|1\d\d|2[0-5]\d|260)\s*(?:bpm|beats per minute)\b/i);
-  return match ? clampInt(Number(match[1]), 40, 260) : null;
+  const match = prompt.match(/\b(\d{1,3})\s*(?:bpm|beats per minute)\b/i);
+  return match ? clampInt(Number(match[1]), MIN_BPM, MAX_BPM) : null;
 }
 
 function parseBars(prompt: string): MidiClipBars | null {

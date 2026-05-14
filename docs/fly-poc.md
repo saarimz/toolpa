@@ -20,7 +20,8 @@ server starts. For a live `/build` demo, run the dev-workshop shape below.
   browser audio gate.
 - `fly.toml`: single-machine Fly app config with a persistent `/data` volume.
 - `scripts/start-poc-workshop.sh`: seeds the repo into the mounted volume and
-  starts Next dev from the writable workspace.
+  starts Next dev from the writable workspace after materializing dependencies
+  there with pnpm.
 - `scripts/fly-deploy-poc.sh`: creates the Fly app, creates the volume, sets
   secrets, deploys, and keeps the service at one Machine.
 - `.dockerignore`: keeps local build output, secrets, and dependency folders out
@@ -39,9 +40,10 @@ server starts. For a live `/build` demo, run the dev-workshop shape below.
   .audit/snapshots/<slug>/ lives here
 ```
 
-The startup script seeds `/data/ai-daw-tools` only when it does not already have
-a `package.json`. That keeps generated tools and registry changes alive across
-restarts and deploys.
+The startup script syncs image source into `/data/ai-daw-tools` on every boot,
+excluding `.audit`, `node_modules`, local env files, and build output. That
+keeps deployed app code current while generated tools and registry metadata
+survive restarts.
 
 To intentionally wipe and reseed the POC workspace, set this for one deploy:
 
@@ -68,10 +70,11 @@ FLY_REGION=iad
 FLY_VOLUME_NAME=ai_daw_tools_data
 FLY_VOLUME_SIZE=20
 AI_GATEWAY_MODEL=deepseek/deepseek-v4-flash
+AI_DAW_BUILDER_MODE=scaffold
 ```
 
 If `AI_GATEWAY_API_KEY` is not in the environment, the deploy script will try to
-read it from `.env.local`.
+read it from `.env.developme`, `.env.development`, then `.env.local`.
 
 ## Manual Deploy
 
@@ -131,11 +134,16 @@ then restart the Machine and confirm the generated source and
 
 - Keep this POC to one Machine. Fly volumes are local to Machines and are not
   automatically replicated.
-- The first boot is slower because the volume workspace is seeded and
-  dependencies are installed there.
-- Code updates after the first seed do not overwrite the volume workspace. For a
-  clean demo after changing repo code, set `AI_DAW_RESET_WORKSPACE=1` once or
-  create a fresh volume.
+- `AI_DAW_BUILDER_MODE=scaffold` is the demo-safe default. It uses the local L2
+  scaffold/verification pipeline so a build writes files and completes on the
+  hosted volume. Set `AI_DAW_BUILDER_MODE=tool-loop` when you want the full AI
+  SDK ToolLoopAgent path.
+- The first boot seeds the volume workspace. Dependencies are materialized in
+  the writable workspace with `pnpm install --frozen-lockfile --prefer-offline`;
+  subsequent boots reuse the persisted `node_modules`.
+- Image source syncs into the volume workspace on boot without deleting `.audit`
+  or generated tools. For a fully clean demo, set `AI_DAW_RESET_WORKSPACE=1`
+  once or create a fresh volume.
 - This runs a Next dev server on the public internet. Protect or share the URL
   carefully.
 - This is not the final production architecture. The production path should be

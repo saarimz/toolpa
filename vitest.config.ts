@@ -40,6 +40,7 @@ export default defineConfig({
           include: ["**/*.audio.test.ts", "**/*.browser.test.ts"],
           browser: {
             enabled: true,
+            headless: true,
             provider: playwright(),
             instances: [{ browser: "chromium" }],
           },

@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-export const GlobalBpmSchema = z.number().min(40).max(260);
+export const MIN_BPM = 1;
+export const MAX_BPM = 260;
+
+export const GlobalBpmSchema = z.number().min(MIN_BPM).max(MAX_BPM);
 export const GlobalSwingSchema = z.number().min(0).max(0.5);
 
 export const TonicSchema = z.enum([

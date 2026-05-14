@@ -167,7 +167,7 @@ export function buildTempoAgentPrompt(input: TempoAgentRequest, candidates: Temp
       ].join(" | "),
     ),
     "",
-    "The final BPM must be between 40 and 260. The final swing must be between 0 and 0.5.",
+    "The final BPM must be between 1 and 260. The final swing must be between 0 and 0.5.",
     "Alternatives should be meaningfully different tempo feels, not tiny numeric tweaks.",
   ]
     .filter(Boolean)

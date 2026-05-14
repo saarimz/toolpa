@@ -32,7 +32,9 @@ describe("global music context schemas", () => {
       key: { tonic: "F#", scaleId: "quarter-tone-neutral" },
     });
 
-    expect(() => GlobalMusicContextSchema.parse({ bpm: 12 })).toThrow();
+    expect(GlobalMusicContextSchema.parse({ bpm: 1 })).toMatchObject({ bpm: 1 });
+    expect(GlobalMusicContextSchema.parse({ bpm: 12 })).toMatchObject({ bpm: 12 });
+    expect(() => GlobalMusicContextSchema.parse({ bpm: 0 })).toThrow();
   });
 
   it("defaults instrument-level context opt-ins", () => {

@@ -52,6 +52,7 @@ import {
   type VoicePatch,
 } from "@/app/tools/evolving-fm-synth/lib/schema";
 import { useEvolvingFmSynthStore } from "@/app/tools/evolving-fm-synth/store";
+import { MAX_BPM, MIN_BPM } from "@/lib/music/context";
 import { useGlobalSynthContextSync } from "@/lib/music/use-global-context-sync";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
 import {
@@ -470,8 +471,8 @@ export function EvolvingFmSynthClient() {
             <input
               className="mt-1 h-9 w-full rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-zinc-100"
               type="number"
-              min={40}
-              max={260}
+              min={MIN_BPM}
+              max={MAX_BPM}
               value={scene.bpm}
               onChange={(event) => setBpm(Number(event.target.value))}
             />
