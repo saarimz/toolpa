@@ -13,8 +13,11 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "typecheck": "tsc --noEmit",
-    "analyze:library": "tsx scripts/analyze-library.ts",
-    "analyze:library:check": "tsx scripts/analyze-library.ts --check"
+    "analyze:library": "tsx scripts/analyze-library.ts --no-musicnn",
+    "analyze:library:check": "tsx scripts/analyze-library.ts --check --no-musicnn",
+    "analyze:library:musicnn": "tsx scripts/analyze-library.ts",
+    "curate:samples": "tsx scripts/curate-sample-suite.ts",
+    "curate:samples:check": "tsx scripts/curate-sample-suite.ts --check"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.112",

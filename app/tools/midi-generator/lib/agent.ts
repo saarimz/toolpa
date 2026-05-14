@@ -9,12 +9,17 @@ import {
   MidiClipSchema,
   type MidiClip,
   type MidiClipBars,
+  type MidiClipBeatsPerBar,
+  type MidiClipGenerationMode,
   type MidiClipNote,
+  type MidiClipStyleProfile,
   type MidiClipTrack,
   type MidiClipTrackRole,
 } from "./schema";
 
 export type GenerateMidiClipInput = {
+  generationMode?: MidiClipGenerationMode;
+  styleProfile?: MidiClipStyleProfile;
   prompt: string;
   musicalContext?: GlobalMusicContext | null;
   previousClip?: MidiClip | null;
@@ -29,6 +34,10 @@ export type MidiClipContextPatch = {
   };
   swing?: number;
 };
+
+type ResolvedMidiClipGenerationMode = Exclude<MidiClipGenerationMode, "auto">;
+type ResolvedMidiClipStyleProfile = Exclude<MidiClipStyleProfile, "auto">;
+type MidiClipPhraseStyle = "arp" | "chord" | "lead" | "pad";
 
 const noteIndexes: Record<string, number> = {
   A: 9,
@@ -97,6 +106,8 @@ export function buildMidiGeneratorSystemPrompt() {
     "You are the midi-generator L1 instrument inside ai-daw-tools.",
     "Return an expressive MIDI clip document, not audio and not a synth patch.",
     "Use the global music context unless the prompt explicitly asks for BPM, key, or scale changes.",
+    "Honor the part-focus contract before writing notes: full arrangement, melody, harmony, bassline, arpeggio, rhythm, or pad.",
+    "Honor the style-profile contract separately from part focus: neutral, lyrical-sparse, minimal-cyclic, spacious-pointillist, organic-hybrid, groove-forward, broken-beat, ambient-sustained, or percussive-grid.",
     "Generate musical MIDI that would be hard to program by hand: humanized starts, velocity arcs, passing tones, bends, chord movement, sparse rests, and call-response phrases.",
     "The clip must be exportable as Standard MIDI and previewable through a simple sine synth.",
   ].join("\n");
@@ -104,12 +115,16 @@ export function buildMidiGeneratorSystemPrompt() {
 
 export function buildMidiGeneratorPrompt({
   clip,
+  generationMode = "auto",
   musicalContext,
   prompt,
+  styleProfile = "auto",
 }: {
   clip: MidiClip;
+  generationMode?: MidiClipGenerationMode;
   musicalContext?: GlobalMusicContext | null;
   prompt: string;
+  styleProfile?: MidiClipStyleProfile;
 }) {
   const scale = getScaleDefinition(clip.scaleId);
   const globalScale = musicalContext
@@ -118,7 +133,9 @@ export function buildMidiGeneratorPrompt({
 
   return [
     `user prompt: ${prompt || "generate an expressive MIDI clip"}`,
-    `current clip: ${clip.key} ${scale.name}, ${clip.bpm} bpm, ${clip.bars} bars`,
+    `part focus: ${resolveMidiGenerationMode(prompt, generationMode)}${generationMode === "auto" ? " (auto)" : ""}`,
+    `style profile: ${resolveMidiStyleProfile(prompt, styleProfile)}${styleProfile === "auto" ? " (auto)" : ""}`,
+    `current clip: ${clip.key} ${scale.name}, ${clip.bpm} bpm, ${clip.bars} bars, ${clip.beatsPerBar} beats/bar`,
     `tracks: ${clip.tracks.map((track) => `${track.name}:${track.role}`).join(", ")}`,
     musicalContext
       ? `global music context: ${musicalContext.key.tonic} ${globalScale?.name ?? musicalContext.key.scaleId}, ${musicalContext.bpm} bpm, swing ${musicalContext.swing}`
@@ -128,10 +145,12 @@ export function buildMidiGeneratorPrompt({
 }
 
 export function generateMidiClipFromPrompt({
+  generationMode = "auto",
   musicalContext,
   previousClip = null,
   prompt,
   seed,
+  styleProfile = "auto",
 }: GenerateMidiClipInput): MidiClip {
   const normalizedPrompt = prompt.trim();
   const nextSeed =
@@ -141,6 +160,8 @@ export function generateMidiClipFromPrompt({
       : hashString(normalizedPrompt || "midi-generator"));
   const random = createSeededRandom(nextSeed);
   const contextPatch = inferContextPatch(normalizedPrompt);
+  const resolvedGenerationMode = resolveMidiGenerationMode(normalizedPrompt, generationMode);
+  const resolvedStyleProfile = resolveMidiStyleProfile(normalizedPrompt, styleProfile);
   const key = contextPatch.key?.tonic ?? musicalContext?.key.tonic ?? previousClip?.key ?? "C";
   const scaleId =
     contextPatch.key?.scaleId ??
@@ -154,21 +175,30 @@ export function generateMidiClipFromPrompt({
     inferBpm(normalizedPrompt);
   const swing =
     contextPatch.swing ??
+    inferStyleSwing(resolvedStyleProfile) ??
     musicalContext?.swing ??
     previousClip?.swing ??
     inferSwing(normalizedPrompt);
   const bars = parseBars(normalizedPrompt) ?? previousClip?.bars ?? 8;
-  const tracks = createTracks(normalizedPrompt);
+  const beatsPerBar =
+    parseBeatsPerBar(normalizedPrompt) ??
+    inferBeatsPerBar(resolvedStyleProfile) ??
+    previousClip?.beatsPerBar ??
+    4;
+  const tracks = createTracks(normalizedPrompt, resolvedGenerationMode);
   const rootMidi = keyToMidi(key, inferOctave(normalizedPrompt));
-  const density = inferDensity(normalizedPrompt);
-  const phrase = inferPhraseStyle(normalizedPrompt);
+  const density = inferDensity(normalizedPrompt, resolvedGenerationMode, resolvedStyleProfile);
+  const phrase = inferPhraseStyle(normalizedPrompt, resolvedGenerationMode, resolvedStyleProfile);
   const notes = createExpressiveNotes({
     bars,
+    beatsPerBar,
     density,
     phrase,
+    prompt: normalizedPrompt,
     random,
     rootMidi,
     scaleId,
+    styleProfile: resolvedStyleProfile,
     tracks,
   });
 
@@ -181,6 +211,7 @@ export function generateMidiClipFromPrompt({
     key,
     scaleId,
     bars,
+    beatsPerBar,
     stepsPerBar: bars >= 256 ? 4 : bars >= 64 ? 8 : 16,
     seed: nextSeed,
     tracks,
@@ -188,6 +219,8 @@ export function generateMidiClipFromPrompt({
     metadata: {
       createdBy: "local-agent",
       editPrompt: "",
+      generationMode: resolvedGenerationMode,
+      styleProfile: resolvedStyleProfile,
       history: previousClip
         ? [
             ...previousClip.metadata.history.slice(-7),
@@ -198,10 +231,13 @@ export function generateMidiClipFromPrompt({
       rationale: createRationale({
         bars,
         bpm,
+        beatsPerBar,
         density,
+        generationMode: resolvedGenerationMode,
         key,
         phrase,
         scaleId,
+        styleProfile: resolvedStyleProfile,
       }),
     },
   });
@@ -215,9 +251,26 @@ export function editMidiClipWithPrompt(
   const normalizedPrompt = prompt.trim();
   if (/\b(regenerate|rewrite|new pattern|start over)\b/i.test(normalizedPrompt)) {
     return generateMidiClipFromPrompt({
+      generationMode: resolveMidiGenerationMode(normalizedPrompt, "auto"),
       musicalContext,
       previousClip: clip,
       prompt: normalizedPrompt || clip.metadata.prompt,
+      styleProfile: resolveMidiStyleProfile(normalizedPrompt, "auto"),
+    });
+  }
+
+  const requestedGenerationMode = inferMidiGenerationMode(normalizedPrompt);
+  const requestedStyleProfile = inferMidiStyleProfile(normalizedPrompt);
+  if (
+    (requestedGenerationMode && requestedGenerationMode !== clip.metadata.generationMode) ||
+    (requestedStyleProfile && requestedStyleProfile !== clip.metadata.styleProfile)
+  ) {
+    return generateMidiClipFromPrompt({
+      generationMode: requestedGenerationMode ?? clip.metadata.generationMode,
+      musicalContext,
+      previousClip: clip,
+      prompt: normalizedPrompt || clip.metadata.prompt,
+      styleProfile: requestedStyleProfile ?? clip.metadata.styleProfile,
     });
   }
 
@@ -255,7 +308,7 @@ export function editMidiClipWithPrompt(
       startBeat: clampNumber(
         note.startBeat + (random() - 0.5) * timingAmount,
         0,
-        clip.bars * 4 - 0.0625,
+        clip.bars * clip.beatsPerBar - 0.0625,
       ),
       velocity: clampNumber(note.velocity + velocityDelta + (random() - 0.5) * 0.05, 0.08, 1),
     }));
@@ -293,65 +346,227 @@ export function inferContextPatch(prompt: string): MidiClipContextPatch {
   };
 }
 
+export function resolveMidiGenerationMode(
+  prompt: string,
+  requestedMode: MidiClipGenerationMode = "auto",
+): ResolvedMidiClipGenerationMode {
+  return requestedMode === "auto"
+    ? inferMidiGenerationMode(prompt) ?? "full"
+    : requestedMode;
+}
+
+export function inferMidiGenerationMode(
+  prompt: string,
+): ResolvedMidiClipGenerationMode | null {
+  const hasBass = /\b(bassline|bass line|bass|sub|808)\b/i.test(prompt);
+  const hasHarmony = /\b(harmony|harmonic|chord|chords|voicing|progression|stab)\b/i.test(prompt);
+  const hasMelody = /\b(melody|melodic|lead|topline|hook|riff|countermelody)\b/i.test(prompt);
+  const hasArp = /\b(arp|arpeggio|arpeggiated|sequence|sequenced|ostinato)\b/i.test(prompt);
+  const hasRhythm = /\b(rhythm|rhythmic|drum|drums|percussion|percussive|beat)\b/i.test(prompt);
+  const hasPad = /\b(pad|drone|sustain|sustained)\b/i.test(prompt);
+  const requestedPartCount = [hasBass, hasHarmony, hasMelody, hasArp, hasRhythm, hasPad]
+    .filter(Boolean).length;
+
+  if (/\b(full|arrangement|all parts|multi[- ]part|whole piece)\b/i.test(prompt)) {
+    return "full";
+  }
+  if (requestedPartCount > 1 && !hasArp) {
+    return "full";
+  }
+  if (hasRhythm) {
+    return "rhythm";
+  }
+  if (hasArp) {
+    return "arpeggio";
+  }
+  if (hasBass) {
+    return "bassline";
+  }
+  if (hasHarmony) {
+    return "harmony";
+  }
+  if (hasMelody) {
+    return "melody";
+  }
+  if (hasPad) {
+    return "pad";
+  }
+  if (/\b(minimalist|minimal cyclic|repetitive structure|philip glass|glass-like)\b/i.test(prompt)) {
+    return "arpeggio";
+  }
+  return null;
+}
+
+export function resolveMidiStyleProfile(
+  prompt: string,
+  requestedProfile: MidiClipStyleProfile = "auto",
+): ResolvedMidiClipStyleProfile {
+  return requestedProfile === "auto"
+    ? inferMidiStyleProfile(prompt) ?? "neutral"
+    : requestedProfile;
+}
+
+export function inferMidiStyleProfile(
+  prompt: string,
+): ResolvedMidiClipStyleProfile | null {
+  if (/\b(satie|gymnopedie|gymnopédie|gnossienne|spare|transparent|simple melody|lyrical)\b/i.test(prompt)) {
+    return "lyrical-sparse";
+  }
+  if (/\b(philip glass|glass-like|minimalist|minimal cyclic|repetitive structure|cyclic|phasing|ostinato)\b/i.test(prompt)) {
+    return "minimal-cyclic";
+  }
+  if (/\b(morton feldman|feldman|pointillist|pointillism|spacious|floating|quiet fragments|late abstract)\b/i.test(prompt)) {
+    return "spacious-pointillist";
+  }
+  if (/\b(fourth world|fourth-world|organic hybrid|global ambient|ritual|hand percussion|woodwind|modal folk)\b/i.test(prompt)) {
+    return "organic-hybrid";
+  }
+  if (/\b(jungle|drum and bass|dnb|breakbeat|broken beat|footwork)\b/i.test(prompt)) {
+    return "broken-beat";
+  }
+  if (/\b(garage|techno|house|groove|four on the floor|four-on-the-floor)\b/i.test(prompt)) {
+    return "groove-forward";
+  }
+  if (/\b(ambient|drone|sustain|sustained|cinematic|wash)\b/i.test(prompt)) {
+    return "ambient-sustained";
+  }
+  if (/\b(rhythm|rhythmic|percussion|percussive|drum grid)\b/i.test(prompt)) {
+    return "percussive-grid";
+  }
+  return null;
+}
+
 function createExpressiveNotes({
   bars,
+  beatsPerBar,
   density,
   phrase,
+  prompt,
   random,
   rootMidi,
   scaleId,
+  styleProfile,
   tracks,
 }: {
   bars: MidiClipBars;
+  beatsPerBar: MidiClipBeatsPerBar;
   density: number;
-  phrase: "arp" | "chord" | "lead" | "pad";
+  phrase: MidiClipPhraseStyle;
+  prompt: string;
   random: () => number;
   rootMidi: number;
   scaleId: string;
+  styleProfile: ResolvedMidiClipStyleProfile;
   tracks: MidiClipTrack[];
 }) {
   const notes: MidiClipNote[] = [];
-  const totalBeats = bars * 4;
-  const bassTrack = tracks.find((track) => track.role === "bass") ?? tracks[0];
+  const totalBeats = bars * beatsPerBar;
+  const bassTrack = tracks.find((track) => track.role === "bass");
   const chordTrack = tracks.find((track) => track.role === "chord");
   const leadTrack = tracks.find((track) => track.role === "lead" || track.role === "arp");
   const padTrack = tracks.find((track) => track.role === "pad");
+  const drumTrack = tracks.find((track) => track.role === "drum");
+  const wantsSlides = /\bslide|glide|bend|acid|303\b/i.test(prompt);
+  const wantsGhostNotes = /\bghost|pickup|grace\b/i.test(prompt);
 
   if (bassTrack) {
-    const interval = density > 0.7 ? 1 : 2;
+    const interval =
+      styleProfile === "spacious-pointillist"
+        ? beatsPerBar * 2
+        : density > 0.7
+          ? 1
+          : styleProfile === "lyrical-sparse"
+            ? beatsPerBar
+            : 2;
     for (let beat = 0; beat < totalBeats; beat += interval) {
-      const bar = Math.floor(beat / 4);
-      const degree = [0, 4, 5, 3][bar % 4] ?? 0;
+      const bar = Math.floor(beat / beatsPerBar);
+      const degree =
+        styleProfile === "minimal-cyclic"
+          ? [0, 0, 4, 5, 4, 0][bar % 6] ?? 0
+          : [0, 4, 5, 3][bar % 4] ?? 0;
       notes.push(
         createNote({
           beat,
+          bend: wantsSlides,
           channel: bassTrack.channel,
-          durationBeats: density > 0.7 ? 0.82 : 1.65,
+          durationBeats:
+            styleProfile === "lyrical-sparse"
+              ? Math.max(0.9, beatsPerBar * 0.42)
+              : density > 0.7
+                ? 0.82
+                : 1.65,
           id: `bass-${beat}`,
           midi: degreeToMidi(rootMidi - 12, scaleId, degree),
           random,
           trackId: bassTrack.id,
-          velocity: 0.64 + density * 0.18,
+          velocity:
+            styleProfile === "spacious-pointillist"
+              ? 0.26
+              : styleProfile === "lyrical-sparse"
+                ? 0.42
+                : 0.64 + density * 0.18,
         }),
       );
+      if (wantsGhostNotes && beat + 0.5 < totalBeats && random() > 0.45) {
+        notes.push(
+          createNote({
+            beat: beat + 0.5,
+            bend: wantsSlides,
+            channel: bassTrack.channel,
+            durationBeats: 0.22,
+            id: `bass-ghost-${beat}`,
+            midi: degreeToMidi(rootMidi - 12, scaleId, degree + 1),
+            random,
+            trackId: bassTrack.id,
+            velocity: 0.24 + random() * 0.18,
+          }),
+        );
+      }
     }
   }
 
   if (chordTrack) {
-    for (let beat = 0; beat < totalBeats; beat += phrase === "chord" ? 2 : 4) {
-      const bar = Math.floor(beat / 4);
-      const degrees = [0, 2, 4].map((degree) => degree + ([0, 3, 4, 5][bar % 4] ?? 0));
+    const chordStride =
+      styleProfile === "spacious-pointillist"
+        ? beatsPerBar * 2
+        : styleProfile === "lyrical-sparse"
+        ? beatsPerBar
+        : phrase === "chord"
+          ? Math.max(1, beatsPerBar / 2)
+          : beatsPerBar;
+    for (let beat = 0; beat < totalBeats; beat += chordStride) {
+      const bar = Math.floor(beat / beatsPerBar);
+      const chordRoot =
+        styleProfile === "minimal-cyclic"
+          ? [0, 2, 4, 2][bar % 4] ?? 0
+          : [0, 3, 4, 5][bar % 4] ?? 0;
+      const degrees = [0, 2, 4].map((degree) => degree + chordRoot);
       for (const [index, degree] of degrees.entries()) {
         notes.push(
           createNote({
-            beat: beat + index * 0.012,
+            beat:
+              styleProfile === "lyrical-sparse"
+                ? beat + Math.min(index + 1, Math.max(1, beatsPerBar - 1))
+                : beat + index * 0.012,
             channel: chordTrack.channel,
-            durationBeats: phrase === "pad" ? 7.8 : 2.8,
+            durationBeats:
+              styleProfile === "spacious-pointillist"
+                ? Math.max(1.2, beatsPerBar * 1.5)
+                : styleProfile === "lyrical-sparse"
+                ? Math.max(0.68, beatsPerBar - 1.05)
+                : phrase === "pad"
+                  ? 7.8
+                  : 2.8,
             id: `chord-${beat}-${index}`,
             midi: degreeToMidi(rootMidi, scaleId, degree),
             random,
             trackId: chordTrack.id,
-            velocity: 0.46 + index * 0.06,
+            velocity:
+              styleProfile === "spacious-pointillist"
+                ? 0.22 + index * 0.03
+                : styleProfile === "lyrical-sparse"
+                ? 0.32 + index * 0.04
+                : 0.46 + index * 0.06,
           }),
         );
       }
@@ -359,25 +574,58 @@ function createExpressiveNotes({
   }
 
   if (leadTrack) {
-    const leadInterval = density > 0.72 ? 0.5 : density > 0.45 ? 1 : 2;
+    const leadInterval =
+      styleProfile === "minimal-cyclic"
+        ? 0.5
+        : styleProfile === "spacious-pointillist"
+          ? beatsPerBar * 2
+          : styleProfile === "organic-hybrid"
+            ? 0.75
+            : styleProfile === "lyrical-sparse"
+          ? Math.max(1, beatsPerBar)
+          : density > 0.72
+            ? 0.5
+            : density > 0.45
+              ? 1
+              : 2;
     let phraseIndex = 0;
     for (let beat = phrase === "pad" ? 2 : 0; beat < totalBeats; beat += leadInterval) {
-      const rest = random() > density;
+      const rest =
+        styleProfile === "minimal-cyclic" || styleProfile === "spacious-pointillist"
+          ? false
+          : random() > density;
       if (rest) {
         continue;
       }
-      const degree = createLeadDegree(phraseIndex, phrase, random);
+      const degree = createLeadDegree(phraseIndex, phrase, styleProfile, random);
       notes.push(
         createNote({
           beat,
-          bend: phrase === "lead" || random() > 0.72,
+          bend:
+            styleProfile !== "lyrical-sparse" &&
+            styleProfile !== "spacious-pointillist" &&
+            (phrase === "lead" || random() > 0.72),
           channel: leadTrack.channel,
-          durationBeats: phrase === "arp" ? 0.42 : 0.78 + random() * 0.85,
+          durationBeats:
+            styleProfile === "spacious-pointillist"
+              ? Math.max(1.6, beatsPerBar * 1.2)
+              : styleProfile === "lyrical-sparse"
+              ? Math.max(1, beatsPerBar * 0.82)
+              : phrase === "arp"
+                ? styleProfile === "minimal-cyclic"
+                  ? 0.48
+                  : 0.42
+                : 0.78 + random() * 0.85,
           id: `lead-${beat}-${phraseIndex}`,
           midi: degreeToMidi(rootMidi + 12, scaleId, degree),
           random,
           trackId: leadTrack.id,
-          velocity: 0.52 + random() * 0.38,
+          velocity:
+            styleProfile === "spacious-pointillist"
+              ? 0.24 + random() * 0.16
+              : styleProfile === "lyrical-sparse"
+              ? 0.38 + random() * 0.2
+              : 0.52 + random() * 0.38,
         }),
       );
       phraseIndex += 1;
@@ -385,13 +633,16 @@ function createExpressiveNotes({
   }
 
   if (padTrack) {
-    for (let beat = 0; beat < totalBeats; beat += 16) {
+    for (let beat = 0; beat < totalBeats; beat += styleProfile === "minimal-cyclic" ? 8 : 16) {
       for (const degree of [0, 4, 7]) {
         notes.push(
           createNote({
             beat,
             channel: padTrack.channel,
-            durationBeats: Math.min(15.8, totalBeats - beat),
+            durationBeats: Math.min(
+              styleProfile === "minimal-cyclic" ? 7.8 : 15.8,
+              totalBeats - beat,
+            ),
             id: `pad-${beat}-${degree}`,
             midi: degreeToMidi(rootMidi, scaleId, degree),
             random,
@@ -403,24 +654,93 @@ function createExpressiveNotes({
     }
   }
 
+  if (drumTrack) {
+    const hatStep =
+      styleProfile === "broken-beat" || styleProfile === "groove-forward"
+        ? 0.5
+        : styleProfile === "organic-hybrid"
+          ? 0.75
+          : 1;
+    for (let beat = 0; beat < totalBeats; beat += 1) {
+      const beatInBar = beat % beatsPerBar;
+      notes.push(
+        createNote({
+          beat,
+          channel: drumTrack.channel,
+          durationBeats: 0.08,
+          id: `kick-${beat}`,
+          midi: styleProfile === "broken-beat" && beatInBar === beatsPerBar - 1 ? 38 : 36,
+          random,
+          trackId: drumTrack.id,
+          velocity: beatInBar === 0 ? 0.9 : 0.54,
+        }),
+      );
+      if (beatInBar === Math.floor(beatsPerBar / 2)) {
+        notes.push(
+          createNote({
+            beat,
+            channel: drumTrack.channel,
+            durationBeats: 0.08,
+            id: `snare-${beat}`,
+            midi: 38,
+            random,
+            trackId: drumTrack.id,
+            velocity: 0.76,
+          }),
+        );
+      }
+    }
+    for (let beat = 0; beat < totalBeats; beat += hatStep) {
+      notes.push(
+        createNote({
+          beat: beat + 0.02,
+          channel: drumTrack.channel,
+          durationBeats: 0.05,
+          id: `hat-${beat}`,
+          midi: random() > 0.84 ? 46 : 42,
+          random,
+          trackId: drumTrack.id,
+          velocity: 0.28 + random() * 0.42,
+        }),
+      );
+    }
+  }
+
   return notes.sort(sortNotes).slice(0, 4096);
 }
 
-function createTracks(prompt: string): MidiClipTrack[] {
+function createTracks(
+  prompt: string,
+  generationMode: ResolvedMidiClipGenerationMode,
+): MidiClipTrack[] {
   const wantsPad = /\bpad|ambient|drone|sustain|cinematic\b/i.test(prompt);
   const wantsArp = /\barp|arpeggio|sequence|running\b/i.test(prompt);
-  const tracks: Array<[MidiClipTrackRole, string]> = [
-    ["bass", "bass"],
-    ["chord", "chords"],
-    [wantsArp ? "arp" : "lead", wantsArp ? "arp" : "lead"],
-  ];
 
-  if (wantsPad) {
+  const tracks: Array<[MidiClipTrackRole, string]> =
+    generationMode === "bassline"
+      ? [["bass", "bassline"]]
+      : generationMode === "harmony"
+        ? [["chord", "harmony"]]
+        : generationMode === "melody"
+          ? [["lead", "melody"]]
+          : generationMode === "arpeggio"
+            ? [["arp", "arpeggio"]]
+            : generationMode === "rhythm"
+              ? [["drum", "rhythm"]]
+              : generationMode === "pad"
+                ? [["pad", "pad"]]
+                : [
+                    ["bass", "bass"],
+                    ["chord", "chords"],
+                    [wantsArp ? "arp" : "lead", wantsArp ? "arp" : "lead"],
+                  ];
+
+  if (generationMode === "full" && wantsPad) {
     tracks.push(["pad", "pad"]);
   }
 
   return tracks.map(([role, name], index) => ({
-    channel: index,
+    channel: role === "drum" ? 9 : index,
     id: role,
     mute: false,
     name,
@@ -500,11 +820,24 @@ function createFillNotes({
   );
 }
 
-function createLeadDegree(index: number, phrase: "arp" | "chord" | "lead" | "pad", random: () => number) {
+function createLeadDegree(
+  index: number,
+  phrase: MidiClipPhraseStyle,
+  styleProfile: ResolvedMidiClipStyleProfile,
+  random: () => number,
+) {
   const motif =
-    phrase === "arp"
-      ? [0, 2, 4, 7, 9, 7, 4, 2]
-      : [0, 1, 2, 4, 5, 4, 7, 6, 4, 2, 1, 0];
+    styleProfile === "minimal-cyclic"
+      ? [0, 2, 4, 7, 4, 2, 5, 7]
+      : styleProfile === "lyrical-sparse"
+        ? [0, 1, 2, 4, 2, 1, 0]
+        : styleProfile === "spacious-pointillist"
+          ? [0, 7, 2, 9, 4, 11]
+          : styleProfile === "organic-hybrid"
+            ? [0, 2, 3, 5, 7, 5, 2]
+        : phrase === "arp"
+          ? [0, 2, 4, 7, 9, 7, 4, 2]
+          : [0, 1, 2, 4, 5, 4, 7, 6, 4, 2, 1, 0];
   const base = motif[index % motif.length] ?? 0;
   return base + (random() > 0.82 ? 7 : 0);
 }
@@ -531,6 +864,17 @@ function parseBars(prompt: string): MidiClipBars | null {
   return MIDI_CLIP_BAR_OPTIONS.includes(value as MidiClipBars)
     ? (value as MidiClipBars)
     : null;
+}
+
+function parseBeatsPerBar(prompt: string): MidiClipBeatsPerBar | null {
+  const explicit = prompt.match(/\b([2-7])\s*\/\s*(?:4|8)\b/);
+  if (explicit) {
+    return Number(explicit[1]) as MidiClipBeatsPerBar;
+  }
+  if (/\bwaltz|triple meter|three beat|three-beat\b/i.test(prompt)) {
+    return 3;
+  }
+  return null;
 }
 
 function parseKey(prompt: string): Tonic | null {
@@ -592,6 +936,33 @@ function inferSwing(prompt: string, previous?: number) {
   return parseSwing(prompt) ?? previous ?? 0;
 }
 
+function inferStyleSwing(styleProfile: ResolvedMidiClipStyleProfile) {
+  if (styleProfile === "broken-beat" || styleProfile === "groove-forward") {
+    return 0.12;
+  }
+  if (styleProfile === "organic-hybrid") {
+    return 0.08;
+  }
+  if (
+    styleProfile === "lyrical-sparse" ||
+    styleProfile === "spacious-pointillist" ||
+    styleProfile === "minimal-cyclic"
+  ) {
+    return 0;
+  }
+  return null;
+}
+
+function inferBeatsPerBar(styleProfile: ResolvedMidiClipStyleProfile) {
+  if (styleProfile === "lyrical-sparse") {
+    return 3;
+  }
+  if (styleProfile === "organic-hybrid") {
+    return 5;
+  }
+  return null;
+}
+
 function inferOctave(prompt: string) {
   if (/\bsub|bass|low\b/i.test(prompt)) {
     return 2;
@@ -602,17 +973,61 @@ function inferOctave(prompt: string) {
   return 3;
 }
 
-function inferDensity(prompt: string) {
+function inferDensity(
+  prompt: string,
+  generationMode: ResolvedMidiClipGenerationMode,
+  styleProfile: ResolvedMidiClipStyleProfile,
+) {
   if (/\bsparse|minimal|space|simple\b/i.test(prompt)) {
     return 0.32;
   }
   if (/\bdense|busy|fast|complex|maximal\b/i.test(prompt)) {
     return 0.78;
   }
+  if (styleProfile === "spacious-pointillist") {
+    return 0.18;
+  }
+  if (styleProfile === "lyrical-sparse") {
+    return 0.3;
+  }
+  if (styleProfile === "minimal-cyclic") {
+    return 0.82;
+  }
+  if (styleProfile === "broken-beat") {
+    return 0.76;
+  }
+  if (styleProfile === "groove-forward") {
+    return 0.64;
+  }
+  if (styleProfile === "organic-hybrid") {
+    return 0.52;
+  }
+  if (styleProfile === "ambient-sustained") {
+    return 0.24;
+  }
+  if (generationMode === "bassline" || generationMode === "rhythm") {
+    return 0.64;
+  }
   return 0.56;
 }
 
-function inferPhraseStyle(prompt: string): "arp" | "chord" | "lead" | "pad" {
+function inferPhraseStyle(
+  prompt: string,
+  generationMode: ResolvedMidiClipGenerationMode,
+  styleProfile: ResolvedMidiClipStyleProfile,
+): MidiClipPhraseStyle {
+  if (generationMode === "harmony") {
+    return "chord";
+  }
+  if (generationMode === "arpeggio") {
+    return "arp";
+  }
+  if (generationMode === "pad") {
+    return "pad";
+  }
+  if (generationMode === "melody") {
+    return "lead";
+  }
   if (/\barp|arpeggio|sequence|running\b/i.test(prompt)) {
     return "arp";
   }
@@ -620,6 +1035,12 @@ function inferPhraseStyle(prompt: string): "arp" | "chord" | "lead" | "pad" {
     return "chord";
   }
   if (/\bpad|ambient|drone|sustain\b/i.test(prompt)) {
+    return "pad";
+  }
+  if (styleProfile === "minimal-cyclic") {
+    return "arp";
+  }
+  if (styleProfile === "ambient-sustained") {
     return "pad";
   }
   return "lead";
@@ -637,21 +1058,27 @@ function nameFromPrompt(prompt: string, key: Tonic, scaleId: string) {
 
 function createRationale({
   bars,
+  beatsPerBar,
   bpm,
   density,
+  generationMode,
   key,
   phrase,
   scaleId,
+  styleProfile,
 }: {
   bars: MidiClipBars;
+  beatsPerBar: MidiClipBeatsPerBar;
   bpm: number;
   density: number;
+  generationMode: ResolvedMidiClipGenerationMode;
   key: Tonic;
   phrase: string;
   scaleId: string;
+  styleProfile: ResolvedMidiClipStyleProfile;
 }) {
   const scale = getScaleDefinition(scaleId);
-  return `${bars} bar ${key} ${scale.name} MIDI clip at ${bpm} bpm with ${phrase} phrasing, density ${density.toFixed(2)}, humanized starts, velocity motion, and selective pitch/CC expression.`;
+  return `${bars} bar ${beatsPerBar}/4 ${generationMode} MIDI clip in ${key} ${scale.name} at ${bpm} bpm with ${styleProfile} style, ${phrase} phrasing, density ${density.toFixed(2)}, humanized starts, velocity motion, and selective pitch/CC expression.`;
 }
 
 function sortNotes(left: MidiClipNote, right: MidiClipNote) {

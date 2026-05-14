@@ -34,30 +34,37 @@ function getDb() {
   });
 }
 
+async function withDb<Result>(
+  operation: (db: Awaited<ReturnType<typeof getDb>>) => Promise<Result>,
+): Promise<Result> {
+  const db = await getDb();
+  try {
+    return await operation(db);
+  } finally {
+    db.close();
+  }
+}
+
 export async function saveUploadedSample(
   record: UploadedSampleRecord,
 ): Promise<UploadedSampleRecord> {
-  const db = await getDb();
-  await db.put(STORE_NAME, record);
+  await withDb((db) => db.put(STORE_NAME, record));
   return record;
 }
 
 export async function getUploadedSample(
   id: string,
 ): Promise<UploadedSampleRecord | null> {
-  const db = await getDb();
-  return (await db.get(STORE_NAME, id)) ?? null;
+  return (await withDb((db) => db.get(STORE_NAME, id))) ?? null;
 }
 
 export async function listUploadedSamples(): Promise<UploadedSampleRecord[]> {
-  const db = await getDb();
-  const records = await db.getAllFromIndex(STORE_NAME, "by-created-at");
+  const records = await withDb((db) => db.getAllFromIndex(STORE_NAME, "by-created-at"));
   return records.sort((left, right) => right.createdAt - left.createdAt);
 }
 
 export async function deleteUploadedSample(id: string): Promise<void> {
-  const db = await getDb();
-  await db.delete(STORE_NAME, id);
+  await withDb((db) => db.delete(STORE_NAME, id));
 }
 
 export function createUploadedSampleId(file: Pick<File, "name" | "size" | "lastModified">) {

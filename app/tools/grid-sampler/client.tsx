@@ -3,7 +3,10 @@
 import { useEffect } from "react";
 import Link from "next/link";
 
-import { GridCanvas } from "@/app/tools/grid-sampler/components/grid-canvas";
+import {
+  GridCanvas,
+  GridSourceControls,
+} from "@/app/tools/grid-sampler/components/grid-canvas";
 import { GridGenerationPanel } from "@/app/tools/grid-sampler/components/generation-panel";
 import { GridStepGrid } from "@/app/tools/grid-sampler/components/step-grid";
 import { GridTransportBar } from "@/app/tools/grid-sampler/components/transport-bar";
@@ -62,10 +65,11 @@ export function GridSamplerClient() {
           <span>{traversal}</span>
         </div>
       </header>
+      <GridSourceControls />
+      <GridGenerationPanel />
       <GridCanvas />
       <GridStepGrid />
       <GridTransportBar />
-      <GridGenerationPanel />
     </main>
   );
 }

@@ -15,11 +15,9 @@ const allRoles = ["break", "loop", "oneshot", "melodic", "pad", "fx"] as const;
 
 export function SpliceSourcePanel() {
   const sources = useSpliceLabStore((state) => state.sources);
-  const sliceCount = useSpliceLabStore((state) => state.sliceCount);
   const setSource = useSpliceLabStore((state) => state.setSource);
   const addSource = useSpliceLabStore((state) => state.addSource);
   const removeSource = useSpliceLabStore((state) => state.removeSource);
-  const setSliceCount = useSpliceLabStore((state) => state.setSliceCount);
   const lastSourceKey = sources[sources.length - 1]?.key;
 
   return (
@@ -72,7 +70,17 @@ export function SpliceSourcePanel() {
           </div>
         ))}
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-3">
+    </section>
+  );
+}
+
+export function SpliceMappingControls() {
+  const sliceCount = useSpliceLabStore((state) => state.sliceCount);
+  const setSliceCount = useSpliceLabStore((state) => state.setSliceCount);
+
+  return (
+    <section className="border-b border-zinc-800 p-4">
+      <div className="flex flex-wrap items-center gap-3">
         <label className="text-xs text-zinc-500" htmlFor="splice-slices">
           mapping
         </label>

@@ -22,8 +22,12 @@ import {
 import { midiGeneratorManifest } from "@/app/tools/midi-generator/manifest";
 import {
   MIDI_CLIP_BAR_OPTIONS,
+  MIDI_CLIP_GENERATION_MODE_OPTIONS,
+  MIDI_CLIP_STYLE_PROFILE_OPTIONS,
   type MidiClip,
   type MidiClipBars,
+  type MidiClipGenerationMode,
+  type MidiClipStyleProfile,
 } from "@/app/tools/midi-generator/lib/schema";
 import {
   playMidiClipPreview,
@@ -31,6 +35,7 @@ import {
 } from "@/app/tools/midi-generator/lib/tone-playback";
 import { LlmGeneratingOverlay } from "@/components/llm-generating-overlay";
 import { MidiPlaybackPanel } from "@/components/midi-playback-panel";
+import { PromptFirstSection } from "@/components/prompt-first-section";
 import { ToolExportPanel } from "@/components/tool-export-panel";
 import { Button } from "@/components/ui/button";
 import { getScaleDefinition } from "@/lib/music/scale-catalog";
@@ -53,6 +58,8 @@ export function MidiGeneratorClient() {
     "make it more human, add bends, and loosen the timing",
   );
   const [clip, setClip] = useState<MidiClip>(() => createDefaultMidiClip());
+  const [generationMode, setGenerationMode] = useState<MidiClipGenerationMode>("auto");
+  const [styleProfile, setStyleProfile] = useState<MidiClipStyleProfile>("auto");
   const [isPlaying, setIsPlaying] = useState(false);
   const [syncGlobalContext, setSyncGlobalContext] = useState(true);
   const [currentBeat, setCurrentBeat] = useState<number | null>(null);
@@ -78,7 +85,7 @@ export function MidiGeneratorClient() {
 
     let animationFrame = 0;
     let startedAt: number | null = null;
-    const totalBeats = clip.bars * 4;
+    const totalBeats = clip.bars * clip.beatsPerBar;
 
     function tick(now: number) {
       startedAt ??= now;
@@ -92,7 +99,7 @@ export function MidiGeneratorClient() {
     return () => {
       window.cancelAnimationFrame(animationFrame);
     };
-  }, [clip.bars, clip.bpm, isPlaying]);
+  }, [clip.bars, clip.beatsPerBar, clip.bpm, isPlaying]);
 
   async function togglePlayback() {
     if (isPlaying) {
@@ -108,9 +115,11 @@ export function MidiGeneratorClient() {
   async function generateClip(nextPrompt = prompt) {
     await withGenerationState("generating", async () => {
       const nextClip = generateMidiClipFromPrompt({
+        generationMode,
         musicalContext: globalContext,
         prompt: nextPrompt,
         previousClip: clip,
+        styleProfile,
       });
       applyClip(nextClip);
       if (isPlaying) {
@@ -133,9 +142,11 @@ export function MidiGeneratorClient() {
     await withGenerationState("resizing", async () => {
       const nextPrompt = `${prompt} ${bars} bars`;
       const nextClip = generateMidiClipFromPrompt({
+        generationMode,
         musicalContext: globalContext,
         prompt: nextPrompt,
         previousClip: clip,
+        styleProfile,
       });
       applyClip(nextClip);
       if (isPlaying) {
@@ -195,10 +206,11 @@ export function MidiGeneratorClient() {
           <span>{clip.key} {scale.name}</span>
           <span>{clip.bpm} bpm</span>
           <span>{clip.bars} bars</span>
+          <span>{clip.metadata.generationMode}</span>
         </div>
       </header>
 
-      <section className="grid border-b border-zinc-800 lg:grid-cols-[minmax(0,1fr)_390px]">
+      <PromptFirstSection className="grid lg:grid-cols-[minmax(0,1fr)_390px]">
         <div
           aria-busy={isGenerating}
           className="relative border-b border-zinc-800 p-4 lg:border-b-0 lg:border-r"
@@ -233,11 +245,47 @@ export function MidiGeneratorClient() {
             />
           </label>
 
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <label className="block text-xs text-zinc-500">
+              part focus
+              <select
+                aria-label="part focus"
+                className="mt-2 h-9 w-full rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-xs text-zinc-100 outline-none focus:border-zinc-200"
+                disabled={isGenerating}
+                value={generationMode}
+                onChange={(event) =>
+                  setGenerationMode(event.currentTarget.value as MidiClipGenerationMode)
+                }
+              >
+                {MIDI_CLIP_GENERATION_MODE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block text-xs text-zinc-500">
+              style profile
+              <select
+                aria-label="style profile"
+                className="mt-2 h-9 w-full rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-xs text-zinc-100 outline-none focus:border-zinc-200"
+                disabled={isGenerating}
+                value={styleProfile}
+                onChange={(event) =>
+                  setStyleProfile(event.currentTarget.value as MidiClipStyleProfile)
+                }
+              >
+                {MIDI_CLIP_STYLE_PROFILE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button onClick={() => void togglePlayback()} variant={isPlaying ? "danger" : "solid"}>
-              {isPlaying ? <Pause className="size-4" /> : <Play className="size-4" />}
-              {isPlaying ? "stop" : "preview"}
-            </Button>
             <Button disabled={isGenerating} onClick={() => void generateClip()}>
               {generationState === "generating" ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -246,12 +294,6 @@ export function MidiGeneratorClient() {
               )}
               {generationState === "generating" ? "generating" : "generate midi"}
             </Button>
-            <ToolExportPanel
-              document={clip}
-              filenameStem={clip.name}
-              manifest={midiGeneratorManifest}
-              midiExport={() => exportMidiClipMidiArtifact({ clip, toolSlug: TOOL_SLUG })}
-            />
           </div>
 
           <label className="mt-4 flex items-center gap-2 text-xs text-zinc-400">
@@ -307,6 +349,19 @@ export function MidiGeneratorClient() {
               {generationState === "editing" ? "editing" : "edit midi"}
             </Button>
           </div>
+
+          <div className="mt-4 flex flex-wrap gap-2 border-t border-zinc-800 pt-4">
+            <Button onClick={() => void togglePlayback()} variant={isPlaying ? "danger" : "solid"}>
+              {isPlaying ? <Pause className="size-4" /> : <Play className="size-4" />}
+              {isPlaying ? "stop" : "preview"}
+            </Button>
+            <ToolExportPanel
+              document={clip}
+              filenameStem={clip.name}
+              manifest={midiGeneratorManifest}
+              midiExport={() => exportMidiClipMidiArtifact({ clip, toolSlug: TOOL_SLUG })}
+            />
+          </div>
         </div>
 
         <aside className="p-4">
@@ -315,6 +370,9 @@ export function MidiGeneratorClient() {
             <Metric label="notes" value={String(clip.notes.length)} />
             <Metric label="key" value={`${clip.key} ${scale.name}`} />
             <Metric label="tempo" value={`${clip.bpm} bpm`} />
+            <Metric label="meter" value={`${clip.beatsPerBar}/4`} />
+            <Metric label="focus" value={clip.metadata.generationMode} />
+            <Metric label="style" value={clip.metadata.styleProfile} />
             <Metric label="swing" value={`${Math.round(clip.swing * 100)}%`} />
             <Metric label="history" value={String(clip.metadata.history.length)} />
           </div>
@@ -342,7 +400,7 @@ export function MidiGeneratorClient() {
             {clip.metadata.rationale}
           </div>
         </aside>
-      </section>
+      </PromptFirstSection>
 
       <MidiPlaybackPanel
         {...playback}

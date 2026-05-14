@@ -75,6 +75,28 @@ describe("MidiGeneratorClient", () => {
     });
   });
 
+  it("uses part focus and abstract style profile controls for generated MIDI", async () => {
+    const user = userEvent.setup();
+    render(<MidiGeneratorClient />);
+
+    await user.selectOptions(screen.getByLabelText("part focus"), "harmony");
+    await user.selectOptions(screen.getByLabelText("style profile"), "spacious-pointillist");
+    await user.clear(screen.getByLabelText("generation prompt"));
+    await user.type(
+      screen.getByLabelText("generation prompt"),
+      "4 bar quiet floating fragments with transparent voicings",
+    );
+    await user.click(screen.getByRole("button", { name: /generate midi/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("spacious-pointillist")).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText("part focus")).toHaveValue("harmony");
+    expect(screen.getByText("ch 1 / chord")).toBeInTheDocument();
+    expect(screen.queryByText(/\/ lead/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\/ bass/)).not.toBeInTheDocument();
+  });
+
   it("previews with a sine synth stop state and supports follow-up edits", async () => {
     const user = userEvent.setup();
     render(<MidiGeneratorClient />);

@@ -11,16 +11,37 @@ import { computeEqualSlices, detectOnsetSlices } from "@/lib/audio/slices";
 import { auditionSamplePlaybackSlice } from "@/lib/audio/sample-playback";
 import { useIntelligenceSamplerStore } from "@/app/tools/intelligence-sampler/store";
 
+export function WaveformSourceControls() {
+  const sampleId = useIntelligenceSamplerStore((state) => state.sampleId);
+  const sampleName = useIntelligenceSamplerStore((state) => state.sampleName);
+  const setSample = useIntelligenceSamplerStore((state) => state.setSample);
+
+  return (
+    <section className="border-b border-zinc-800 p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <SamplePicker
+          id="sample-select"
+          value={sampleId}
+          label="source"
+          roles={["break", "loop", "oneshot", "pad", "melodic", "fx"]}
+          onSelect={(sample) => {
+            setSample(sample.id, sample.name, sample.role);
+          }}
+        />
+        <span className="text-xs text-zinc-500">{sampleName}</span>
+      </div>
+    </section>
+  );
+}
+
 export function WaveformSlicer() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
   const [status, setStatus] = useState("loading sample");
   const [error, setError] = useState<string | null>(null);
   const sampleId = useIntelligenceSamplerStore((state) => state.sampleId);
-  const sampleName = useIntelligenceSamplerStore((state) => state.sampleName);
   const sliceMode = useIntelligenceSamplerStore((state) => state.sliceMode);
   const slices = useIntelligenceSamplerStore((state) => state.slices);
-  const setSample = useIntelligenceSamplerStore((state) => state.setSample);
   const setDetectedBpm = useIntelligenceSamplerStore((state) => state.setDetectedBpm);
   const setSliceMode = useIntelligenceSamplerStore((state) => state.setSliceMode);
   const setSlices = useIntelligenceSamplerStore((state) => state.setSlices);
@@ -173,16 +194,7 @@ export function WaveformSlicer() {
   return (
     <section className="border-b border-zinc-800 p-4">
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <SamplePicker
-          id="sample-select"
-          value={sampleId}
-          label="source"
-          roles={["break", "loop", "oneshot", "pad", "melodic", "fx"]}
-          onSelect={(sample) => {
-            setSample(sample.id, sample.name, sample.role);
-          }}
-        />
-        <span className="text-xs text-zinc-500">{sampleName}</span>
+        <span className="text-xs uppercase text-zinc-500">slice editor</span>
         <span className="text-xs text-zinc-600">{status}</span>
       </div>
       <div className="mb-3 flex flex-wrap items-center gap-2">

@@ -4,7 +4,10 @@ import { useEffect } from "react";
 import Link from "next/link";
 
 import { DrumGenerationPanel } from "@/app/tools/drum-machine/components/generation-panel";
-import { DrumGrid } from "@/app/tools/drum-machine/components/drum-grid";
+import {
+  DrumGrid,
+  DrumSourceControls,
+} from "@/app/tools/drum-machine/components/drum-grid";
 import { DrumTransportBar } from "@/app/tools/drum-machine/components/transport-bar";
 import { useDrumMachineStore } from "@/app/tools/drum-machine/store";
 import { getSamplePlaybackHost } from "@/lib/audio/sample-playback";
@@ -50,9 +53,10 @@ export function DrumMachineClient() {
           <span>cycle {cycleLength}</span>
         </div>
       </header>
+      <DrumSourceControls />
+      <DrumGenerationPanel />
       <DrumGrid />
       <DrumTransportBar />
-      <DrumGenerationPanel />
     </main>
   );
 }

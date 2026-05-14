@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -116,6 +116,30 @@ describe("SamplePicker", () => {
       await screen.findByRole("img", {
         name: /full waveform, 2\.00s \/ 44\.1 kHz \/ 1 ch/i,
       }),
+    ).toBeInTheDocument();
+  });
+
+  it("groups library sounds by genre and role", () => {
+    render(
+      <SamplePicker
+        id="sample"
+        label="source"
+        value="library:element-one/140-stripped-drum-loop-03"
+        roles={["loop", "pad"]}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    const dubstepLoops = screen.getByRole("group", {
+      name: "uk dubstep / loops",
+    });
+    expect(
+      within(dubstepLoops).getByRole("option", {
+        name: /140 Full Drum Loop \/ drum loop \/ 140 bpm \/ Element One/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("group", { name: "ambient / experimental / pads" }),
     ).toBeInTheDocument();
   });
 });

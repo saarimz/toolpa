@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { AudioOutputRecorder } from "@/components/audio-output-recorder";
+import { PromptFirstSection } from "@/components/prompt-first-section";
 import { Button } from "@/components/ui/button";
 import {
   SamplePicker,
@@ -234,7 +235,7 @@ export function SampleAnalysisClient() {
         </div>
       </header>
 
-      <section className="grid border-b border-zinc-800 lg:grid-cols-[minmax(0,1fr)_420px]">
+      <PromptFirstSection className="grid lg:grid-cols-[minmax(0,1fr)_420px]">
         <div className="border-b border-zinc-800 p-4 lg:border-b-0 lg:border-r">
           <SamplePicker
             id="sample-analysis-source"
@@ -308,7 +309,7 @@ export function SampleAnalysisClient() {
             </div>
           )}
         </aside>
-      </section>
+      </PromptFirstSection>
 
       <section className="p-4">
         <div className="mb-3 flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-zinc-500">

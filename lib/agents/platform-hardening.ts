@@ -59,6 +59,12 @@ export const WEB_AUDIO_REFERENCE_CONVENTIONS = [
     requirement:
       "L2 builders must validate manifests, static safety, tests, audio-gate output, registry metadata, and sandbox scope before a generated L1 becomes part of the suite.",
   },
+  {
+    id: "prompt-first-control-order",
+    source: "ai-daw-tools product architecture",
+    requirement:
+      "Prompt controls render immediately after required source/context selectors and before playback, transport, export, or deep editing controls; L2 builders start from the description prompt before family or verification controls.",
+  },
 ] as const;
 
 export const PlatformHardeningIssueSchema = z.object({

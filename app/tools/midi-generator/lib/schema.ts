@@ -21,6 +21,15 @@ export const MidiClipBarsSchema = z.union([
   z.literal(1024),
 ]);
 
+export const MidiClipBeatsPerBarSchema = z.union([
+  z.literal(2),
+  z.literal(3),
+  z.literal(4),
+  z.literal(5),
+  z.literal(6),
+  z.literal(7),
+]);
+
 export const MidiClipStepsPerBarSchema = z.union([
   z.literal(4),
   z.literal(8),
@@ -34,6 +43,30 @@ export const MidiClipTrackRoleSchema = z.enum([
   "arp",
   "pad",
   "drum",
+]);
+
+export const MidiClipGenerationModeSchema = z.enum([
+  "auto",
+  "full",
+  "melody",
+  "harmony",
+  "bassline",
+  "arpeggio",
+  "rhythm",
+  "pad",
+]);
+
+export const MidiClipStyleProfileSchema = z.enum([
+  "auto",
+  "neutral",
+  "lyrical-sparse",
+  "minimal-cyclic",
+  "spacious-pointillist",
+  "organic-hybrid",
+  "groove-forward",
+  "broken-beat",
+  "ambient-sustained",
+  "percussive-grid",
 ]);
 
 export const MidiClipNoteSchema = z.object({
@@ -69,6 +102,8 @@ export const MidiClipMetadataSchema = z
     createdBy: z.enum(["manual", "local-agent"]).default("local-agent"),
     prompt: z.string().default(""),
     editPrompt: z.string().default(""),
+    generationMode: MidiClipGenerationModeSchema.default("full"),
+    styleProfile: MidiClipStyleProfileSchema.default("neutral"),
     rationale: z.string().default(""),
     history: z.array(z.string()).default([]),
   })
@@ -76,6 +111,8 @@ export const MidiClipMetadataSchema = z
     createdBy: "local-agent",
     prompt: "",
     editPrompt: "",
+    generationMode: "full",
+    styleProfile: "neutral",
     rationale: "",
     history: [],
   });
@@ -89,6 +126,7 @@ export const MidiClipSchema = z.object({
   key: TonicSchema.default("C"),
   scaleId: z.string().regex(/^[a-z0-9][a-z0-9-]*$/).default("minor"),
   bars: MidiClipBarsSchema,
+  beatsPerBar: MidiClipBeatsPerBarSchema.default(4),
   stepsPerBar: MidiClipStepsPerBarSchema.default(16),
   seed: z.number().int().min(0).max(999999),
   tracks: z.array(MidiClipTrackSchema).min(1).max(8),
@@ -97,8 +135,11 @@ export const MidiClipSchema = z.object({
 });
 
 export type MidiClipBars = z.infer<typeof MidiClipBarsSchema>;
+export type MidiClipBeatsPerBar = z.infer<typeof MidiClipBeatsPerBarSchema>;
+export type MidiClipGenerationMode = z.infer<typeof MidiClipGenerationModeSchema>;
 export type MidiClipNote = z.infer<typeof MidiClipNoteSchema>;
 export type MidiClipStepsPerBar = z.infer<typeof MidiClipStepsPerBarSchema>;
+export type MidiClipStyleProfile = z.infer<typeof MidiClipStyleProfileSchema>;
 export type MidiClipTrack = z.infer<typeof MidiClipTrackSchema>;
 export type MidiClipTrackRole = z.infer<typeof MidiClipTrackRoleSchema>;
 export type MidiClip = z.infer<typeof MidiClipSchema>;
@@ -116,8 +157,40 @@ export const MIDI_CLIP_BAR_OPTIONS: MidiClipBars[] = [
   1024,
 ];
 
+export const MIDI_CLIP_GENERATION_MODE_OPTIONS: Array<{
+  label: string;
+  value: MidiClipGenerationMode;
+}> = [
+  { label: "auto", value: "auto" },
+  { label: "full", value: "full" },
+  { label: "melody", value: "melody" },
+  { label: "harmony", value: "harmony" },
+  { label: "bassline", value: "bassline" },
+  { label: "arpeggio", value: "arpeggio" },
+  { label: "rhythm", value: "rhythm" },
+  { label: "pad", value: "pad" },
+];
+
+export const MIDI_CLIP_STYLE_PROFILE_OPTIONS: Array<{
+  label: string;
+  value: MidiClipStyleProfile;
+}> = [
+  { label: "auto", value: "auto" },
+  { label: "neutral", value: "neutral" },
+  { label: "lyrical sparse", value: "lyrical-sparse" },
+  { label: "minimal cyclic", value: "minimal-cyclic" },
+  { label: "spacious pointillist", value: "spacious-pointillist" },
+  { label: "organic hybrid", value: "organic-hybrid" },
+  { label: "groove forward", value: "groove-forward" },
+  { label: "broken beat", value: "broken-beat" },
+  { label: "ambient sustained", value: "ambient-sustained" },
+  { label: "percussive grid", value: "percussive-grid" },
+];
+
 export const MIDI_CLIP_STEP_OPTIONS: MidiClipStepsPerBar[] = [4, 8, 16];
 
-export function getMidiClipTotalBeats(clip: Pick<MidiClip, "bars">) {
-  return clip.bars * 4;
+export function getMidiClipTotalBeats(
+  clip: Pick<MidiClip, "bars"> & Partial<Pick<MidiClip, "beatsPerBar">>,
+) {
+  return clip.bars * (clip.beatsPerBar ?? 4);
 }

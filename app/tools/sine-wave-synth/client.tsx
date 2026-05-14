@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { FxSlotPanel } from "@/components/fx-slot-panel";
 import { LlmGeneratingOverlay } from "@/components/llm-generating-overlay";
 import { createSynthSceneMidiPlayback, MidiPlaybackPanel } from "@/components/midi-playback-panel";
+import { PromptFirstSection } from "@/components/prompt-first-section";
 import { ToolExportPanel } from "@/components/tool-export-panel";
 import { createDefaultSynthScene } from "@/app/tools/evolving-fm-synth/lib/agent";
 import { fetchSynthSceneFromGateway } from "@/app/tools/evolving-fm-synth/lib/gateway-request";
@@ -158,7 +159,7 @@ export function SineWaveSynthClient() {
           </div>
         </header>
 
-        <div className="relative grid gap-0 border-b border-zinc-800 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <PromptFirstSection className="relative grid gap-0 lg:grid-cols-[minmax(0,1fr)_360px]">
           {isGenerating ? (
             <LlmGeneratingOverlay
               detail="Prompting the LLM for a generated SynthScene."
@@ -269,7 +270,7 @@ export function SineWaveSynthClient() {
               />
             </label>
           </aside>
-        </div>
+        </PromptFirstSection>
 
         <MidiPlaybackPanel {...midiPlayback} isPlaying={isPlaying} />
         <FxSlotPanel toolId={TOOL_SLUG} />

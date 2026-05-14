@@ -6,7 +6,7 @@ export const midiGeneratorManifest = {
   level: 1,
   origin: "installed",
   description:
-    "Prompt expressive MIDI clips, edit them with follow-up prompts, preview through a sine synth, and export the MIDI anywhere.",
+    "Prompt expressive MIDI clips with explicit part-focus and abstract style-profile controls, preview through a sine synth, and export the MIDI anywhere.",
   route: "/tools/midi-generator",
   instrument: {
     type: "midi",
@@ -18,6 +18,8 @@ export const midiGeneratorManifest = {
   capabilities: [
     "generateMidi",
     "editMidi",
+    "partFocus",
+    "styleProfile",
     "exportMidi",
     "sinePreview",
     "globalContextWrite",

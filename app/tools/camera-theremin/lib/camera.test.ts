@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type {
   Category,
   FaceLandmarkerResult,
@@ -12,6 +12,7 @@ import {
   createFrameFromGestureRecognizerResult,
   createFrameFromPoseLandmarkerResult,
   createFrameFromResult,
+  runWithMediaPipeConsoleNoiseSuppressed,
 } from "@/app/tools/camera-theremin/lib/camera";
 
 describe("camera hand-tracking adapter", () => {
@@ -198,6 +199,39 @@ describe("camera hand-tracking adapter", () => {
       x: 0.22,
       y: 0.72,
     });
+  });
+
+  it("suppresses MediaPipe's XNNPACK delegate console banner only", () => {
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const infoSpy = vi
+      .spyOn(console, "info")
+      .mockImplementation(() => undefined);
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    try {
+      const result = runWithMediaPipeConsoleNoiseSuppressed(() => {
+        console.error("INFO: Created TensorFlow Lite XNNPACK delegate for CPU.");
+        console.info("Created TensorFlow Lite XNNPACK delegate for CPU.");
+        console.warn("Created TensorFlow Lite XNNPACK delegate for CPU.");
+        console.warn("real warning");
+
+        return "tracked";
+      });
+
+      expect(result).toBe("tracked");
+      expect(errorSpy).not.toHaveBeenCalled();
+      expect(infoSpy).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledOnce();
+      expect(warnSpy).toHaveBeenCalledWith("real warning");
+    } finally {
+      errorSpy.mockRestore();
+      infoSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
   });
 });
 

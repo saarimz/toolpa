@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { FxSlotPanel } from "@/components/fx-slot-panel";
 import { LlmGeneratingOverlay } from "@/components/llm-generating-overlay";
+import { PromptFirstSection } from "@/components/prompt-first-section";
 import { ToolExportPanel } from "@/components/tool-export-panel";
 import {
   createSynthSceneMidiPlayback,
@@ -351,7 +352,7 @@ export function EvolvingFmSynthClient() {
         </div>
       </header>
 
-      <section className="grid border-b border-zinc-800 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <PromptFirstSection className="grid lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="relative overflow-hidden border-b border-zinc-800 p-4 lg:border-b-0 lg:border-r">
           {isAiGenerating ? (
             <LlmGeneratingOverlay
@@ -493,7 +494,7 @@ export function EvolvingFmSynthClient() {
           </label>
           <MacroPanel macros={scene.macros} setMacro={setMacro} />
         </div>
-      </section>
+      </PromptFirstSection>
 
       <MidiPlaybackPanel
         {...midiPlayback}

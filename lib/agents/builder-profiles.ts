@@ -88,6 +88,7 @@ const COMMON_CONSTRAINTS = [
   "No direct file writes outside app/tools/<generated-slug>/ or .audit/generated-tools.json.",
   "Generated L1 descriptions must describe an instrument, not another builder.",
   "Generated L1 tools must keep prompt, document output, playback, and recording visible in the UI.",
+  "Generated L1 clients must render prompt controls immediately after required source/context selectors and before playback, transport, export, or deep editing controls.",
 ];
 
 const BUILDER_PROFILE_BLUEPRINTS: Record<BuilderProfileDomain, BuilderProfileBlueprint> = {

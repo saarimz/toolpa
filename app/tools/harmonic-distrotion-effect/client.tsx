@@ -6,6 +6,7 @@ import { Copy, Loader2, SlidersHorizontal, Square, Wand2 } from "lucide-react";
 
 import { AudioOutputRecorder } from "@/components/audio-output-recorder";
 import { LlmGeneratingOverlay } from "@/components/llm-generating-overlay";
+import { PromptFirstSection } from "@/components/prompt-first-section";
 import { Button } from "@/components/ui/button";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
 import { usePromptParamState } from "@/lib/tools/use-prompt-param";
@@ -128,7 +129,7 @@ export function HarmonicDistrotionEffectClient() {
           </div>
         </header>
 
-        <div className="relative grid border-b border-zinc-800 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <PromptFirstSection className="relative grid lg:grid-cols-[minmax(0,1fr)_360px]">
           {isGenerating ? (
             <LlmGeneratingOverlay
               detail="Prompting the local effect agent for a live audio-stream patch."
@@ -176,7 +177,7 @@ export function HarmonicDistrotionEffectClient() {
             <EffectSlider label="drive" max={0.9} min={0} step={0.01} value={patch.drive} onChange={(value) => patchField("drive", value)} />
             <EffectSlider label="wet" max={0.95} min={0} step={0.01} value={patch.wet} onChange={(value) => patchField("wet", value)} />
           </aside>
-        </div>
+        </PromptFirstSection>
 
         <pre className="m-4 max-h-72 overflow-auto border border-zinc-800 bg-black p-3 text-[11px] leading-5 text-zinc-500">
           {JSON.stringify({ patch, prompt, context: { bpm: context.bpm } }, null, 2)}

@@ -20,7 +20,7 @@ describe("DrumGrid", () => {
     render(<DrumGrid />);
 
     await userEvent.click(screen.getByTitle("kick step 2"));
-    await userEvent.selectOptions(screen.getAllByRole("combobox")[1]!, "8");
+    await userEvent.selectOptions(screen.getByLabelText("kick step count"), "8");
 
     const pattern = useDrumMachineStore.getState().pattern;
     expect(pattern.tracks[0]?.steps[1]?.active).toBe(true);

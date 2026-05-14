@@ -72,6 +72,9 @@ const FACE_LANDMARKER_MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task";
 const POSE_LANDMARKER_MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task";
+const ignoredMediaPipeConsoleMessages = [
+  "Created TensorFlow Lite XNNPACK delegate for CPU.",
+] as const;
 
 const handConnectionPairs = [
   [0, 1],
@@ -364,8 +367,10 @@ async function createHandDetector(
   return {
     close: () => handLandmarker.close(),
     detectFrame: (video, timestampMs) =>
-      createFrameFromHandLandmarkerResult(
-        handLandmarker.detectForVideo(video, timestampMs),
+      runWithMediaPipeConsoleNoiseSuppressed(() =>
+        createFrameFromHandLandmarkerResult(
+          handLandmarker.detectForVideo(video, timestampMs),
+        ),
       ),
   };
 }
@@ -394,8 +399,10 @@ async function createGestureDetector(
   return {
     close: () => gestureRecognizer.close(),
     detectFrame: (video, timestampMs) =>
-      createFrameFromGestureRecognizerResult(
-        gestureRecognizer.recognizeForVideo(video, timestampMs),
+      runWithMediaPipeConsoleNoiseSuppressed(() =>
+        createFrameFromGestureRecognizerResult(
+          gestureRecognizer.recognizeForVideo(video, timestampMs),
+        ),
       ),
   };
 }
@@ -420,9 +427,11 @@ async function createFaceDetector(
   return {
     close: () => faceLandmarker.close(),
     detectFrame: (video, timestampMs) =>
-      createFrameFromFaceLandmarkerResult(
-        faceLandmarker.detectForVideo(video, timestampMs),
-        trackingMode,
+      runWithMediaPipeConsoleNoiseSuppressed(() =>
+        createFrameFromFaceLandmarkerResult(
+          faceLandmarker.detectForVideo(video, timestampMs),
+          trackingMode,
+        ),
       ),
   };
 }
@@ -445,8 +454,10 @@ async function createPoseDetector(
   return {
     close: () => poseLandmarker.close(),
     detectFrame: (video, timestampMs) =>
-      createFrameFromPoseLandmarkerResult(
-        poseLandmarker.detectForVideo(video, timestampMs),
+      runWithMediaPipeConsoleNoiseSuppressed(() =>
+        createFrameFromPoseLandmarkerResult(
+          poseLandmarker.detectForVideo(video, timestampMs),
+        ),
       ),
   };
 }
@@ -458,6 +469,44 @@ async function getVisionFileset(
     FilesetResolverClass.forVisionTasks(VISION_WASM_URL);
 
   return visionFilesetPromise;
+}
+
+type ConsoleMethod = (...data: unknown[]) => void;
+
+export function runWithMediaPipeConsoleNoiseSuppressed<T>(run: () => T): T {
+  const originalError = console.error;
+  const originalInfo = console.info;
+  const originalWarn = console.warn;
+
+  console.error = createMediaPipeConsoleFilter(originalError);
+  console.info = createMediaPipeConsoleFilter(originalInfo);
+  console.warn = createMediaPipeConsoleFilter(originalWarn);
+
+  try {
+    return run();
+  } finally {
+    console.error = originalError;
+    console.info = originalInfo;
+    console.warn = originalWarn;
+  }
+}
+
+function createMediaPipeConsoleFilter(original: ConsoleMethod): ConsoleMethod {
+  return (...data) => {
+    if (shouldSuppressMediaPipeConsoleMessage(data)) {
+      return;
+    }
+
+    original.call(console, ...data);
+  };
+}
+
+function shouldSuppressMediaPipeConsoleMessage(data: readonly unknown[]) {
+  return data.some(
+    (entry) =>
+      typeof entry === "string" &&
+      ignoredMediaPipeConsoleMessages.some((message) => entry.includes(message)),
+  );
 }
 
 function createFaceFrame(

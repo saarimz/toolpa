@@ -22,19 +22,40 @@ import {
 } from "@/app/tools/grid-sampler/lib/traversal";
 import { useGridSamplerStore } from "@/app/tools/grid-sampler/store";
 
+export function GridSourceControls() {
+  const sourceSampleId = useGridSamplerStore((state) => state.sourceSampleId);
+  const sourceSampleName = useGridSamplerStore((state) => state.sourceSampleName);
+  const setSample = useGridSamplerStore((state) => state.setSample);
+
+  return (
+    <section className="border-b border-zinc-800 p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <SamplePicker
+          id="grid-sample"
+          value={sourceSampleId}
+          label="source"
+          roles={["break", "loop", "oneshot", "melodic", "pad", "fx"]}
+          onSelect={(sample) => {
+            setSample(sample.id, sample.name, sample.role);
+          }}
+        />
+        <span className="text-xs text-zinc-600">{sourceSampleName}</span>
+      </div>
+    </section>
+  );
+}
+
 export function GridCanvas() {
   const [isPainting, setIsPainting] = useState(false);
   const [paintActive, setPaintActive] = useState(true);
   const auditionTimerRef = useRef<number | null>(null);
   const sourceSampleId = useGridSamplerStore((state) => state.sourceSampleId);
-  const sourceSampleName = useGridSamplerStore((state) => state.sourceSampleName);
   const sliceCount = useGridSamplerStore((state) => state.sliceCount);
   const traversal = useGridSamplerStore((state) => state.traversal);
   const seed = useGridSamplerStore((state) => state.seed);
   const cells = useGridSamplerStore((state) => state.cells);
   const currentStepIndex = useGridSamplerStore((state) => state.currentStepIndex);
   const selectedCell = useGridSamplerStore((state) => state.selectedCell);
-  const setSample = useGridSamplerStore((state) => state.setSample);
   const setSliceCount = useGridSamplerStore((state) => state.setSliceCount);
   const setTraversal = useGridSamplerStore((state) => state.setTraversal);
   const toggleCell = useGridSamplerStore((state) => state.toggleCell);
@@ -67,15 +88,6 @@ export function GridCanvas() {
   return (
     <section className="border-b border-zinc-800 p-4">
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <SamplePicker
-          id="grid-sample"
-          value={sourceSampleId}
-          label="source"
-          roles={["break", "loop", "oneshot", "melodic", "pad", "fx"]}
-          onSelect={(sample) => {
-            setSample(sample.id, sample.name, sample.role);
-          }}
-        />
         <label className="text-xs text-zinc-500" htmlFor="grid-dim">
           dim
         </label>
@@ -108,7 +120,6 @@ export function GridCanvas() {
             </option>
           ))}
         </select>
-        <span className="text-xs text-zinc-600">{sourceSampleName}</span>
       </div>
       <div
         className="grid select-none gap-1"

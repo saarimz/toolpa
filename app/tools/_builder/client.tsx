@@ -15,6 +15,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { LlmGeneratingOverlay } from "@/components/llm-generating-overlay";
+import { PromptFirstSection } from "@/components/prompt-first-section";
 import { readNdjsonStream } from "@/lib/ai/client-stream";
 import {
   deriveGeneratedToolName,
@@ -306,7 +307,7 @@ export function ToolBuilderClient({
             ) : null}
 
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
-              <section className="rounded-sm border border-zinc-700 bg-zinc-950/95 p-4 shadow-2xl shadow-black/20">
+              <PromptFirstSection className="rounded-sm border border-zinc-700 bg-zinc-950/95 p-4 shadow-2xl shadow-black/20">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-600">
@@ -329,7 +330,7 @@ export function ToolBuilderClient({
                     onChange={(event) => updateDescription(event.target.value)}
                   />
                 </label>
-              </section>
+              </PromptFirstSection>
 
               <section className="rounded-sm border border-zinc-800 bg-zinc-950/95 p-4">
                 <div className="mb-3">

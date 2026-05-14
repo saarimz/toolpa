@@ -40,6 +40,7 @@ import {
 import { AudioOutputRecorder } from "@/components/audio-output-recorder";
 import { FxSlotPanel } from "@/components/fx-slot-panel";
 import { LlmGeneratingOverlay } from "@/components/llm-generating-overlay";
+import { PromptFirstSection } from "@/components/prompt-first-section";
 import { Button } from "@/components/ui/button";
 import type { FxPatternInput } from "@/lib/audio/fx-manifest";
 import { useToolFxPattern } from "@/lib/audio/use-fx-pattern";
@@ -395,7 +396,7 @@ export function CameraThereminClient() {
           </div>
         </header>
 
-        <div className="relative grid border-b border-zinc-800 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <PromptFirstSection className="relative p-4">
           {isApplyingPrompt ? (
             <LlmGeneratingOverlay
               detail="Parsing the prompt, rebuilding the synth patch, and reloading the live theremin."
@@ -404,6 +405,27 @@ export function CameraThereminClient() {
             />
           ) : null}
 
+          <label className="block text-xs text-zinc-500">
+            prompt
+            <textarea
+              className="mt-2 min-h-20 w-full rounded-sm border border-zinc-700 bg-zinc-950 p-2 text-zinc-100"
+              onChange={(event) => setPrompt(event.currentTarget.value)}
+              value={prompt}
+            />
+          </label>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Button
+              disabled={isApplyingPrompt}
+              onClick={() => void applyPrompt()}
+            >
+              <SlidersHorizontal className="size-4" />
+              {isApplyingPrompt ? "applying prompt" : "apply prompt"}
+            </Button>
+            <span className="text-xs text-zinc-500">{promptStatus}</span>
+          </div>
+        </PromptFirstSection>
+
+        <div className="grid border-b border-zinc-800 lg:grid-cols-[minmax(0,1fr)_380px]">
           <section className="p-4">
             <div className="relative aspect-video overflow-hidden border border-zinc-800 bg-black">
               <video
@@ -489,25 +511,6 @@ export function CameraThereminClient() {
             </div>
 
             <div className="grid gap-3">
-              <label className="text-xs text-zinc-500">
-                prompt
-                <textarea
-                  className="mt-1 min-h-20 w-full rounded-sm border border-zinc-700 bg-zinc-950 p-2 text-zinc-100"
-                  onChange={(event) => setPrompt(event.currentTarget.value)}
-                  value={prompt}
-                />
-              </label>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  disabled={isApplyingPrompt}
-                  onClick={() => void applyPrompt()}
-                >
-                  <SlidersHorizontal className="size-4" />
-                  {isApplyingPrompt ? "applying prompt" : "apply prompt"}
-                </Button>
-                <span className="text-xs text-zinc-500">{promptStatus}</span>
-              </div>
-
               <div className="text-xs text-zinc-500">
                 <label htmlFor="camera-theremin-tracking-mode">
                   tracking mode

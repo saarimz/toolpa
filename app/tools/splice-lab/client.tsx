@@ -5,7 +5,10 @@ import Link from "next/link";
 
 import { SpliceGenerationPanel } from "@/app/tools/splice-lab/components/generation-panel";
 import { SpliceGrid } from "@/app/tools/splice-lab/components/splice-grid";
-import { SpliceSourcePanel } from "@/app/tools/splice-lab/components/source-panel";
+import {
+  SpliceMappingControls,
+  SpliceSourcePanel,
+} from "@/app/tools/splice-lab/components/source-panel";
 import { SpliceTransportBar } from "@/app/tools/splice-lab/components/transport-bar";
 import { useSpliceLabStore } from "@/app/tools/splice-lab/store";
 import { getSamplePlaybackHost } from "@/lib/audio/sample-playback";
@@ -82,9 +85,10 @@ export function SpliceLabClient() {
         </div>
       </header>
       <SpliceSourcePanel />
+      <SpliceGenerationPanel />
+      <SpliceMappingControls />
       <SpliceGrid />
       <SpliceTransportBar />
-      <SpliceGenerationPanel />
     </main>
   );
 }

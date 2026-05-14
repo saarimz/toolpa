@@ -5,6 +5,7 @@ import { Copy, GitCompare, Sparkles, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { LlmGeneratingOverlay } from "@/components/llm-generating-overlay";
+import { PromptFirstSection } from "@/components/prompt-first-section";
 import { readGenerateStream } from "@/lib/ai/client-stream";
 import type { GenerateStreamChunk } from "@/lib/ai/contracts";
 import { PatternSchema } from "@/lib/pattern/schema";
@@ -152,7 +153,7 @@ export function DrumGenerationPanel() {
   }, [isGenerating, isPlaying, liveRegeneration]);
 
   return (
-    <section className="grid grid-cols-1 border-b border-zinc-800 lg:grid-cols-[minmax(0,1fr)_420px]">
+    <PromptFirstSection className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px]">
       <div className="relative overflow-hidden border-b border-zinc-800 p-4 lg:border-b-0 lg:border-r">
         {isGenerating ? (
           <LlmGeneratingOverlay
@@ -240,6 +241,6 @@ export function DrumGenerationPanel() {
           {streamText || "pattern json / rationale will appear here"}
         </pre>
       </div>
-    </section>
+    </PromptFirstSection>
   );
 }

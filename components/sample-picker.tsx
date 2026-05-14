@@ -11,7 +11,9 @@ import { hasLibraryAnalysis } from "@/lib/samples/analysis/library-cache";
 import type { SampleAnalysis } from "@/lib/samples/analysis/schema";
 import {
   getLibrarySamplesByRoles,
+  type LibraryGenre,
   type LibrarySample,
+  type LibrarySampleKind,
 } from "@/lib/samples/library";
 import type { SampleRole } from "@/lib/samples/roles";
 import {
@@ -71,6 +73,10 @@ export function SamplePicker({
   });
   const [showRawSchema, setShowRawSchema] = useState(false);
   const librarySamples = useMemo(() => getLibrarySamplesByRoles(roles), [roles]);
+  const libraryGroups = useMemo(
+    () => groupLibrarySamples(librarySamples),
+    [librarySamples],
+  );
   const selectedUploadMissing =
     value.startsWith("upload:") && !uploads.some((upload) => upload.id === value);
 
@@ -265,13 +271,15 @@ export function SamplePicker({
           className="h-9 min-w-64 rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-xs text-zinc-100"
         >
           {selectedUploadMissing ? <option value={value}>uploaded sample</option> : null}
-          <optgroup label="library">
-            {librarySamples.map((sample) => (
-              <option key={sample.id} value={sample.id}>
-                {sample.name} / {sample.role}
-              </option>
-            ))}
-          </optgroup>
+          {libraryGroups.map((group) => (
+            <optgroup key={group.label} label={group.label}>
+              {group.samples.map((sample) => (
+                <option key={sample.id} value={sample.id}>
+                  {formatLibraryOptionLabel(sample)}
+                </option>
+              ))}
+            </optgroup>
+          ))}
           {uploads.length > 0 ? (
             <optgroup label="uploads">
               {uploads.map((sample) => (
@@ -308,6 +316,102 @@ export function SamplePicker({
       />
     </div>
   );
+}
+
+type LibrarySampleGroup = {
+  label: string;
+  samples: LibrarySample[];
+};
+
+const genreLabels: Record<LibraryGenre, string> = {
+  "ambient-experimental": "ambient / experimental",
+  "cinematic-fx": "cinematic fx",
+  "club-house": "club / house",
+  "jungle-dnb": "jungle / dnb",
+  "uk-dubstep": "uk dubstep",
+  "vocal-world": "vocal / world",
+};
+
+const kindLabels: Record<LibrarySampleKind, string> = {
+  "amen-break": "amen break",
+  "bass-hit": "bass hit",
+  "bass-loop": "bass loop",
+  "drum-break": "drum break",
+  "drum-hit": "drum hit",
+  "drum-loop": "drum loop",
+  "fx-hit": "fx hit",
+  "fx-texture": "fx texture",
+  "melodic-hit": "melodic hit",
+  "melodic-loop": "melodic loop",
+  "pad-drone": "pad / drone",
+  "percussion-loop": "percussion loop",
+  "top-loop": "top loop",
+  "vocal-phrase": "vocal phrase",
+};
+
+const roleLabels: Record<SampleRole, string> = {
+  break: "breaks",
+  fx: "fx",
+  loop: "loops",
+  melodic: "melodic",
+  oneshot: "one-shots",
+  pad: "pads",
+};
+
+const genreSortOrder: Array<LibraryGenre | "core"> = [
+  "jungle-dnb",
+  "uk-dubstep",
+  "ambient-experimental",
+  "cinematic-fx",
+  "club-house",
+  "vocal-world",
+  "core",
+];
+
+const roleSortOrder: SampleRole[] = [
+  "break",
+  "loop",
+  "oneshot",
+  "melodic",
+  "pad",
+  "fx",
+];
+
+function groupLibrarySamples(samples: readonly LibrarySample[]): LibrarySampleGroup[] {
+  const sorted = [...samples].sort(compareLibrarySamples);
+  const groups = new Map<string, LibrarySampleGroup>();
+
+  for (const sample of sorted) {
+    const label = `${formatGenre(sample.genre)} / ${roleLabels[sample.role]}`;
+    const group = groups.get(label) ?? { label, samples: [] };
+    group.samples.push(sample);
+    groups.set(label, group);
+  }
+
+  return [...groups.values()];
+}
+
+function compareLibrarySamples(left: LibrarySample, right: LibrarySample) {
+  return (
+    genreRank(left.genre) - genreRank(right.genre) ||
+    roleSortOrder.indexOf(left.role) - roleSortOrder.indexOf(right.role) ||
+    (left.kind ?? "").localeCompare(right.kind ?? "") ||
+    left.name.localeCompare(right.name)
+  );
+}
+
+function genreRank(genre: LibrarySample["genre"]) {
+  return genreSortOrder.indexOf(genre ?? "core");
+}
+
+function formatGenre(genre: LibrarySample["genre"]) {
+  return genre ? genreLabels[genre] : "core library";
+}
+
+function formatLibraryOptionLabel(sample: LibrarySample) {
+  const kind = sample.kind ? kindLabels[sample.kind] : roleLabels[sample.role];
+  const bpm = sample.estimatedBpm ? ` / ${sample.estimatedBpm} bpm` : "";
+  return `${sample.name} / ${kind}${bpm} / ${sample.pack}`;
 }
 
 type AnalysisPanelProps = {

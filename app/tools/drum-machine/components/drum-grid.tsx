@@ -14,13 +14,34 @@ import { DrumStepCounts } from "@/app/tools/drum-machine/lib/polyrhythm";
 import { useDrumMachineStore } from "@/app/tools/drum-machine/store";
 import { cn } from "@/lib/utils";
 
-export function DrumGrid() {
-  const pattern = useDrumMachineStore((state) => state.pattern);
+export function DrumSourceControls() {
   const sampleId = useDrumMachineStore((state) => state.sampleId);
   const sampleName = useDrumMachineStore((state) => state.sampleName);
-  const selectedStep = useDrumMachineStore((state) => state.selectedStep);
   const cycleLength = useDrumMachineStore((state) => state.cycleLength());
   const setSample = useDrumMachineStore((state) => state.setSample);
+
+  return (
+    <section className="border-b border-zinc-800 p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <SamplePicker
+          id="drum-sample"
+          value={sampleId}
+          label="source"
+          roles={["break", "loop", "oneshot", "fx"]}
+          onSelect={(sample) => {
+            setSample(sample.id, sample.name, sample.role);
+          }}
+        />
+        <span className="text-xs text-zinc-600">{sampleName}</span>
+        <span className="text-xs text-zinc-500">cycle {cycleLength} steps</span>
+      </div>
+    </section>
+  );
+}
+
+export function DrumGrid() {
+  const pattern = useDrumMachineStore((state) => state.pattern);
+  const selectedStep = useDrumMachineStore((state) => state.selectedStep);
   const toggleStep = useDrumMachineStore((state) => state.toggleStep);
   const updateTrack = useDrumMachineStore((state) => state.updateTrack);
   const setTrackStepCount = useDrumMachineStore((state) => state.setTrackStepCount);
@@ -39,25 +60,13 @@ export function DrumGrid() {
   return (
     <section className="grid grid-cols-1 border-b border-zinc-800 lg:grid-cols-[1fr_280px]">
       <div className="overflow-x-auto p-4">
-        <div className="mb-3 flex flex-wrap items-center gap-3">
-          <SamplePicker
-            id="drum-sample"
-            value={sampleId}
-            label="source"
-            roles={["break", "loop", "oneshot", "fx"]}
-            onSelect={(sample) => {
-              setSample(sample.id, sample.name, sample.role);
-            }}
-          />
-          <span className="text-xs text-zinc-600">{sampleName}</span>
-          <span className="text-xs text-zinc-500">cycle {cycleLength} steps</span>
-        </div>
         <div className="min-w-[920px] space-y-2">
           {pattern.tracks.map((track) => (
             <div key={track.id} className="grid grid-cols-[300px_1fr] items-center gap-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="w-16 truncate text-xs text-zinc-500">{track.name}</span>
                 <select
+                  aria-label={`${track.name} step count`}
                   value={track.steps.length}
                   onChange={(event) =>
                     setTrackStepCount(track.id, Number(event.target.value))

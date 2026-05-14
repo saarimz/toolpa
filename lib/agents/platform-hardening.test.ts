@@ -27,6 +27,7 @@ describe("platform hardening audit", () => {
       "explicit-audio-ui-boundary",
       "bounded-playable-synthesis",
       "builder-generated-tool-gates",
+      "prompt-first-control-order",
     ]);
   });
 

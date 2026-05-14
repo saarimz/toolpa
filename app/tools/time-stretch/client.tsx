@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { PromptFirstSection } from "@/components/prompt-first-section";
 import { SamplePicker, type PickedSample } from "@/components/sample-picker";
 import { ToolExportPanel } from "@/components/tool-export-panel";
 import {
@@ -267,6 +268,27 @@ export function TimeStretchClient() {
             onSelect={(nextSample) => selectSample(nextSample)}
           />
 
+          <PromptFirstSection className="mt-4 border-zinc-900 pb-4">
+            <label className="block text-xs text-zinc-500">
+              stretch prompt
+              <textarea
+                aria-label="stretch prompt"
+                className="mt-2 h-24 w-full resize-none rounded-sm border border-zinc-700 bg-zinc-950 p-3 text-xs text-zinc-100 outline-none focus:border-zinc-200"
+                value={prompt}
+                onChange={(event) => setPrompt(event.currentTarget.value)}
+              />
+            </label>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button onClick={() => applyPrompt()}>
+                <WandSparkles className="size-4" />
+                apply prompt
+              </Button>
+            </div>
+
+            <div className="mt-3 text-xs text-zinc-500">{promptStatus}</div>
+          </PromptFirstSection>
+
           <div className="mt-4 grid gap-3 md:grid-cols-5">
             <NumberField
               key={`bpm-${patch.bpm}`}
@@ -386,21 +408,7 @@ export function TimeStretchClient() {
             />
           </div>
 
-          <label className="mt-4 block text-xs text-zinc-500">
-            stretch prompt
-            <textarea
-              aria-label="stretch prompt"
-              className="mt-2 h-24 w-full resize-none rounded-sm border border-zinc-700 bg-zinc-950 p-3 text-xs text-zinc-100 outline-none focus:border-zinc-200"
-              value={prompt}
-              onChange={(event) => setPrompt(event.currentTarget.value)}
-            />
-          </label>
-
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button onClick={() => applyPrompt()}>
-              <WandSparkles className="size-4" />
-              apply prompt
-            </Button>
             <Button disabled={isBusy} onClick={() => void renderStretch()}>
               {isBusy ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -428,7 +436,6 @@ export function TimeStretchClient() {
             />
           </div>
 
-          <div className="mt-3 text-xs text-zinc-500">{promptStatus}</div>
           {error ? <p className="mt-3 text-xs text-amber-200">{error}</p> : null}
         </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import type { MidiClip } from "./schema";
+import { getMidiClipTotalBeats, type MidiClip } from "./schema";
 
 type ToneModule = typeof import("tone");
 
@@ -126,7 +126,7 @@ function collectPreviewEvents(clip: MidiClip): ScheduledMidiNote[] {
 }
 
 function getClipDurationSec(clip: MidiClip) {
-  return (60 / clip.bpm) * clip.bars * 4;
+  return (60 / clip.bpm) * getMidiClipTotalBeats(clip);
 }
 
 function midiToFrequency(midi: number) {

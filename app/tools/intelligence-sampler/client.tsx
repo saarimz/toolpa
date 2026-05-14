@@ -10,7 +10,10 @@ import { useUrlPatternState } from "@/lib/pattern/use-url-pattern-state";
 import { GenerationPanel } from "@/app/tools/intelligence-sampler/components/generation-panel";
 import { StepGrid } from "@/app/tools/intelligence-sampler/components/step-grid";
 import { TransportBar } from "@/app/tools/intelligence-sampler/components/transport-bar";
-import { WaveformSlicer } from "@/app/tools/intelligence-sampler/components/waveform-slicer";
+import {
+  WaveformSlicer,
+  WaveformSourceControls,
+} from "@/app/tools/intelligence-sampler/components/waveform-slicer";
 import { useIntelligenceSamplerStore } from "@/app/tools/intelligence-sampler/store";
 import { getSamplePlaybackHost } from "@/lib/audio/sample-playback";
 import { useToolFxPattern } from "@/lib/audio/use-fx-pattern";
@@ -71,10 +74,11 @@ export function IntelligenceSamplerClient() {
           </Button>
         </div>
       </header>
+      <WaveformSourceControls />
+      <GenerationPanel />
       <WaveformSlicer />
       <TransportBar />
       <StepGrid />
-      <GenerationPanel />
     </main>
   );
 }

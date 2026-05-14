@@ -1,6 +1,37 @@
 import { z } from "zod";
 
+import { curatedSuiteSamples } from "@/lib/samples/curated-suite";
 import { SampleRoleSchema, type SampleRole } from "@/lib/samples/roles";
+
+export const LibraryGenreSchema = z.enum([
+  "jungle-dnb",
+  "uk-dubstep",
+  "ambient-experimental",
+  "club-house",
+  "vocal-world",
+  "cinematic-fx",
+]);
+
+export type LibraryGenre = z.infer<typeof LibraryGenreSchema>;
+
+export const LibrarySampleKindSchema = z.enum([
+  "amen-break",
+  "drum-break",
+  "drum-loop",
+  "top-loop",
+  "percussion-loop",
+  "bass-loop",
+  "bass-hit",
+  "drum-hit",
+  "melodic-loop",
+  "melodic-hit",
+  "pad-drone",
+  "vocal-phrase",
+  "fx-hit",
+  "fx-texture",
+]);
+
+export type LibrarySampleKind = z.infer<typeof LibrarySampleKindSchema>;
 
 export const LibrarySampleSchema = z.object({
   id: z.string().min(1),
@@ -8,13 +39,17 @@ export const LibrarySampleSchema = z.object({
   pack: z.string().min(1),
   role: SampleRoleSchema,
   href: z.string().startsWith("/"),
+  genre: LibraryGenreSchema.optional(),
+  kind: LibrarySampleKindSchema.optional(),
+  tags: z.array(z.string().min(1)).optional(),
+  sourcePath: z.string().min(1).optional(),
   estimatedBpm: z.number().min(40).max(260).optional(),
   key: z.string().optional(),
 });
 
 export type LibrarySample = z.infer<typeof LibrarySampleSchema>;
 
-export const librarySamples = [
+const baseLibrarySamples = [
   {
     id: "library:jungle/let-there-break",
     name: "Let There Break",
@@ -205,6 +240,11 @@ export const librarySamples = [
     role: "oneshot",
     href: "/samples/expanded-library/goldbaby-tape/808-clap-orig.wav",
   },
+] satisfies LibrarySample[];
+
+export const librarySamples = [
+  ...baseLibrarySamples,
+  ...curatedSuiteSamples,
 ] satisfies LibrarySample[];
 
 export function getLibrarySamples(role?: SampleRole): LibrarySample[] {

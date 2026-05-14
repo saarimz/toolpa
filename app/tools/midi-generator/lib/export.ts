@@ -36,7 +36,7 @@ export function createMidiClipExportInput(clip: MidiClip): MidiExportInput {
     notes,
     textEvents: [
       `MidiClip ${clip.id}`,
-      `${clip.key} ${clip.scaleId}, ${clip.bars} bars, ${clip.notes.length} notes`,
+      `${clip.key} ${clip.scaleId}, ${clip.bars} bars, ${clip.beatsPerBar}/4, ${clip.metadata.generationMode}, ${clip.metadata.styleProfile}, ${clip.notes.length} notes`,
       clip.metadata.rationale,
     ],
     tracks: activeTracks.map((track) => ({
