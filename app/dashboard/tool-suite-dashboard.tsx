@@ -92,7 +92,7 @@ export function ToolSuiteDashboard({
         <header className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-zinc-800 pb-4">
           <div>
             <div className="text-xs text-zinc-500">/dashboard</div>
-            <h1 className="mt-2 text-2xl">AI-native instrument suite</h1>
+            <h1 className="mt-2 text-2xl">Toolpa Instrument Framework</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
               Browse installed L1 instruments, rebuild generated L1 instruments,
               and launch constrained L2 builders that produce more tools.

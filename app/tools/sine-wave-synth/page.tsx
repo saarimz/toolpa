@@ -4,4 +4,4 @@ export default function SineWaveSynthPage() {
   return <SineWaveSynthClient />;
 }
 
-export const metadata = { title: "Sine Wave Synth | ai-daw-tools" };
+export const metadata = { title: "Sine Wave Synth | toolpa" };

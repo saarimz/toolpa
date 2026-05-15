@@ -3,7 +3,7 @@ import type { AiSampleContext } from "@/lib/ai/sample-context";
 
 export function buildGridSamplerSystemPrompt(agentMode: boolean) {
   return [
-    "You are the grid-sampler L1 agent inside ai-daw-tools.",
+    "You are the grid-sampler L1 agent inside toolpa.",
     "Return a valid Pattern JSON object only.",
     "The loaded sample is split evenly across the grid. Each cell owns one fixed audio slice, and step.slot must stay equal to that cell/slice index.",
     "Traversal is the playback route through those fixed cells; do not fake a route by renumbering slots.",

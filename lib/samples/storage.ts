@@ -1,6 +1,6 @@
 import { openDB, type DBSchema } from "idb";
 
-const DB_NAME = "ai-daw-tools-samples";
+const DB_NAME = "toolpa-js-samples";
 const DB_VERSION = 1;
 const STORE_NAME = "uploads";
 

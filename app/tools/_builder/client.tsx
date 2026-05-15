@@ -1,9 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import {
   Activity,
   AlertTriangle,
+  ArrowLeft,
   CheckCircle2,
   Circle,
   Code2,
@@ -287,13 +289,22 @@ export function ToolBuilderClient({
                 {builderSlug} / {builderDetail}
               </p>
             </div>
-            <div className="flex items-center gap-2 rounded-sm border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-zinc-400">
-              {isBuilding ? (
-                <Loader2 className="size-4 animate-spin text-zinc-200" />
-              ) : (
-                <Wrench className="size-4" />
-              )}
-              <span>{phase}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href="/dashboard"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-sm border border-zinc-700 bg-zinc-950 px-3 text-xs font-medium text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-900"
+              >
+                <ArrowLeft className="size-4" />
+                dashboard
+              </Link>
+              <div className="flex h-9 items-center gap-2 rounded-sm border border-zinc-800 bg-zinc-900 px-3 text-xs text-zinc-400">
+                {isBuilding ? (
+                  <Loader2 className="size-4 animate-spin text-zinc-200" />
+                ) : (
+                  <Wrench className="size-4" />
+                )}
+                <span>{phase}</span>
+              </div>
             </div>
           </header>
 

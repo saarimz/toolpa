@@ -112,7 +112,7 @@ function buildGenericToolPrompt(
 ): ResolvedToolPrompt {
   return {
     system: [
-      `You are the ${input.toolSlug} L1 agent inside ai-daw-tools.`,
+      `You are the ${input.toolSlug} L1 agent inside toolpa.`,
       "Return one valid Pattern JSON object only.",
       "Use the shared Pattern schema fields conservatively: active, velocity, probability, microShift, conditions, pitchSemitones, pitchCents, tuningRef, decay, reverse, repeats, and chokeGroup.",
       "Expose a compact visible decision summary in metadata.rationale.",

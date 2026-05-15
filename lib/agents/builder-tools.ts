@@ -22,6 +22,7 @@ import { resolveToolFilePath } from "@/lib/agents/sandbox";
 import { instantiateToolSkeleton } from "@/lib/agents/templates/instantiate";
 import {
   runGeneratedToolStaticAudit,
+  runGeneratedToolSourceSyntaxAudit,
   snapshotGeneratedTool,
   type GeneratedToolSnapshotResult,
 } from "@/lib/agents/builder-verification";
@@ -82,6 +83,18 @@ export type BuilderVerificationResult = {
   stdout: string;
   stderr: string;
 };
+
+export type EditToolFileResult =
+  | {
+      path: string;
+      written: true;
+    }
+  | {
+      path: string;
+      reason: string;
+      syntaxAudit: BuilderVerificationResult;
+      written: false;
+    };
 
 export type RegisterToolResult =
   | {
@@ -356,9 +369,28 @@ export function editToolFile(
     projectPath: string;
     content: string;
   },
-) {
-  const writtenPath = writeSandboxedFile(runtime, slug, projectPath, content);
-  return recordTrace(runtime, "editToolFile", { slug, projectPath }, { path: writtenPath });
+): EditToolFileResult {
+  const destination = resolveSandboxedToolFile(runtime, slug, projectPath);
+  if (shouldSyntaxAuditProjectPath(destination.projectPath)) {
+    const syntaxAudit = runGeneratedToolSourceSyntaxAudit({
+      projectPath: destination.projectPath,
+      source: content,
+    });
+    if (!syntaxAudit.passed) {
+      return recordTrace(runtime, "editToolFile", { slug, projectPath }, {
+        path: destination.projectPath,
+        reason: "source syntax failed",
+        syntaxAudit,
+        written: false,
+      });
+    }
+  }
+
+  writeResolvedSandboxedFile(destination.absolutePath, content);
+  return recordTrace(runtime, "editToolFile", { slug, projectPath }, {
+    path: destination.projectPath,
+    written: true,
+  });
 }
 
 export async function runToolTypecheck(
@@ -557,14 +589,30 @@ function writeSandboxedFile(
   projectPath: string,
   content: string,
 ) {
-  const { projectPath: safeProjectPath, absolutePath } = resolveToolFilePath({
+  const destination = resolveSandboxedToolFile(runtime, slug, projectPath);
+  writeResolvedSandboxedFile(destination.absolutePath, content);
+  return destination.projectPath;
+}
+
+function resolveSandboxedToolFile(
+  runtime: BuilderToolRuntime,
+  slug: string,
+  projectPath: string,
+) {
+  return resolveToolFilePath({
     rootDir: runtime.rootDir,
     slug,
     projectPath,
   });
+}
+
+function writeResolvedSandboxedFile(absolutePath: string, content: string) {
   mkdirSync(/* turbopackIgnore: true */ dirname(absolutePath), { recursive: true });
   writeFileSync(/* turbopackIgnore: true */ absolutePath, content, "utf8");
-  return safeProjectPath;
+}
+
+function shouldSyntaxAuditProjectPath(projectPath: string) {
+  return /\.(tsx?|mts)$/.test(projectPath);
 }
 
 function readDirRecursive(rootDir: string, directory: string): Record<string, string> {

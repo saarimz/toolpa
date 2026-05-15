@@ -1,6 +1,6 @@
 import type { PatternStepTraceEvent } from "@/lib/audio/pattern";
 
-export const PATTERN_PLAYBACK_TRACE_EVENT = "ai-daw-tools:pattern-playback-trace";
+export const PATTERN_PLAYBACK_TRACE_EVENT = "toolpa-js:pattern-playback-trace";
 
 export function publishPatternPlaybackTrace(event: PatternStepTraceEvent) {
   if (typeof window === "undefined") {

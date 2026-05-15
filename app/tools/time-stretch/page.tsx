@@ -4,4 +4,4 @@ export default function TimeStretchPage() {
   return <TimeStretchClient />;
 }
 
-export const metadata = { title: "time stretch | ai-daw-tools" };
+export const metadata = { title: "time stretch | toolpa" };

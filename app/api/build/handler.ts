@@ -65,7 +65,7 @@ export async function handleBuildRequest(
 
 function getDefaultBuildRunner() {
   return (input: RunBuilderToolLoopAgentInput) => {
-    if (process.env.AI_DAW_BUILDER_MODE === "tool-loop") {
+    if (process.env.TOOLPA_JS_BUILDER_MODE === "tool-loop") {
       return runBuilderToolLoopAgent({
         ...input,
         timeoutMs: input.timeoutMs ?? getBuilderTimeoutMs(),
@@ -77,6 +77,6 @@ function getDefaultBuildRunner() {
 }
 
 function getBuilderTimeoutMs() {
-  const raw = Number(process.env.AI_DAW_BUILDER_TIMEOUT_MS);
+  const raw = Number(process.env.TOOLPA_JS_BUILDER_TIMEOUT_MS);
   return Number.isFinite(raw) && raw > 0 ? raw : 90_000;
 }

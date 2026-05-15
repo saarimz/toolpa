@@ -31,9 +31,9 @@ describe("ToolSuiteDashboard", () => {
     );
 
     expect(
-      await screen.findByRole("dialog", { name: /instrument suite intro/i }),
+      await screen.findByRole("dialog", { name: /Toolpa Instrument Framework intro/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Make your own DAW tools.")).toBeInTheDocument();
+    expect(screen.getByText("Make your own toolpa instruments.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /use installed instrument/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /build an instrument/i })).toHaveAttribute(
       "href",
@@ -51,7 +51,7 @@ describe("ToolSuiteDashboard", () => {
         screen.queryByRole("dialog", { name: /instrument suite intro/i }),
       ).not.toBeInTheDocument();
     });
-    expect(window.localStorage.getItem("ai-daw-tools:dashboard-intro-dismissed:v2")).toBe(
+    expect(window.localStorage.getItem("toolpa-js:dashboard-intro-dismissed:v2")).toBe(
       "true",
     );
   });
@@ -82,7 +82,7 @@ describe("ToolSuiteDashboard", () => {
       ).not.toBeInTheDocument();
     });
     expect(
-      window.localStorage.getItem("ai-daw-tools:mobile-desktop-required-dismissed:v1"),
+      window.localStorage.getItem("toolpa-js:mobile-desktop-required-dismissed:v1"),
     ).toBe("true");
   });
 
@@ -96,7 +96,7 @@ describe("ToolSuiteDashboard", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "AI-native instrument suite" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Toolpa Instrument Framework" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /build L1 tool/i })).toHaveAttribute("href", "/build");
     expect(screen.getByText("global music context")).toBeInTheDocument();
     expect(screen.getByText("1. macro context")).toBeInTheDocument();

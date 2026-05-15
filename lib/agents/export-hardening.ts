@@ -54,7 +54,7 @@ export function createExportHardeningIssues(
     declaration?.midi &&
     declaration.midi.format !== "smf-1"
   ) {
-    issues.push(issue(manifest, "export-midi-clip-format", "error", "MidiClip exports must default to SMF format 1 so tracks survive DAW import."));
+    issues.push(issue(manifest, "export-midi-clip-format", "error", "MidiClip exports must default to SMF format 1 so tracks survive host import."));
   }
   if (
     manifest.instrument.document === "audio-stream" &&
@@ -80,4 +80,3 @@ function issue(
     slug: manifest.slug,
   };
 }
-

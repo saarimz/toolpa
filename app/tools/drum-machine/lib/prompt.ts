@@ -3,7 +3,7 @@ import type { AiSampleContext } from "@/lib/ai/sample-context";
 
 export function buildDrumMachineSystemPrompt() {
   return [
-    "You are the drum-machine L1 agent inside ai-daw-tools.",
+    "You are the drum-machine L1 agent inside toolpa.",
     "Return a valid Pattern JSON object only.",
     "Use multiple tracks, independent step lengths for polyrhythm, probability, conditions, pitchSemitones, pitchCents, tuningRef, decay, repeats, and chokeGroup.",
     "Put a compact visible rationale in metadata.rationale.",

@@ -1,4 +1,4 @@
-app = "ai-daw-tools-poc"
+app = "toolpa-js-poc"
 primary_region = "iad"
 kill_signal = "SIGINT"
 kill_timeout = "30s"
@@ -7,14 +7,14 @@ kill_timeout = "30s"
   dockerfile = "Dockerfile"
 
 [env]
-  AI_DAW_VOLUME_ROOT = "/data"
-  AI_DAW_BUILDER_MODE = "scaffold"
-  WORKSPACE_ROOT = "/data/ai-daw-tools"
+  TOOLPA_JS_VOLUME_ROOT = "/data"
+  TOOLPA_JS_BUILDER_MODE = "scaffold"
+  WORKSPACE_ROOT = "/data/toolpa-js"
   NEXT_TELEMETRY_DISABLED = "1"
   PORT = "3000"
 
 [[mounts]]
-  source = "ai_daw_tools_data"
+  source = "toolpa_js_data"
   destination = "/data"
   initial_size = "20gb"
   snapshot_retention = 3

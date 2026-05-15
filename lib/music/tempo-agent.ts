@@ -28,7 +28,7 @@ export async function suggestTempoWithAgent(
       model: getGatewayModel(),
       output: Output.object({ schema: TempoAgentOutputSchema }),
       system:
-        "You are a groove and tempo selector for ai-daw-tools. Suggest practical global BPM and swing values from a genre prompt.",
+        "You are a groove and tempo selector for toolpa. Suggest practical global BPM and swing values from a genre prompt.",
       prompt: buildTempoAgentPrompt(parsed, candidates),
       temperature: 0.55,
     });

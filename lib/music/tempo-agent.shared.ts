@@ -153,7 +153,7 @@ export function buildTempoAgentPrompt(input: TempoAgentRequest, candidates: Temp
       ? `Current global context: ${input.context.bpm} BPM, swing ${input.context.swing}`
       : null,
     "",
-    "Return one BPM and swing suggestion for the global DAW context.",
+    "Return one BPM and swing suggestion for the global music context.",
     "Swing is a decimal fraction, so 0.08 means 8% swing and 0 means straight timing.",
     "Pick values that are practical for sequencing, not only historically exact.",
     "",

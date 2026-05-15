@@ -28,7 +28,7 @@ export async function chooseScaleWithAgent(
       model: getGatewayModel(),
       output: Output.object({ schema: ScaleAgentOutputSchema }),
       system:
-        "You are a music-theory selector for ai-daw-tools. Pick key and scale choices from a provided candidate list only.",
+        "You are a music-theory selector for toolpa. Pick key and scale choices from a provided candidate list only.",
       prompt: buildScaleAgentPrompt(parsed, candidates),
       temperature: 0.55,
     });

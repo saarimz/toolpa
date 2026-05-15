@@ -61,7 +61,7 @@ export const WEB_AUDIO_REFERENCE_CONVENTIONS = [
   },
   {
     id: "prompt-first-control-order",
-    source: "ai-daw-tools product architecture",
+    source: "toolpa product architecture",
     requirement:
       "Prompt controls render immediately after required source/context selectors and before playback, transport, export, or deep editing controls; L2 builders start from the description prompt before family or verification controls.",
   },

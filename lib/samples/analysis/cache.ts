@@ -6,7 +6,7 @@ import {
   type SampleAnalysis,
 } from "@/lib/samples/analysis/schema";
 
-const DB_NAME = "ai-daw-tools-analyses";
+const DB_NAME = "toolpa-js-analyses";
 const DB_VERSION = 1;
 const STORE_NAME = "analyses";
 

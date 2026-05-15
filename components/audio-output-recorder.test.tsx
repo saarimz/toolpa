@@ -9,7 +9,7 @@ import {
 } from "@/lib/audio/live-recorder";
 
 vi.mock("@/lib/audio/live-recorder", () => ({
-  LIVE_AUDIO_SCALE_EVIDENCE_EVENT: "ai-daw-tools:live-audio-scale-evidence",
+  LIVE_AUDIO_SCALE_EVIDENCE_EVENT: "toolpa-js:live-audio-scale-evidence",
   startLiveOutputRecording: vi.fn(async () => undefined),
   stopLiveOutputRecording: vi.fn(async () => ({
     audioEvidence: {

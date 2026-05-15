@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { WAV_EXPORT_TARGET_PEAK } from "@/lib/audio/wav-render";
+
 const connect = vi.fn();
 const disconnect = vi.fn();
 const start = vi.fn(async () => undefined);
@@ -63,8 +65,15 @@ describe("live output recorder", () => {
     await startLiveOutputRecording();
     const recording = await stopLiveOutputRecording({
       filename: "My Synth Take",
-      decodeRecordedBlob: async () => createAudioBufferStub([0, 1, -1]),
+      decodeRecordedBlob: async () => createAudioBufferStub([0, 0.05, -0.1]),
     });
+    const wav = await recording.wavBlob.arrayBuffer();
+    const view = new DataView(wav);
+    const pcmPeak = Math.max(
+      Math.abs(view.getInt16(44, true)),
+      Math.abs(view.getInt16(46, true)),
+      Math.abs(view.getInt16(48, true)),
+    );
 
     expect(connect).toHaveBeenCalledTimes(1);
     expect(disconnect).toHaveBeenCalledTimes(1);
@@ -73,6 +82,7 @@ describe("live output recorder", () => {
     expect(dispose).toHaveBeenCalled();
     expect(recording.filename).toBe("my-synth-take.wav");
     expect(recording.wavBlob.type).toBe("audio/wav");
+    expect(pcmPeak / 0x8000).toBeCloseTo(WAV_EXPORT_TARGET_PEAK, 3);
     expect(recording.audioEvidence).toBeNull();
   });
 
@@ -100,7 +110,7 @@ describe("live output recorder", () => {
     expect(sanitizeRecordingFilename(" Evolving FM take 01.wav ")).toBe(
       "evolving-fm-take-01.wav",
     );
-    expect(sanitizeRecordingFilename("")).toBe("ai-daw-tools-recording.wav");
+    expect(sanitizeRecordingFilename("")).toBe("toolpa-js-recording.wav");
   });
 });
 

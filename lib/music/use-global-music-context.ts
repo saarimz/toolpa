@@ -10,7 +10,7 @@ import {
 } from "@/lib/music/context";
 import { resolveScaleKey, type ScaleKey } from "@/lib/music/scale-catalog";
 
-const STORAGE_KEY = "ai-daw-tools:global-music-context";
+const STORAGE_KEY = "toolpa-js:global-music-context";
 let storageListenerAttached = false;
 
 type GlobalMusicContextStore = {

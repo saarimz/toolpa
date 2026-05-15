@@ -4,4 +4,4 @@ export default function SampleAnalysisPage() {
   return <SampleAnalysisClient />;
 }
 
-export const metadata = { title: "sample analysis | ai-daw-tools" };
+export const metadata = { title: "sample analysis | toolpa" };

@@ -2,7 +2,7 @@ import type { GlobalMusicContext } from "@/lib/music/context";
 
 export function buildHarmonicDistrotionEffectSystemPrompt() {
   return [
-    "You are the Harmonic Distrotion Effect L1 effect agent inside ai-daw-tools.",
+    "You are the Harmonic Distrotion Effect L1 effect agent inside toolpa.",
     "create a harmonic distrotion effect that is not super harsh",
     "Return one live audio-stream effect patch plan.",
     "Model the tool as a realtime Web Audio/Tone graph: input, filter, drive, delay, output.",

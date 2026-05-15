@@ -140,4 +140,26 @@ describe("builder tools", () => {
       }),
     ).toThrow();
   });
+
+  it("rejects syntactically invalid TSX edits without overwriting the existing file", () => {
+    const rootDir = createRoot();
+    const runtime = createBuilderToolRuntime({ rootDir });
+    const clientPath = join(rootDir, "app/tools/syntax-guard/client.tsx");
+    mkdirSync(join(rootDir, "app/tools/syntax-guard"), { recursive: true });
+    const original = `"use client";\nexport function Client() { return null; }\n`;
+    writeFileSync(clientPath, original, "utf8");
+
+    const result = editToolFile(runtime, {
+      slug: "syntax-guard",
+      projectPath: "app/tools/syntax-guard/client.tsx",
+      content: `"use client";\nexport function Client() {\n  const label = "broken;\n  return <button>{label}</button>;\n}\n`,
+    });
+
+    expect(result).toMatchObject({
+      reason: "source syntax failed",
+      syntaxAudit: { command: "syntax-audit", passed: false },
+      written: false,
+    });
+    expect(readFileSync(clientPath, "utf8")).toBe(original);
+  });
 });

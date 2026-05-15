@@ -108,7 +108,7 @@ export function createDefaultMidiClip() {
 
 export function buildMidiGeneratorSystemPrompt() {
   return [
-    "You are the midi-generator L1 instrument inside ai-daw-tools.",
+    "You are the midi-generator L1 instrument inside toolpa.",
     "Return an expressive MIDI clip document, not audio and not a synth patch.",
     "Use the global music context unless the prompt explicitly asks for BPM, key, or scale changes.",
     "Honor the part-focus contract before writing notes: full arrangement, melody, harmony, bassline, arpeggio, rhythm, or pad.",

@@ -37,7 +37,7 @@ export default async function BuildPage({
 }
 
 export const metadata = {
-  title: "tool-builder | ai-daw-tools",
+  title: "tool-builder | Toolpa.JS",
 };
 
 function firstParam(value: string | string[] | undefined) {

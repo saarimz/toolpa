@@ -12,7 +12,7 @@ describe("uploaded sample storage", () => {
   beforeEach(async () => {
     const indexedDB = globalThis.indexedDB;
     await new Promise<void>((resolve, reject) => {
-      const request = indexedDB.deleteDatabase("ai-daw-tools-samples");
+      const request = indexedDB.deleteDatabase("toolpa-js-samples");
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
       request.onblocked = () => resolve();

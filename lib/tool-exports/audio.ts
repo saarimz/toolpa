@@ -1,4 +1,7 @@
-import { encodeAudioBufferToWav } from "@/lib/audio/wav-render";
+import {
+  encodeAudioBufferToWav,
+  normalizeAudioBufferPeak,
+} from "@/lib/audio/wav-render";
 import {
   bytesFromArrayBuffer,
   createArtifactSource,
@@ -16,12 +19,13 @@ export function createWavExportArtifact({
   filename: string;
   source: ArtifactSourceInput;
 }): ExportArtifact {
+  const normalizedBuffer = normalizeAudioBufferPeak(audioBuffer);
+
   return {
-    bytes: bytesFromArrayBuffer(encodeAudioBufferToWav(audioBuffer)),
-    evidence: createAudioExportEvidence(audioBuffer),
+    bytes: bytesFromArrayBuffer(encodeAudioBufferToWav(normalizedBuffer)),
+    evidence: createAudioExportEvidence(normalizedBuffer),
     filename,
     kind: "audio/wav",
     source: createArtifactSource(source),
   };
 }
-

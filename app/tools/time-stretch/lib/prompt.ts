@@ -19,7 +19,7 @@ const WINDOW_MATCH = /\b(\d+(?:\.\d+)?)\s*(?:ms|millisecond|milliseconds)\s*(?:w
 
 export function buildTimeStretchSystemPrompt() {
   return [
-    "You are the time-stretch L1 agent inside ai-daw-tools.",
+    "You are the time-stretch L1 agent inside toolpa.",
     "Return one valid TimeStretchPatch JSON object only.",
     "Choose a stretch mode that matches the musical request: transparent for natural length changes, rhythmic for drums, tonal for pitched material, ambient-cloud for extreme pad smearing, spectral-freeze for held moments, subharmonic-bloom for octave/sub weight, and granular-smear for intentionally grainy texture.",
     "targetBars must be musically explicit. Use bpm and targetBars to define exact output duration.",

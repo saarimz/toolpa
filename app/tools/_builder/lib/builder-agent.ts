@@ -205,7 +205,7 @@ export async function runBuilderToolLoopAgent(
   const agent = new ToolLoopAgent({
     model: getGatewayModel(input.model),
     instructions: [
-      "You are the L2 tool-builder agent inside ai-daw-tools.",
+      "You are the L2 tool-builder agent inside toolpa.",
       "Use the builder tools to read a reference tool, read the shared schemas, instantiate a skeleton, edit only inside the generated tool directory, validate the manifest, run the static audit, run typecheck, run tests, run the audio gate, and register only after the gates pass.",
       "Call readToolList early to browse every existing L1 tool — manifests, document types, instrument types — before you commit to a shape. Read multiple reference tools when the request blends domains.",
       "The manifest instrument field is mandatory semantics: sample tools use Pattern and sample upload/picker workflows; synth tools use SynthScene and global key/scale workflows; effect tools transform audio streams.",
@@ -215,6 +215,7 @@ export async function runBuilderToolLoopAgent(
       "If builderSpecialization is present, treat it as a hard domain contract: targetInstrumentType, targetDocument, targetWorkflow, templateKit, constraints, and verificationGates must shape the generated tool.",
       "Generated instruments should use components/tool-export-panel for portable artifact actions, declare manifest.exports for audio/MIDI outputs, and keep AudioOutputRecorder available through the shared panel when they can produce live audio.",
       "Generated L1 clients must be prompt-first: source/context selectors may appear above the prompt, but playback, transport, export, and deep manual editors must come after the prompt controls.",
+      "If editToolFile returns written:false, the TS/TSX syntax guard rejected the edit before writing it. Read syntaxAudit, fix the source, and retry the same file.",
       "If a requested feature requires shared lib changes or dependencies, do not write outside the sandbox. Explain the breach as a feature request instead.",
       "When runToolStaticAudit, runToolTypecheck, runToolTests, or runToolAudioGate fails, read its output, edit the offending file, and re-run the verification. Treat failures as feedback signals to iterate on, not terminal errors.",
       "Aim for prompts that mention concrete musical and document-level vocabulary (slot, pitchCents, tuningRef, voices, envelopes) so generated tools produce documents that actually validate against the shared schemas.",
@@ -384,11 +385,12 @@ export async function runBuilderEditAgent(
   const agent = new ToolLoopAgent({
     model: getGatewayModel(input.model),
     instructions: [
-      "You are the L2 tool-editor agent inside ai-daw-tools.",
+      "You are the L2 tool-editor agent inside toolpa.",
       `You are editing the existing L1 tool '${slug}'. Read its current files, plan the requested change, and update only what is necessary.`,
       "Do NOT instantiate a skeleton. Do not create a new tool. The slug is fixed.",
       "Always run readToolFiles({ slug }) and readToolList() before editing anything so your changes match the current shape.",
       "Use editToolFile to overwrite specific files inside the tool directory. The sandbox enforces the boundary.",
+      "If editToolFile returns written:false, the TS/TSX syntax guard rejected the edit before writing it. Read syntaxAudit, fix the source, and retry the same file.",
       "When changing artifact behavior, keep manifest.exports, ToolExportPanel actions, adapter calls, and export tests aligned.",
       "Keep generated L1 clients prompt-first: source/context selectors may appear above the prompt, but playback, transport, export, and deep manual editors must come after the prompt controls.",
       "After every meaningful edit run runToolStaticAudit, runToolTypecheck, runToolTests, and runToolAudioGate. If they fail, read output, fix the offending file, and re-run.",

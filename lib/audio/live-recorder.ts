@@ -4,7 +4,10 @@ import {
   analyzeAudioBufferScaleEvidence,
   type AudioScaleEvidence,
 } from "@/lib/audio/audio-scale-evidence";
-import { encodeAudioBufferToWav } from "@/lib/audio/wav-render";
+import {
+  encodeAudioBufferToWav,
+  normalizeAudioBufferPeak,
+} from "@/lib/audio/wav-render";
 
 type ToneModule = typeof import("tone");
 type ToneRecorder = InstanceType<ToneModule["Recorder"]>;
@@ -19,7 +22,7 @@ export type LiveRecording = {
 };
 
 export const LIVE_AUDIO_SCALE_EVIDENCE_EVENT =
-  "ai-daw-tools:live-audio-scale-evidence";
+  "toolpa-js:live-audio-scale-evidence";
 
 export type LiveAudioScaleEvidencePayload = {
   audioEvidence: AudioScaleEvidence;
@@ -97,11 +100,11 @@ export async function stopLiveOutputRecording(
 
   const decoder = options.decodeRecordedBlob ?? decodeRecordedBlobWithAudioContext;
   const audioBuffer = await decoder(sourceBlob);
-  const filename = sanitizeRecordingFilename(options.filename ?? "ai-daw-tools-recording");
+  const filename = sanitizeRecordingFilename(options.filename ?? "toolpa-js-recording");
   const audioEvidence = analyzeAudioBufferScaleEvidence(audioBuffer, {
     label: `${filename.replace(/\.wav$/i, "")} live output`,
   });
-  const wavBlob = new Blob([encodeAudioBufferToWav(audioBuffer)], {
+  const wavBlob = new Blob([encodeAudioBufferToWav(normalizeAudioBufferPeak(audioBuffer))], {
     type: "audio/wav",
   });
 
@@ -134,7 +137,7 @@ export function sanitizeRecordingFilename(name: string) {
     .replace(/\.wav$/i, "")
     .replace(/[^a-z0-9-]+/gi, "-")
     .replace(/^-+|-+$/g, "")
-    .toLowerCase() || "ai-daw-tools-recording";
+    .toLowerCase() || "toolpa-js-recording";
 
   return `${stem}.wav`;
 }

@@ -33,14 +33,14 @@ server starts. For a live `/build` demo, run the dev-workshop shape below.
 /app
   image copy created by Docker
 
-/data/ai-daw-tools
+/data/toolpa-js
   persistent writable workspace seeded on first boot
   generated app/tools/<slug>/ files live here
   .audit/generated-tools.json lives here
   .audit/snapshots/<slug>/ lives here
 ```
 
-The startup script syncs image source into `/data/ai-daw-tools` on every boot,
+The startup script syncs image source into `/data/toolpa-js` on every boot,
 excluding `.audit`, `node_modules`, local env files, and build output. That
 keeps deployed app code current while generated tools and registry metadata
 survive restarts.
@@ -48,7 +48,7 @@ survive restarts.
 To intentionally wipe and reseed the POC workspace, set this for one deploy:
 
 ```bash
-AI_DAW_RESET_WORKSPACE=1
+TOOLPA_JS_RESET_WORKSPACE=1
 ```
 
 Only do that after saving anything generated in the demo.
@@ -58,7 +58,7 @@ Only do that after saving anything generated in the demo.
 Install and authenticate `flyctl`, then run:
 
 ```bash
-FLY_APP_NAME=your-ai-daw-tools-poc-name \
+FLY_APP_NAME=your-toolpa-js-poc-name \
 AI_GATEWAY_API_KEY=... \
 scripts/fly-deploy-poc.sh
 ```
@@ -67,10 +67,10 @@ Optional variables:
 
 ```bash
 FLY_REGION=iad
-FLY_VOLUME_NAME=ai_daw_tools_data
+FLY_VOLUME_NAME=toolpa_js_data
 FLY_VOLUME_SIZE=20
 AI_GATEWAY_MODEL=deepseek/deepseek-v4-flash
-AI_DAW_BUILDER_MODE=scaffold
+TOOLPA_JS_BUILDER_MODE=scaffold
 ```
 
 If `AI_GATEWAY_API_KEY` is not in the environment, the deploy script will try to
@@ -81,21 +81,21 @@ read it from `.env.developme`, `.env.development`, then `.env.local`.
 1. Pick an app name and edit `fly.toml`:
 
    ```toml
-   app = "your-ai-daw-tools-poc-name"
+   app = "your-toolpa-js-poc-name"
    primary_region = "iad"
    ```
 
 2. Create the app:
 
    ```bash
-   fly apps create your-ai-daw-tools-poc-name
+   fly apps create your-toolpa-js-poc-name
    ```
 
 3. Create the persistent volume:
 
    ```bash
-   fly volumes create ai_daw_tools_data \
-     --app your-ai-daw-tools-poc-name \
+   fly volumes create toolpa_js_data \
+     --app your-toolpa-js-poc-name \
      --region iad \
      --size 20 \
      --yes
@@ -104,26 +104,26 @@ read it from `.env.developme`, `.env.development`, then `.env.local`.
 4. Set secrets:
 
    ```bash
-   fly secrets set AI_GATEWAY_API_KEY=... --app your-ai-daw-tools-poc-name
-   fly secrets set AI_GATEWAY_MODEL=deepseek/deepseek-v4-flash --app your-ai-daw-tools-poc-name
+   fly secrets set AI_GATEWAY_API_KEY=... --app your-toolpa-js-poc-name
+   fly secrets set AI_GATEWAY_MODEL=deepseek/deepseek-v4-flash --app your-toolpa-js-poc-name
    ```
 
 5. Deploy:
 
    ```bash
-   fly deploy --app your-ai-daw-tools-poc-name --config fly.toml
+   fly deploy --app your-toolpa-js-poc-name --config fly.toml
    ```
 
 6. Keep the app at one Machine:
 
    ```bash
-   fly scale count 1 --app your-ai-daw-tools-poc-name --yes
+   fly scale count 1 --app your-toolpa-js-poc-name --yes
    ```
 
 7. Open the app:
 
    ```bash
-   fly open --app your-ai-daw-tools-poc-name
+   fly open --app your-toolpa-js-poc-name
    ```
 
 The app should land at `/dashboard`. Use `/build` to generate a simple L1 tool,
@@ -134,15 +134,15 @@ then restart the Machine and confirm the generated source and
 
 - Keep this POC to one Machine. Fly volumes are local to Machines and are not
   automatically replicated.
-- `AI_DAW_BUILDER_MODE=scaffold` is the demo-safe default. It uses the local L2
+- `TOOLPA_JS_BUILDER_MODE=scaffold` is the demo-safe default. It uses the local L2
   scaffold/verification pipeline so a build writes files and completes on the
-  hosted volume. Set `AI_DAW_BUILDER_MODE=tool-loop` when you want the full AI
+  hosted volume. Set `TOOLPA_JS_BUILDER_MODE=tool-loop` when you want the full AI
   SDK ToolLoopAgent path.
 - The first boot seeds the volume workspace. Dependencies are materialized in
   the writable workspace with `pnpm install --frozen-lockfile --prefer-offline`;
   subsequent boots reuse the persisted `node_modules`.
 - Image source syncs into the volume workspace on boot without deleting `.audit`
-  or generated tools. For a fully clean demo, set `AI_DAW_RESET_WORKSPACE=1`
+  or generated tools. For a fully clean demo, set `TOOLPA_JS_RESET_WORKSPACE=1`
   once or create a fresh volume.
 - This runs a Next dev server on the public internet. Protect or share the URL
   carefully.

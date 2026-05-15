@@ -4,4 +4,4 @@ export default function EvolvingFmSynthPage() {
   return <EvolvingFmSynthClient />;
 }
 
-export const metadata = { title: "Evolving FM Synth | ai-daw-tools" };
+export const metadata = { title: "Evolving FM Synth | toolpa" };

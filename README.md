@@ -1,6 +1,8 @@
-# ai-daw-tools
+# toolpa JavaScript implementation
 
-`ai-daw-tools` is an AI-native instrument framework for the browser.
+`toolpa` is an AI-native instrument framework for the browser.
+This repo is the JavaScript implementation, published and deployed as
+`toolpa-js`.
 
 The project is not just a collection of music toys. It is a modular workstation
 for generating, inspecting, playing, exporting, and rebuilding instruments whose
@@ -10,7 +12,7 @@ The mental model is a modular rig:
 
 - A hardware modular rig is built from oscillators, samplers, sequencers,
   filters, VCAs, modulation sources, patch cables, panels, and power rails.
-- `ai-daw-tools` is built from manifests, document schemas, prompt surfaces,
+- `toolpa` is built from manifests, document schemas, prompt surfaces,
   AI builders, sample libraries, audio engines, FX slots, export adapters,
   route conventions, registries, and verification gates.
 - A generated instrument is not an opaque model response. It is a real route in
@@ -24,7 +26,8 @@ instrument families that all speak a shared platform language.
 
 ## Table Of Contents
 
-- [Start Here](#start-here)
+- [Getting Started](#getting-started)
+- [Dependency Map](#dependency-map)
 - [What This Framework Is](#what-this-framework-is)
 - [Core Model](#core-model)
 - [Architecture Map](#architecture-map)
@@ -47,23 +50,169 @@ instrument families that all speak a shared platform language.
 - [How To Extend The Framework](#how-to-extend-the-framework)
 - [Glossary](#glossary)
 
-## Start Here
+## Getting Started
+
+This section is written for someone who has never run a project from Terminal
+before. Follow the steps in order and copy one command block at a time.
 
 The full builder workflow needs a local writable checkout. Vercel is suitable
 for a frozen/demo viewer of tools that are already committed to the repo, but
-the current builder writes source files, snapshots, and registry metadata.
+the current builder writes source files, snapshots, and registry metadata. If
+you want to create or rebuild tools, run the app on your own machine.
 
-Run the app locally:
+### 1. Install Node.js
+
+Install Node.js before opening the project. This app needs Node.js `20.9.0` or
+newer. If you do not already have Node.js, download it from
+[nodejs.org](https://nodejs.org/) and use the default installer.
+
+After installing Node.js, open a new Terminal window and check that it worked:
 
 ```bash
-cd ai-daw-tools
+node --version
+```
+
+You should see a version number like `v20.x`, `v21.x`, `v22.x`, or newer. If
+Terminal says `node: command not found`, Node.js is not installed correctly yet.
+
+### 2. Get The Project Folder
+
+If you already have a `toolpa-js` folder on your computer,
+skip this step.
+
+If you are viewing this on GitHub and do not have the project yet:
+
+1. Click the green `Code` button.
+2. Click `Download ZIP`.
+3. Unzip the downloaded file.
+4. Move the folder somewhere easy to find, like your Desktop or Downloads
+   folder.
+
+The folder may be named `toolpa-js` or a `-main` variant.
+Any of those is fine.
+
+If you already know how to use Git, cloning the repo works too:
+
+```bash
+git clone https://github.com/saarimz/toolpa-js.git
+```
+
+### 3. Open Terminal
+
+On macOS:
+
+1. Press `Command + Space`.
+2. Type `Terminal`.
+3. Press `Enter`.
+
+On Windows:
+
+1. Open the Start menu.
+2. Type `PowerShell`.
+3. Open Windows PowerShell.
+
+Keep this Terminal or PowerShell window open. The app runs from here.
+
+### 4. Go To The Project Folder
+
+You need Terminal to be inside the project folder before the commands will work.
+
+If the folder is in your Downloads folder, this may work:
+
+```bash
+cd ~/Downloads/toolpa-js
+```
+
+If you are not sure where the folder is, type `cd ` with a space after it, drag
+the project folder into Terminal, then press `Enter`.
+
+Check that you are in the right place:
+
+```bash
+pwd
+```
+
+The path should end with the project folder name, such as `toolpa-js`.
+
+### 5. Turn On pnpm
+
+This repo uses `pnpm` to install and run the app. Node.js includes a helper
+called Corepack that can install the right pnpm version for you.
+
+Run:
+
+```bash
 corepack enable
 corepack prepare pnpm@10.26.2 --activate
+pnpm --version
+```
+
+The last command should print `10.26.2`. If your computer asks for permission,
+allow it and run the command again.
+
+### 6. Create Your Local Environment File
+
+The app reads local secrets from `.env.local`. Create it from the example file.
+
+On macOS or Linux:
+
+```bash
 cp .env.example .env.local
-# Add AI_GATEWAY_API_KEY=... to .env.local
+```
+
+On Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env.local
+```
+
+Open `.env.local` in any text editor. It should look like this:
+
+```bash
+AI_GATEWAY_API_KEY=
+AI_GATEWAY_MODEL=deepseek/deepseek-v4-flash
+```
+
+Paste your AI Gateway key after `AI_GATEWAY_API_KEY=`:
+
+```bash
+AI_GATEWAY_API_KEY=your_key_goes_here
+AI_GATEWAY_MODEL=deepseek/deepseek-v4-flash
+```
+
+Save the file. Do not add spaces around the `=` signs.
+
+The app can still open without `AI_GATEWAY_API_KEY`, but AI generation and
+builder features will show a warning and will not work fully.
+
+### 7. Install The Project
+
+Run this once:
+
+```bash
 pnpm install --frozen-lockfile
+```
+
+This may take a few minutes. It is finished when Terminal returns to a normal
+prompt and there is no error message.
+
+### 8. Start The App
+
+Run:
+
+```bash
 pnpm dev --port 3010
 ```
+
+Leave this command running. The app is open as long as this Terminal window is
+still running the dev server.
+
+If the terminal says another server is already running, use the URL it prints,
+or stop the old server with `Control + C` and run `pnpm dev --port 3010` again.
+If port `3010` is taken by another app, run `pnpm dev --port 3011` and use
+port `3011` in the browser URL.
+
+### 9. Open The App In Your Browser
 
 Open:
 
@@ -71,10 +220,48 @@ Open:
 http://localhost:3010/dashboard
 ```
 
-Use `pnpm dev --port 3010` for creating or rebuilding generated tools. The
-builder writes new source files under `app/tools/<slug>/`, rewrites
-`.audit/generated-tools.json`, snapshots generated tools, and runs verification
-commands before registration.
+You should see the `toolpa` dashboard. From there you can open existing
+tools or use the builder routes.
+
+If you started the app on port `3011`, open:
+
+```text
+http://localhost:3011/dashboard
+```
+
+### 10. Stop And Restart Later
+
+To stop the app, go back to Terminal and press:
+
+```text
+Control + C
+```
+
+The next time you want to run the app, open Terminal, go back into the project
+folder, and run:
+
+```bash
+pnpm dev --port 3010
+```
+
+You do not need to run `pnpm install --frozen-lockfile` again unless the project
+dependencies changed.
+
+### Common Problems
+
+- `node: command not found`: install Node.js, then close and reopen Terminal.
+- `corepack: command not found`: Node.js is missing or too old. Reinstall
+  Node.js, then try again.
+- `pnpm: command not found`: rerun the commands in step 5.
+- `No such file or directory`: Terminal is not inside the project folder yet.
+  Rerun step 4 and drag the project folder into Terminal after typing `cd `.
+- `AI generation is disabled`: `.env.local` is missing `AI_GATEWAY_API_KEY`.
+- `Executable doesn't exist` or `browserType.launch` during an audio gate: run
+  `pnpm exec playwright install chromium`, then retry the build.
+- The browser page does not load: make sure `pnpm dev --port 3010` is still
+  running, and make sure the browser URL uses the same port printed in Terminal.
+
+### Optional: Local Production Playback
 
 For local production playback of tools already in the checkout:
 
@@ -87,9 +274,102 @@ Production playback is good for the currently committed tools. For brand-new
 generated routes, use dev mode while building them, or rebuild and restart after
 the generated tool has been written.
 
+## Dependency Map
+
+This repo installs more than a simple web page because it is a browser instrument workstation,
+sample-analysis lab, AI generation surface, and local source-code builder in one
+project. The dependencies fall into a few clear groups.
+
+| Dependency area | Main packages / tools | Why it exists |
+| --- | --- | --- |
+| App shell | `next`, `react`, `react-dom`, `tailwindcss`, `lucide-react` | Runs the dashboard, builder pages, and tool UIs. |
+| Contracts and state | `zod`, `zustand`, `lz-string`, `idb` | Validates manifests/documents, stores browser-side tool state, and serializes shareable musical data. |
+| AI generation | `ai`, `@ai-sdk/gateway` | Calls the configured AI Gateway model for prompts, sample descriptors, SynthScene generation, MIDI generation, and L2 tool-loop generation. |
+| Audio runtime | `tone`, browser Web Audio APIs, `web-audio-beat-detector` | Plays, schedules, analyzes, records, and renders instrument output in the browser. |
+| Sample analysis | `essentia.js`, `@tensorflow/tfjs` | Extracts local audio features and optional MusicNN-style descriptors for sample-aware tools. |
+| Camera instruments | `@mediapipe/tasks-vision` | Powers the camera theremin tracking modes for hands, gestures, face, eyes, and body. |
+| Verification | `typescript`, `vitest`, `@vitest/browser`, `@vitest/browser-playwright`, `playwright`, `happy-dom`, `jsdom`, Testing Library | Proves generated tools typecheck, render in tests, and produce valid browser audio output before registration. |
+| Local builder writes | Node.js `fs`, `path`, and `child_process` APIs | Lets the L2 builder create files, run local checks, update `.audit`, and register generated tools in the checkout. |
+
+The important point: `pnpm install --frozen-lockfile` installs the whole
+workstation. Do not remove a package only because one visible page does not use
+it. A package may be required by a generated-tool template, an audio gate, a
+sample-analysis path, or an L2 verification subprocess.
+
+### AI L2 Build Path
+
+The L2 builder is the dependency-heavy path. It is intentionally heavier than a
+normal prompt form because it writes real source code and proves that code before
+the dashboard accepts it.
+
+The create flow is:
+
+1. The `/build` UI posts a build request to `app/api/build/handler.ts`.
+2. The handler validates the request with the builder Zod contract and streams
+   NDJSON progress chunks back to the UI.
+3. The default runner creates a generated L1 from the canonical skeleton. If
+   `TOOLPA_JS_BUILDER_MODE=tool-loop` is set, it instead runs the AI SDK
+   `ToolLoopAgent`.
+4. The tool-loop agent uses `@ai-sdk/gateway`, so it needs `AI_GATEWAY_API_KEY`
+   in `.env.local` or Vercel OIDC auth in a deployment environment.
+5. The builder tools read existing L1 manifests, read shared schemas, instantiate
+   or edit files only inside `app/tools/<slug>/`, and reject sandbox breaches.
+6. Every TS/TSX edit goes through a TypeScript syntax audit before it is written.
+7. Registration runs the gates in order: manifest validation, static audit,
+   scoped `tsc`, scoped Vitest unit tests, Playwright-backed browser audio gate,
+   snapshot write, and generated-registry update.
+8. A successful run writes or updates:
+   - `app/tools/<slug>/`
+   - `.audit/typecheck/tsconfig.<slug>.json`
+   - `.audit/snapshots/<slug>/...json`
+   - `.audit/generated-tools.json`
+
+The rebuild flow is similar, but it goes through `app/api/build/edit/handler.ts`
+and edits an existing generated tool. It does not instantiate a fresh skeleton
+or change the slug.
+
+### L2 Environment Variables
+
+| Variable | Required? | Purpose |
+| --- | --- | --- |
+| `AI_GATEWAY_API_KEY` | Required for AI generation locally | Enables AI Gateway calls for prompts and tool-loop generation. |
+| `AI_GATEWAY_MODEL` | Optional | Overrides the default model. The repo default is `deepseek/deepseek-v4-flash`. |
+| `TOOLPA_JS_BUILDER_MODE=tool-loop` | Optional | Enables the AI tool-loop builder instead of the default skeleton builder path. |
+| `TOOLPA_JS_BUILDER_TIMEOUT_MS` | Optional | Overrides the builder timeout. The default is `90000` milliseconds. |
+| `PLAYWRIGHT_BROWSERS_PATH` | Optional | Lets advanced users point Playwright at a custom browser install/cache. |
+
+If the first generated-tool audio gate says Chromium is missing, install the
+browser used by Playwright:
+
+```bash
+pnpm exec playwright install chromium
+```
+
+### Why The Builder Must Run Locally
+
+The L2 builder depends on a writable project filesystem. During one build it may
+create source files, write temporary typecheck configs, execute local commands,
+run a browser audio test, snapshot the generated tool, and update the generated
+registry. That is why the full builder workflow uses:
+
+```bash
+pnpm dev --port 3010
+```
+
+Demo hosting can show committed tools, but it is not equivalent to this local
+builder workflow unless the storage and deployment model changes.
+
+### What Generated Tools May Use
+
+Generated tools should be built from the dependencies already in `package.json`
+and the shared code already in this repo. The L2 sandbox is designed to keep
+generated code inside `app/tools/<slug>/`; if a request needs a new package or a
+shared library change, that should be handled as a normal human-reviewed repo
+change first, then the builder can use it.
+
 ## What This Framework Is
 
-`ai-daw-tools` is a framework for building browser instruments with AI as an
+`toolpa` is a framework for building browser instruments with AI as an
 instrument-design collaborator.
 
 The framework gives each instrument:
@@ -133,7 +413,7 @@ workstation.
 
 The framework pieces line up with a modular system:
 
-| Modular rig concept | ai-daw-tools concept |
+| Modular rig concept | toolpa concept |
 | --- | --- |
 | Module panel | `/tools/<slug>` route and React client |
 | Module label | `app/tools/<slug>/manifest.ts` |
@@ -143,7 +423,7 @@ The framework pieces line up with a modular system:
 | Rack power and clock | Shared audio bootstrap, Tone transport, global BPM/key/scale context |
 | Utility module | Shared SamplePicker, FX slots, ToolExportPanel, AudioOutputRecorder |
 | Builder module | L2 routes under `/build` |
-| Calibration procedure | Manifest validation, static audit, typecheck, unit tests, audio gate |
+| Calibration procedure | Manifest validation, syntax/static audit, typecheck, unit tests, audio gate |
 | Preset memory | JSON document, export artifact, generated registry, snapshots |
 
 The result is a system where AI can help design new modules, but every module
@@ -530,9 +810,11 @@ The create path is:
 1. User opens `/build` or a specialized builder route.
 2. Client posts a `BuildToolRequest` to `/api/build`.
 3. `handleBuildRequest` validates the request with `BuildToolRequestSchema`.
-4. `runBuilderToolLoopAgent` starts a tool-loop agent through the AI Gateway.
-5. The agent reads the tool list, reads reference tool files, reads schemas,
-   instantiates a skeleton, edits files in the sandbox, and runs gates.
+4. By default, `runBuilderAgent` creates a deterministic generated L1 from the
+   canonical skeleton for the requested sample, synth, effect, or hybrid target.
+5. If `TOOLPA_JS_BUILDER_MODE=tool-loop` is set, `runBuilderToolLoopAgent` starts
+   an AI Gateway tool-loop agent that reads tool lists, reference files, and
+   schemas; instantiates a skeleton; edits files in the sandbox; and runs gates.
 6. The server validates the manifest again.
 7. If registration is enabled, `registerTool` runs the full verification
    gauntlet and updates `.audit/generated-tools.json`.
@@ -549,8 +831,8 @@ The rebuild path is:
 4. `runBuilderEditAgent` reads the existing generated tool and edits inside the
    existing tool sandbox.
 5. The agent does not instantiate a new skeleton and does not change the slug.
-6. The server validates the manifest, runs the static audit, typecheck, tests,
-   browser audio gate, snapshots files, updates the registry, and streams
+6. The server validates the manifest, runs the syntax/static audit, typecheck,
+   tests, browser audio gate, snapshots files, updates the registry, and streams
    verification chunks back to the UI.
 
 Registration is not left solely to the model. The server re-validates and

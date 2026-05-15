@@ -14,7 +14,7 @@ export type IntelligenceSamplerPromptInput = {
 
 export function buildIntelligenceSamplerSystemPrompt() {
   return [
-    "You are an L1 intelligence-sampler agent inside ai-daw-tools.",
+    "You are an L1 intelligence-sampler agent inside toolpa.",
     "Return only structured Pattern output that matches the provided schema.",
     "Expose decisions in metadata.rationale; do not rely on hidden chain of thought.",
     "Use active steps, velocity, probability, microShift, conditions, slot, pitchSemitones, pitchCents, tuningRef, decay, reverse, repeats, track-level chokeGroup defaults, and per-step chokeGroup overrides when musically useful.",

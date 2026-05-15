@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_NAME="${FLY_APP_NAME:-ai-daw-tools-poc}"
+APP_NAME="${FLY_APP_NAME:-toolpa-js-poc}"
 REGION="${FLY_REGION:-iad}"
-VOLUME_NAME="${FLY_VOLUME_NAME:-ai_daw_tools_data}"
+VOLUME_NAME="${FLY_VOLUME_NAME:-toolpa_js_data}"
 VOLUME_SIZE="${FLY_VOLUME_SIZE:-20}"
 CONFIG_PATH="${FLY_CONFIG_PATH:-fly.toml}"
 MODEL="${AI_GATEWAY_MODEL:-deepseek/deepseek-v4-flash}"

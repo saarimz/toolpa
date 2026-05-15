@@ -118,7 +118,14 @@ function formatEvidence(artifact: ExportArtifact) {
     return `${artifact.evidence.noteCount ?? 0} notes / ${artifact.evidence.trackCount ?? 0} tracks`;
   }
   return `${artifact.evidence.durationSec?.toFixed(1) ?? "0.0"}s / peak ${
-    artifact.evidence.peak?.toFixed(2) ?? "0.00"
+    formatPeakDbfs(artifact.evidence.peak)
   }`;
 }
 
+function formatPeakDbfs(peak?: number) {
+  if (!peak || peak <= 0) {
+    return "-inf dBFS";
+  }
+
+  return `${(20 * Math.log10(peak)).toFixed(1)} dBFS`;
+}

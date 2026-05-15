@@ -14,13 +14,13 @@ import {
 
 import { Button } from "@/components/ui/button";
 
-const DESKTOP_INTRO_KEY = "ai-daw-tools:dashboard-intro-dismissed:v2";
-const MOBILE_DESKTOP_KEY = "ai-daw-tools:mobile-desktop-required-dismissed:v1";
+const DESKTOP_INTRO_KEY = "toolpa-js:dashboard-intro-dismissed:v2";
+const MOBILE_DESKTOP_KEY = "toolpa-js:mobile-desktop-required-dismissed:v1";
 
 const introSlides = [
   {
     eyebrow: "Build instruments",
-    title: "Make your own DAW tools.",
+    title: "Make your own toolpa instruments.",
     body: "Start from focused L1 instruments or ask an L2 builder to generate a new instrument with a typed musical document behind it.",
     icon: Wand2,
   },
@@ -33,7 +33,7 @@ const introSlides = [
   {
     eyebrow: "MIDI out",
     title: "Export portable MIDI.",
-    body: "Discrete MIDI and synth tools produce Standard MIDI Files for DAWs, with track-aware export paths instead of throwaway preview state.",
+    body: "Discrete MIDI and synth tools produce Standard MIDI Files for music apps, with track-aware export paths instead of throwaway preview state.",
     icon: FileMusic,
   },
   {
@@ -184,14 +184,14 @@ export function DashboardOnboarding() {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4">
       <section
-        aria-label="AI-native instrument suite intro"
+        aria-label="Toolpa Instrument Framework intro"
         aria-modal="true"
         className="w-full max-w-xl border border-zinc-700 bg-zinc-950 text-zinc-100 shadow-2xl"
         role="dialog"
       >
         <div className="flex items-center justify-between gap-3 border-b border-zinc-800 p-3">
           <div className="text-xs uppercase tracking-[0.16em] text-zinc-500">
-            ai-daw-tools
+            toolpa
           </div>
           <button
             aria-label="Dismiss intro"

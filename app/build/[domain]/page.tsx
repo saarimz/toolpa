@@ -57,7 +57,7 @@ export function generateStaticParams() {
 }
 
 export const metadata = {
-  title: "specialized builder | ai-daw-tools",
+  title: "specialized builder | Toolpa.JS",
 };
 
 function parseDomain(value: string): BuilderProfileDomain | null {

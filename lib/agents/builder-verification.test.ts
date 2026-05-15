@@ -48,6 +48,26 @@ describe("builder verification gates", () => {
     expect(result.stdout).toContain("no-browser-storage");
   });
 
+  it("rejects syntactically invalid generated source before registration", () => {
+    const rootDir = createGeneratedTool({
+      files: {
+        "client.tsx": `"use client";\nexport function Client() {\n  const label = "broken;\n  return <button>{label}</button>;\n}\n`,
+        "client.test.tsx": "import { it } from 'vitest'; it('renders', () => {});\n",
+        "manifest.ts": "export const manifest = { slug: 'syntax-tool' };\n",
+        "page.tsx": "export default function Page() { return null; }\n",
+        "render.audio.test.ts": "import { it } from 'vitest'; it('renders audio', () => {});\n",
+        "render.ts": "export async function renderOffline() { return null; }\n",
+      },
+      slug: "syntax-tool",
+    });
+
+    const result = runGeneratedToolStaticAudit({ rootDir, slug: "syntax-tool" });
+
+    expect(result.passed).toBe(false);
+    expect(result.stdout).toContain("app/tools/syntax-tool/client.tsx: syntax:");
+    expect(result.stdout).toMatch(/Unterminated string (literal|constant)/);
+  });
+
   it("snapshots generated tool files for rebuild rollback evidence", () => {
     const rootDir = createGeneratedTool({
       files: {

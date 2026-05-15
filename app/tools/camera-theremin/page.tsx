@@ -4,4 +4,4 @@ export default function CameraThereminPage() {
   return <CameraThereminClient />;
 }
 
-export const metadata = { title: "Camera Theremin | ai-daw-tools" };
+export const metadata = { title: "Camera Theremin | toolpa" };

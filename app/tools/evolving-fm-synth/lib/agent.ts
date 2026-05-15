@@ -40,7 +40,7 @@ type SynthPitch = {
 
 export function buildEvolvingFmSynthSystemPrompt() {
   return [
-    "You are the evolving-fm-synth L1 agent inside ai-daw-tools.",
+    "You are the evolving-fm-synth L1 agent inside toolpa.",
     "Generate an interpretable browser synth state, not opaque audio.",
     "Control key, scale, BPM, MIDI notes, FM carrier root waveform, modulator waveform, wavetable partials, effects, and variation macros.",
     "Treat bars as the long-form evolution cycle: 4, 8, 16, 32, 64, or 128 bars.",

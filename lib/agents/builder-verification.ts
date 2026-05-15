@@ -27,6 +27,10 @@ type StaticIssue = {
   rule: string;
 };
 
+type SourceFileWithParseDiagnostics = ts.SourceFile & {
+  readonly parseDiagnostics?: readonly ts.Diagnostic[];
+};
+
 const REQUIRED_GENERATED_FILES = [
   "manifest.ts",
   "page.tsx",
@@ -103,6 +107,22 @@ export function runGeneratedToolStaticAudit({
   return staticResult(issues);
 }
 
+export function runGeneratedToolSourceSyntaxAudit({
+  projectPath,
+  source,
+}: {
+  projectPath: string;
+  source: string;
+}): BuilderGateResult {
+  const sourceFile = createToolSourceFile(projectPath, source);
+  return staticResult(
+    getParseDiagnostics(sourceFile).map((diagnostic) =>
+      syntaxDiagnosticToIssue(projectPath, sourceFile, diagnostic),
+    ),
+    "syntax-audit",
+  );
+}
+
 export function snapshotGeneratedTool({
   rootDir,
   slug,
@@ -125,9 +145,12 @@ export function snapshotGeneratedTool({
   return { fileCount: Object.keys(files).length, path: projectPath };
 }
 
-function staticResult(issues: StaticIssue[]): BuilderGateResult {
+function staticResult(
+  issues: StaticIssue[],
+  command = "static-audit",
+): BuilderGateResult {
   return {
-    command: "static-audit",
+    command,
     passed: issues.length === 0,
     stderr: "",
     stdout:
@@ -140,14 +163,13 @@ function staticResult(issues: StaticIssue[]): BuilderGateResult {
 }
 
 function scanSourceFile(projectPath: string, source: string): StaticIssue[] {
-  const sourceFile = ts.createSourceFile(
-    projectPath,
-    source,
-    ts.ScriptTarget.Latest,
-    true,
-    projectPath.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
-  );
+  const sourceFile = createToolSourceFile(projectPath, source);
   const issues: StaticIssue[] = [];
+  issues.push(
+    ...getParseDiagnostics(sourceFile).map((diagnostic) =>
+      syntaxDiagnosticToIssue(projectPath, sourceFile, diagnostic),
+    ),
+  );
 
   if (/\/\/\s*(\.\.\.\s*rest|TODO|placeholder)/i.test(source)) {
     issues.push({
@@ -255,6 +277,42 @@ function scanSourceFile(projectPath: string, source: string): StaticIssue[] {
 
   visit(sourceFile);
   return issues;
+}
+
+function createToolSourceFile(projectPath: string, source: string) {
+  return ts.createSourceFile(
+    projectPath,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    projectPath.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+}
+
+function getParseDiagnostics(sourceFile: ts.SourceFile): readonly ts.Diagnostic[] {
+  return (sourceFile as SourceFileWithParseDiagnostics).parseDiagnostics ?? [];
+}
+
+function syntaxDiagnosticToIssue(
+  projectPath: string,
+  sourceFile: ts.SourceFile,
+  diagnostic: ts.Diagnostic,
+): StaticIssue {
+  const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n");
+  if (typeof diagnostic.start !== "number") {
+    return {
+      file: projectPath,
+      message,
+      rule: "syntax",
+    };
+  }
+
+  const location = sourceFile.getLineAndCharacterOfPosition(diagnostic.start);
+  return {
+    file: projectPath,
+    message: `${location.line + 1}:${location.character + 1}: ${message}`,
+    rule: "syntax",
+  };
 }
 
 function hasUseClientDirective(sourceFile: ts.SourceFile): boolean {

@@ -4,4 +4,4 @@ export default function HarmonicDistrotionEffectPage() {
   return <HarmonicDistrotionEffectClient />;
 }
 
-export const metadata = { title: "Harmonic Distrotion Effect | ai-daw-tools" };
+export const metadata = { title: "Harmonic Distrotion Effect | toolpa" };

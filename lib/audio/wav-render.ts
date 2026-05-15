@@ -14,6 +14,10 @@ import type { Pattern } from "@/lib/pattern/schema";
 import type { GlobalMusicContext } from "@/lib/music/context";
 import { resolveSample } from "@/lib/samples/resolver";
 import type { FxPatternInput } from "@/lib/audio/fx-manifest";
+import type { AudioBufferLike } from "@/lib/audio/offline-analysis";
+
+export const WAV_EXPORT_TARGET_PEAK_DBFS = -6;
+export const WAV_EXPORT_TARGET_PEAK = dbfsToGain(WAV_EXPORT_TARGET_PEAK_DBFS);
 
 export type RenderPatternWavOptions = {
   declickPreset?: DeclickPreset;
@@ -32,7 +36,9 @@ export async function renderPatternToWav(
   options: RenderPatternWavOptions = {},
 ): Promise<Blob> {
   const audioBuffer = await renderPatternToAudioBuffer(pattern, options);
-  return new Blob([encodeAudioBufferToWav(audioBuffer)], { type: "audio/wav" });
+  return new Blob([encodeAudioBufferToWav(normalizeAudioBufferPeak(audioBuffer))], {
+    type: "audio/wav",
+  });
 }
 
 export async function renderPatternToAudioBuffer(
@@ -112,7 +118,73 @@ export async function renderPatternToAudioBuffer(
   return context.startRendering();
 }
 
-export function encodeAudioBufferToWav(audioBuffer: AudioBuffer): ArrayBuffer {
+export type PeakNormalizeAudioBufferOptions = {
+  targetPeakDbfs?: number;
+};
+
+export function normalizeAudioBufferPeak(
+  audioBuffer: AudioBufferLike,
+  { targetPeakDbfs = WAV_EXPORT_TARGET_PEAK_DBFS }: PeakNormalizeAudioBufferOptions = {},
+): AudioBufferLike {
+  const targetPeak = dbfsToGain(targetPeakDbfs);
+  if (!Number.isFinite(targetPeak) || targetPeak <= 0 || targetPeak > 1) {
+    throw new Error("WAV export target peak must be finite and at most 0 dBFS");
+  }
+
+  const peak = getAudioBufferPeak(audioBuffer);
+  if (!Number.isFinite(peak) || peak <= 0) {
+    return audioBuffer;
+  }
+
+  const gain = targetPeak / peak;
+  if (Math.abs(gain - 1) <= Number.EPSILON) {
+    return audioBuffer;
+  }
+
+  const channels = Array.from(
+    { length: audioBuffer.numberOfChannels },
+    (_, channel) => {
+      const source = audioBuffer.getChannelData(channel);
+      const normalized = new Float32Array(audioBuffer.length);
+      const length = Math.min(audioBuffer.length, source.length);
+
+      for (let index = 0; index < length; index += 1) {
+        const value = source[index] ?? 0;
+        normalized[index] = Number.isFinite(value) ? value * gain : 0;
+      }
+
+      return normalized;
+    },
+  );
+
+  return {
+    duration: audioBuffer.duration,
+    length: audioBuffer.length,
+    numberOfChannels: audioBuffer.numberOfChannels,
+    sampleRate: audioBuffer.sampleRate,
+    getChannelData: (channel: number) =>
+      channels[channel] ?? new Float32Array(audioBuffer.length),
+  };
+}
+
+export function getAudioBufferPeak(audioBuffer: AudioBufferLike): number {
+  let peak = 0;
+
+  for (let channel = 0; channel < audioBuffer.numberOfChannels; channel += 1) {
+    const data = audioBuffer.getChannelData(channel);
+    for (let index = 0; index < data.length; index += 1) {
+      const value = data[index] ?? 0;
+      if (!Number.isFinite(value)) {
+        continue;
+      }
+      peak = Math.max(peak, Math.abs(value));
+    }
+  }
+
+  return peak;
+}
+
+export function encodeAudioBufferToWav(audioBuffer: AudioBufferLike): ArrayBuffer {
   const channelCount = audioBuffer.numberOfChannels;
   const length = audioBuffer.length;
   const bytesPerSample = 2;
@@ -145,6 +217,10 @@ export function encodeAudioBufferToWav(audioBuffer: AudioBuffer): ArrayBuffer {
   }
 
   return buffer;
+}
+
+export function dbfsToGain(value: number) {
+  return 10 ** (value / 20);
 }
 
 function writeString(view: DataView, offset: number, value: string) {

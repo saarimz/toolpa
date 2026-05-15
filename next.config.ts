@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["ai-daw-tools-poc.fly.dev"],
+  allowedDevOrigins: ["toolpa-js-poc.fly.dev"],
 };
 
 export default nextConfig;

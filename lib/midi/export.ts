@@ -134,7 +134,7 @@ function encodeFormatOneMidiFile(
 function createConductorEvents(input: MidiExportInput): TimedMidiEvent[] {
   const bpm = clampNumber(input.bpm ?? DEFAULT_BPM, 20, 320);
   return [
-    { tick: 0, order: 0, bytes: encodeTrackName(input.name ?? "ai-daw-tools") },
+    { tick: 0, order: 0, bytes: encodeTrackName(input.name ?? "toolpa") },
     { tick: 0, order: 1, bytes: encodeTempoEvent(bpm) },
     { tick: 0, order: 2, bytes: encodeTimeSignatureEvent() },
     ...encodeTextEvents(input.textEvents ?? [], 3),

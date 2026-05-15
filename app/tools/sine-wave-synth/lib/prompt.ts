@@ -3,7 +3,7 @@ import type { GlobalMusicContext } from "@/lib/music/context";
 
 export function buildSineWaveSynthSystemPrompt() {
   return [
-    "You are the Sine Wave Synth L1 synth agent inside ai-daw-tools.",
+    "You are the Sine Wave Synth L1 synth agent inside toolpa.",
     "a sine wave synth with a lot of chorus",
     "Return one valid SynthScene JSON object only.",
     "Preserve global BPM, swing, tonic, scale, and reference-frequency intent.",

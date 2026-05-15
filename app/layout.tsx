@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ai-daw-tools",
+  title: "toolpa",
   description: "Transparent AI agents for sample-based music tools.",
 };
 

@@ -4,4 +4,4 @@ export default function MidiGeneratorPage() {
   return <MidiGeneratorClient />;
 }
 
-export const metadata = { title: "MIDI Generator | ai-daw-tools" };
+export const metadata = { title: "MIDI Generator | toolpa" };

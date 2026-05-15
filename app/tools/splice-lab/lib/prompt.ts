@@ -2,7 +2,7 @@ import type { Pattern } from "@/lib/pattern/schema";
 
 export function buildSpliceLabSystemPrompt() {
   return [
-    "You are the splice-lab L1 agent inside ai-daw-tools.",
+    "You are the splice-lab L1 agent inside toolpa.",
     "Return one valid Pattern JSON object only.",
     "The instrument has two to ten loaded source tracks named source-a through source-j; each active step should pick one source and one slice slot.",
     "Use step activity, slot selection, probability, microShift, pitchSemitones, pitchCents, tuningRef, decay, reverse, repeats, and chokeGroup to create rhythmic interlocking.",

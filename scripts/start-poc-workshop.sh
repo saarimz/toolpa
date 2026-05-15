@@ -2,13 +2,13 @@
 set -euo pipefail
 
 IMAGE_APP_ROOT="${IMAGE_APP_ROOT:-/app}"
-VOLUME_ROOT="${AI_DAW_VOLUME_ROOT:-/data}"
-WORKSPACE_ROOT="${WORKSPACE_ROOT:-${VOLUME_ROOT}/ai-daw-tools}"
+VOLUME_ROOT="${TOOLPA_JS_VOLUME_ROOT:-/data}"
+WORKSPACE_ROOT="${WORKSPACE_ROOT:-${VOLUME_ROOT}/toolpa-js}"
 HOST="${HOST:-0.0.0.0}"
 APP_PORT="${PORT:-3000}"
 
 log() {
-  printf '[ai-daw-fly-poc] %s\n' "$*"
+  printf '[toolpa-js-fly-poc] %s\n' "$*"
 }
 
 case "$WORKSPACE_ROOT" in
@@ -20,7 +20,7 @@ esac
 
 mkdir -p "$WORKSPACE_ROOT"
 
-if [[ "${AI_DAW_RESET_WORKSPACE:-0}" == "1" ]]; then
+if [[ "${TOOLPA_JS_RESET_WORKSPACE:-0}" == "1" ]]; then
   log "resetting writable workspace at ${WORKSPACE_ROOT}"
   find "$WORKSPACE_ROOT" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
 fi

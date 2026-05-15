@@ -10,7 +10,10 @@ import {
 } from "@/app/tools/evolving-fm-synth/lib/schema";
 import { createOfflineFxOutput } from "@/lib/audio/fx-chain";
 import type { FxPatternInput } from "@/lib/audio/fx-manifest";
-import { encodeAudioBufferToWav } from "@/lib/audio/wav-render";
+import {
+  encodeAudioBufferToWav,
+  normalizeAudioBufferPeak,
+} from "@/lib/audio/wav-render";
 
 export type RenderSynthSceneWavOptions = {
   durationSec?: number;
@@ -24,7 +27,9 @@ export async function renderSynthSceneToWav(
   options: RenderSynthSceneWavOptions = {},
 ): Promise<Blob> {
   const audioBuffer = await renderSynthSceneToAudioBuffer(scene, options);
-  return new Blob([encodeAudioBufferToWav(audioBuffer)], { type: "audio/wav" });
+  return new Blob([encodeAudioBufferToWav(normalizeAudioBufferPeak(audioBuffer))], {
+    type: "audio/wav",
+  });
 }
 
 export async function renderSynthSceneToAudioBuffer(
