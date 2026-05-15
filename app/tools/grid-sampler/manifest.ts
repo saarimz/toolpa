@@ -24,6 +24,7 @@ export const gridSamplerManifest: AgentManifest = {
     prompt: true,
     description: false,
     referenceAgent: false,
+    audioSources: [],
     requiredAnalysis: ["global.true_peak_dbfs", "rhythm.onsets_s", "envelope.attack_ms", "slices"],
   },
   musicContext: {
@@ -35,6 +36,7 @@ export const gridSamplerManifest: AgentManifest = {
     pattern: true,
     synthScene: false,
     midi: false,
+    visualScene: false,
     audio: true,
     recording: true,
     files: false,

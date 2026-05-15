@@ -9,9 +9,14 @@ import { PromptFirstSection } from "@/components/prompt-first-section";
 import { readGenerateStream } from "@/lib/ai/client-stream";
 import type { GenerateStreamChunk } from "@/lib/ai/contracts";
 import { PatternSchema } from "@/lib/pattern/schema";
-import { useDrumMachineStore } from "@/app/tools/drum-machine/store";
+import {
+  getDrumTrackSamples,
+  useDrumMachineStore,
+} from "@/app/tools/drum-machine/store";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
+import { logClientPromptMemory } from "@/lib/prompt-memory/client";
 import { usePromptParamState } from "@/lib/tools/use-prompt-param";
+import { formatGeometryPlan } from "@/app/tools/drum-machine/lib/geometry";
 
 export function DrumGenerationPanel() {
   const abortRef = useRef<AbortController | null>(null);
@@ -26,11 +31,32 @@ export function DrumGenerationPanel() {
   const sampleId = useDrumMachineStore((state) => state.sampleId);
   const sampleName = useDrumMachineStore((state) => state.sampleName);
   const sampleRole = useDrumMachineStore((state) => state.sampleRole);
+  const sampleMode = useDrumMachineStore((state) => state.sampleMode);
+  const laneSampleNames = useDrumMachineStore((state) => state.laneSampleNames);
   const isPlaying = useDrumMachineStore((state) => state.isPlaying);
   const ghostPatterns = useDrumMachineStore((state) => state.ghostPatterns);
+  const geometryPlan = useDrumMachineStore((state) => state.geometryPlan);
   const setPattern = useDrumMachineStore((state) => state.setPattern);
   const setGhostPatterns = useDrumMachineStore((state) => state.setGhostPatterns);
+  const applyGeometryPrompt = useDrumMachineStore((state) => state.applyGeometryPrompt);
   const musicalContext = useGlobalMusicContextStore((state) => state.context);
+
+  function applyMathPrompt() {
+    setError(null);
+    const plan = applyGeometryPrompt(vibe);
+    logClientPromptMemory({
+      action: "apply-geometry-prompt",
+      metadata: {
+        planName: plan.name,
+        stepCount: plan.steps.length,
+      },
+      source: "client.drum-machine",
+      toolSlug: "drum-machine",
+      userPrompt: vibe,
+    });
+    setPromptText(plan.steps.join("\n"));
+    setStreamText(formatGeometryPlan(plan));
+  }
 
   async function generate(prompt = vibe, collectOnly = false) {
     const controller = new AbortController();
@@ -57,6 +83,8 @@ export function DrumGenerationPanel() {
             sampleId,
             sampleName,
             sampleRole,
+            sampleMode,
+            trackSamples: getDrumTrackSamples(pattern, laneSampleNames),
             bpm: pattern.bpm,
             swing: pattern.swing,
             musicalContext,
@@ -172,7 +200,9 @@ export function DrumGenerationPanel() {
             ? "generating; playback and abort remain available"
             : isGeneratingAlternatives
               ? "generating three alternatives"
-              : "idle; fresh, mutate, fills, and polyrhythm prompts are supported"}
+              : geometryPlan
+                ? `math plan active: ${geometryPlan.name}`
+                : "idle; fresh, mutate, fills, geometry, and polyrhythm prompts are supported"}
         </div>
         <label className="block text-xs text-zinc-500">
           generation prompt
@@ -187,6 +217,13 @@ export function DrumGenerationPanel() {
           <Button variant="solid" disabled={isGenerating} onClick={() => void generate()}>
             <Sparkles className="size-4" />
             {isGenerating ? "generating" : "generate"}
+          </Button>
+          <Button
+            disabled={isGenerating || isGeneratingAlternatives}
+            onClick={applyMathPrompt}
+          >
+            <Sparkles className="size-4" />
+            apply math
           </Button>
           <Button disabled={isGenerating || isGeneratingAlternatives} onClick={() => void generateAlternatives()}>
             <GitCompare className="size-4" />

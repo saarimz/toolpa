@@ -1,0 +1,65 @@
+import type { AgentManifest } from "@/lib/agents/contract";
+
+export const audioVisualizerManifest = {
+  name: "Audio Visualizer",
+  slug: "audio-visualizer",
+  level: 1,
+  origin: "installed",
+  description:
+    "Prompt-shaped fullscreen visualizer that maps live generated audio, microphone, or recorded audio into spectral bloom patterns, waveform ribbons, frequency crowns, centroid, flux, onset, and beat-reactive visuals.",
+  route: "/tools/audio-visualizer",
+  instrument: {
+    type: "visualizer",
+    workflow: "audio-reactive-visual-scene",
+    document: "visual-scene",
+    usesSamples: true,
+    usesSynthesis: true,
+  },
+  capabilities: [
+    "promptToVisualScene",
+    "liveAudioInput",
+    "microphoneInput",
+    "audioFileInput",
+    "spectrogram",
+    "audioFeatureMapping",
+    "fullscreenVisuals",
+  ],
+  inputs: {
+    samples: ["loop", "oneshot", "melodic", "pad", "fx"],
+    bpm: true,
+    globalBpm: true,
+    globalKey: false,
+    scaleSearch: false,
+    prompt: true,
+    description: false,
+    referenceAgent: false,
+    audioSources: ["live-audio", "audio-file", "microphone"],
+    requiredAnalysis: [],
+  },
+  musicContext: {
+    globalBpm: true,
+    globalKey: false,
+    scaleSearch: false,
+  },
+  outputs: {
+    pattern: false,
+    synthScene: false,
+    midi: false,
+    visualScene: true,
+    audio: true,
+    recording: false,
+    files: false,
+    manifest: false,
+  },
+  exports: {
+    document: "visual-scene",
+    audio: {
+      strategy: "source-audio",
+      formats: ["wav"],
+      maxDefaultDurationSec: 600,
+      requiresUserGestureForPreview: true,
+    },
+  },
+  autonomy: "assist",
+  status: "enabled",
+} satisfies AgentManifest;

@@ -2,7 +2,8 @@ import "server-only";
 
 import { Output, generateText } from "ai";
 
-import { getGatewayModel } from "@/lib/ai/gateway";
+import { getConfiguredGatewayModelId, getGatewayModel } from "@/lib/ai/gateway";
+import { recordPromptMemory } from "@/lib/prompt-memory/server";
 import {
   LlmDescriptorsSchema,
   type LlmDescriptors,
@@ -27,11 +28,23 @@ export async function describeSample(
   input: DescribeSampleInput,
 ): Promise<LlmDescriptors> {
   const compact = compactAnalysisForPrompt(input.analysis);
+  const prompt = buildDescribePrompt(compact, input.sourceName);
+
+  await recordPromptMemory({
+    action: "sample-descriptors",
+    metadata: { sourceName: input.sourceName },
+    model: input.model ?? getConfiguredGatewayModelId(),
+    resolvedPrompt: prompt,
+    source: "ai.sample-descriptors",
+    systemPrompt: SYSTEM_PROMPT,
+    toolSlug: "sample-analysis",
+  });
+
   const { output } = await generateText({
     model: getGatewayModel(input.model),
     output: Output.object({ schema: LlmDescriptorsSchema }),
     system: SYSTEM_PROMPT,
-    prompt: buildDescribePrompt(compact, input.sourceName),
+    prompt,
     temperature: 0.6,
   });
   return output;

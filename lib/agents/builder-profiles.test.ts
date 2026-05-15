@@ -15,6 +15,7 @@ describe("builder profiles", () => {
       "effect",
       "hybrid",
       "microtonal",
+      "visualizer",
     ]);
   });
 
@@ -57,6 +58,24 @@ describe("builder profiles", () => {
     expect(plan.constraints.join(" ")).toContain("pitchSemitones");
     expect(plan.verificationGates.join(" ")).toContain("pitchCents");
     expect(plan.verificationGates.join(" ")).toContain("tuningRef");
+  });
+
+  it("plans visualizer builders around audio feature mapping", () => {
+    const plan = createBuilderProfilePlan({
+      description: "Build VJ tools that react to live audio, microphone, and recorded input.",
+      domain: "visualizer",
+    });
+
+    expect(plan.builderManifest.slug).toBe("_visualizer-builder");
+    expect(plan.builderManifest.route).toBe("/build/visualizer");
+    expect(plan.target).toMatchObject({
+      document: "visual-scene",
+      instrumentType: "visualizer",
+      workflow: "audio-reactive-visual-scene",
+    });
+    expect(plan.referenceAgent).toBe("audio-visualizer");
+    expect(plan.verificationGates.join(" ")).toContain("VisualizerSceneSchema");
+    expect(plan.constraints.join(" ")).toContain("Microphone input");
   });
 
   it("coerces missing or unknown domains to the synth builder path", () => {

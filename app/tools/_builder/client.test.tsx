@@ -103,6 +103,20 @@ describe("ToolBuilderClient", () => {
     expect(screen.getByLabelText("reference")).toHaveValue("evolving-fm-synth");
   });
 
+  it("hydrates visualizer briefs with the visualizer reference agent selected", () => {
+    render(
+      <ToolBuilderClient
+        initialDescription="Build a fullscreen spectrogram visualizer."
+        initialInstrumentType="visualizer"
+        initialName="Spectrogram Tool"
+        initialSlug="spectrogram-tool"
+      />,
+    );
+
+    expect(screen.getByLabelText("instrument")).toHaveValue("visualizer");
+    expect(screen.getByLabelText("reference")).toHaveValue("audio-visualizer");
+  });
+
   it("can render a locked specialized L2 builder entrypoint", () => {
     const plan = createBuilderProfilePlan({
       description: "Build synth tools from the specialized route.",

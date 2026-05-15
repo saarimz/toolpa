@@ -20,9 +20,9 @@ import {
   validateGeneratedManifest,
 } from "@/lib/agents/builder-tools";
 import {
-  deriveGeneratedToolName,
-  slugifyToolName,
+  createGeneratedToolIdentity,
 } from "@/lib/agents/builder-naming";
+import { recordPromptMemory } from "@/lib/prompt-memory/server";
 
 type BuilderAgentRequest = Omit<BuildToolRequest, "register" | "tokenBudget"> & {
   register?: boolean;
@@ -32,6 +32,8 @@ type BuilderAgentRequest = Omit<BuildToolRequest, "register" | "tokenBudget"> & 
 export type RunBuilderAgentInput = BuilderAgentRequest & {
   rootDir?: string;
   generatedRegistryPath?: string;
+  identityNow?: Date;
+  identityRandomSuffix?: string;
   runCommand?: (
     invocation: BuilderCommandInvocation,
   ) => Promise<BuilderCommandResult>;
@@ -59,8 +61,8 @@ export type RunBuilderToolLoopAgentResult = {
 export async function runBuilderAgent(
   input: RunBuilderAgentInput,
 ): Promise<RunBuilderAgentResult> {
-  const name = input.name ?? deriveGeneratedToolName(input.description);
-  const slug = input.slug ?? slugifyToolName(name);
+  const identity = createBuildIdentity(input);
+  const { name, slug } = identity;
   const instrumentType = resolveInstrumentType(input);
   const specialization = input.builderSpecialization;
   const referenceAgent = resolveReferenceAgent(
@@ -77,9 +79,27 @@ export async function runBuilderAgent(
   });
   const emit = input.onChunk ?? (() => undefined);
 
+  await recordPromptMemory({
+    action: "build-tool-local",
+    metadata: {
+      builderSpecialization: specialization?.builderSlug,
+      instrumentType,
+      referenceAgent,
+      register: shouldRegister,
+      slug,
+    },
+    source: "builder.local-agent",
+    toolSlug: specialization?.builderSlug ?? "_builder",
+    userPrompt: input.description,
+  });
+
   emit({
     type: "decision",
     message: `instrument workflow: ${instrumentType}`,
+  });
+  emit({
+    type: "decision",
+    message: `generated identity: ${identity.name} / ${identity.slug}`,
   });
   validateSpecializationOrThrow(specialization, instrumentType, emit);
   if (specialization) {
@@ -112,10 +132,11 @@ export async function runBuilderAgent(
     instrumentType !== "sample" &&
     instrumentType !== "synth" &&
     instrumentType !== "effect" &&
-    instrumentType !== "hybrid"
+    instrumentType !== "hybrid" &&
+    instrumentType !== "visualizer"
   ) {
     const message =
-      `L2 classified this as ${instrumentType}, but the installed skeletons currently cover sample Pattern, synth SynthScene, effect audio-stream, and sample-informed hybrid tools only.`;
+      `L2 classified this as ${instrumentType}, but the installed skeletons currently cover sample Pattern, synth SynthScene, effect audio-stream, sample-informed hybrid, and audio-reactive visualizer tools only.`;
     emit({ type: "breach", message });
     throw new Error(message);
   }
@@ -191,8 +212,8 @@ export async function runBuilderToolLoopAgent(
     abortSignal: input.abortSignal,
     commandTimeoutMs: input.timeoutMs,
   });
-  const name = input.name ?? deriveGeneratedToolName(input.description);
-  const slug = input.slug ?? slugifyToolName(name);
+  const identity = createBuildIdentity(input);
+  const { name, slug } = identity;
   const instrumentType = resolveInstrumentType(input);
   const specialization = input.builderSpecialization;
   const referenceAgent = resolveReferenceAgent(
@@ -202,41 +223,68 @@ export async function runBuilderToolLoopAgent(
   validateSpecializationOrThrow(specialization, instrumentType);
   const tokenBudget = input.tokenBudget ?? 50000;
   let consumedTokens = 0;
-  const agent = new ToolLoopAgent({
-    model: getGatewayModel(input.model),
-    instructions: [
+  const emit = input.onChunk;
+  emit?.({
+    type: "decision",
+    message: `generated identity: ${identity.name} / ${identity.slug}`,
+  });
+  const instructions = [
       "You are the L2 tool-builder agent inside toolpa.",
       "Use the builder tools to read a reference tool, read the shared schemas, instantiate a skeleton, edit only inside the generated tool directory, validate the manifest, run the static audit, run typecheck, run tests, run the audio gate, and register only after the gates pass.",
+      "Use the exact timestamped name and slug from the prompt for instantiateSkeleton, editToolFile, validation, and registerTool. Do not drop or rewrite the timestamp suffix.",
       "Call readToolList early to browse every existing L1 tool — manifests, document types, instrument types — before you commit to a shape. Read multiple reference tools when the request blends domains.",
-      "The manifest instrument field is mandatory semantics: sample tools use Pattern and sample upload/picker workflows; synth tools use SynthScene and global key/scale workflows; effect tools transform audio streams.",
+      "The manifest instrument field is mandatory semantics: sample tools use Pattern and sample upload/picker workflows; synth tools use SynthScene and global key/scale workflows; effect tools transform audio streams; visualizer tools use visual-scene documents driven by live generated audio, microphone, or recorded audio analysis.",
       "Use the shared FxManifest/FxPattern contract for tool-level A/B FX slots instead of inventing per-tool effect state.",
       "Generated musical instruments should opt into musicContext.globalBpm, musicContext.globalKey, and musicContext.scaleSearch unless there is a clear reason to stay local.",
-      "The current canonical skeletons cover sample Pattern tools, synth SynthScene tools, effect audio-stream tools, and sample-informed hybrid SynthScene tools. Do not claim deeper sample resynthesis unless the requested shared document primitive exists.",
+      "The current canonical skeletons cover sample Pattern tools, synth SynthScene tools, effect audio-stream tools, sample-informed hybrid SynthScene tools, and audio-reactive visual-scene tools. Do not claim deeper sample resynthesis unless the requested shared document primitive exists.",
       "If builderSpecialization is present, treat it as a hard domain contract: targetInstrumentType, targetDocument, targetWorkflow, templateKit, constraints, and verificationGates must shape the generated tool.",
       "Generated instruments should use components/tool-export-panel for portable artifact actions, declare manifest.exports for audio/MIDI outputs, and keep AudioOutputRecorder available through the shared panel when they can produce live audio.",
       "Generated L1 clients must be prompt-first: source/context selectors may appear above the prompt, but playback, transport, export, and deep manual editors must come after the prompt controls.",
       "If editToolFile returns written:false, the TS/TSX syntax guard rejected the edit before writing it. Read syntaxAudit, fix the source, and retry the same file.",
       "If a requested feature requires shared lib changes or dependencies, do not write outside the sandbox. Explain the breach as a feature request instead.",
       "When runToolStaticAudit, runToolTypecheck, runToolTests, or runToolAudioGate fails, read its output, edit the offending file, and re-run the verification. Treat failures as feedback signals to iterate on, not terminal errors.",
-      "Aim for prompts that mention concrete musical and document-level vocabulary (slot, pitchCents, tuningRef, voices, envelopes) so generated tools produce documents that actually validate against the shared schemas.",
-    ].join("\n"),
+      "Aim for prompts that mention concrete musical and document-level vocabulary (slot, pitchCents, tuningRef, voices, envelopes, FFT bands, RMS, centroid, flux, onset, fullscreen) so generated tools produce documents that actually validate against the shared schemas.",
+    ].join("\n");
+  const resolvedPrompt = [
+    `description: ${input.description}`,
+    `name: ${name}`,
+    `slug: ${slug}`,
+    `instrumentType: ${instrumentType}`,
+    `referenceAgent: ${referenceAgent}`,
+    specialization
+      ? `builderSpecialization: ${JSON.stringify(specialization)}`
+      : "",
+    `register: ${input.register ?? true}`,
+  ].filter(Boolean).join("\n");
+
+  await recordPromptMemory({
+    action: "tool-loop-build",
+    metadata: {
+      builderSpecialization: specialization?.builderSlug,
+      instrumentType,
+      maxSteps: input.maxSteps ?? 30,
+      referenceAgent,
+      register: input.register ?? true,
+      slug,
+      tokenBudget,
+    },
+    model: input.model,
+    resolvedPrompt,
+    source: "builder.tool-loop-agent",
+    systemPrompt: instructions,
+    toolSlug: specialization?.builderSlug ?? "_builder",
+    userPrompt: input.description,
+  });
+
+  const agent = new ToolLoopAgent({
+    model: getGatewayModel(input.model),
+    instructions,
     stopWhen: stepCountIs(input.maxSteps ?? 30),
     tools: createBuilderTools(runtime),
   });
 
-  const emit = input.onChunk;
   await agent.generate({
-    prompt: [
-      `description: ${input.description}`,
-      `name: ${name}`,
-      `slug: ${slug}`,
-      `instrumentType: ${instrumentType}`,
-      `referenceAgent: ${referenceAgent}`,
-      specialization
-        ? `builderSpecialization: ${JSON.stringify(specialization)}`
-        : "",
-      `register: ${input.register ?? true}`,
-    ].filter(Boolean).join("\n"),
+    prompt: resolvedPrompt,
     abortSignal: input.abortSignal,
     timeout: input.timeoutMs,
     onStepFinish: (step) => {
@@ -300,6 +348,21 @@ export async function runBuilderToolLoopAgent(
   });
 
   return { traces: runtime.traces };
+}
+
+function createBuildIdentity(
+  input: Pick<
+    RunBuilderAgentInput,
+    "description" | "identityNow" | "identityRandomSuffix" | "name" | "slug"
+  >,
+) {
+  return createGeneratedToolIdentity({
+    description: input.description,
+    name: input.name,
+    now: input.identityNow,
+    randomSuffix: input.identityRandomSuffix,
+    slug: input.slug,
+  });
 }
 
 function extractReasoningText(step: unknown): string | undefined {
@@ -382,9 +445,7 @@ export async function runBuilderEditAgent(
 
   const tokenBudget = input.tokenBudget ?? 50_000;
   let consumedTokens = 0;
-  const agent = new ToolLoopAgent({
-    model: getGatewayModel(input.model),
-    instructions: [
+  const instructions = [
       "You are the L2 tool-editor agent inside toolpa.",
       `You are editing the existing L1 tool '${slug}'. Read its current files, plan the requested change, and update only what is necessary.`,
       "Do NOT instantiate a skeleton. Do not create a new tool. The slug is fixed.",
@@ -397,17 +458,38 @@ export async function runBuilderEditAgent(
       "Only call registerTool once manifest, static audit, typecheck, tests, and audio gate all pass. registerTool will overwrite the existing registry entry.",
       "If a requested change requires shared lib changes or new dependencies, do not write outside the sandbox; surface a feature-request breach instead.",
       "Preserve declared instrument type, document, and workflow unless the requested change is explicitly about changing them.",
-    ].join("\n"),
+    ].join("\n");
+  const resolvedPrompt = [
+    `slug: ${slug}`,
+    `edit description: ${input.description}`,
+    `register: ${input.register ?? true}`,
+  ].join("\n");
+
+  await recordPromptMemory({
+    action: "tool-loop-edit",
+    metadata: {
+      maxSteps: input.maxSteps ?? 30,
+      register: input.register ?? true,
+      slug,
+      tokenBudget,
+    },
+    model: input.model,
+    resolvedPrompt,
+    source: "builder.edit-agent",
+    systemPrompt: instructions,
+    toolSlug: slug,
+    userPrompt: input.description,
+  });
+
+  const agent = new ToolLoopAgent({
+    model: getGatewayModel(input.model),
+    instructions,
     stopWhen: stepCountIs(input.maxSteps ?? 30),
     tools: createBuilderEditTools(runtime),
   });
 
   await agent.generate({
-    prompt: [
-      `slug: ${slug}`,
-      `edit description: ${input.description}`,
-      `register: ${input.register ?? true}`,
-    ].join("\n"),
+    prompt: resolvedPrompt,
     abortSignal: input.abortSignal,
     timeout: input.timeoutMs,
     onStepFinish: (step) => {
@@ -511,6 +593,10 @@ function resolveInstrumentType(input: Pick<BuilderAgentRequest, "description" | 
     return "synth";
   }
 
+  if (/\b(visuali[sz]er|spectrogram|oscilloscope|audio reactive|fullscreen visuals?|vj|projection)\b/.test(description)) {
+    return "visualizer";
+  }
+
   if (/\b(effect|processor|reverb|delay|distortion|compressor|filter bank|fx)\b/.test(description)) {
     return "effect";
   }
@@ -532,6 +618,10 @@ function resolveReferenceAgent(
 
   if (instrumentType === "effect" || instrumentType === "hybrid") {
     return "splice-lab";
+  }
+
+  if (instrumentType === "visualizer") {
+    return "audio-visualizer";
   }
 
   return "intelligence-sampler";
@@ -569,6 +659,10 @@ function getExpectedDocumentForInstrument(
 
   if (instrumentType === "effect") {
     return "audio-stream";
+  }
+
+  if (instrumentType === "visualizer") {
+    return "visual-scene";
   }
 
   return "pattern";

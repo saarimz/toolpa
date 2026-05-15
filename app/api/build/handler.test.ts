@@ -42,6 +42,7 @@ describe("build handler", () => {
             prompt: true,
             description: false,
             referenceAgent: false,
+            audioSources: [],
             requiredAnalysis: [],
           },
           musicContext: {
@@ -53,6 +54,7 @@ describe("build handler", () => {
             pattern: true,
             synthScene: false,
             midi: false,
+            visualScene: false,
             audio: true,
             recording: true,
             files: false,

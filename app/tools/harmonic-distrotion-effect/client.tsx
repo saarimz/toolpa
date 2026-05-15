@@ -10,6 +10,7 @@ import { PromptFirstSection } from "@/components/prompt-first-section";
 import { Button } from "@/components/ui/button";
 import { MIN_BPM } from "@/lib/music/context";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
+import { logClientPromptMemory } from "@/lib/prompt-memory/client";
 import { usePromptParamState } from "@/lib/tools/use-prompt-param";
 
 const TOOL_SLUG = "harmonic-distrotion-effect";
@@ -76,6 +77,16 @@ export function HarmonicDistrotionEffectClient() {
     setError(null);
     try {
       const nextPatch = inferPatchFromPrompt(prompt, context.bpm);
+      logClientPromptMemory({
+        action: "generate-effect-patch",
+        metadata: {
+          bpm: context.bpm,
+          patch: nextPatch,
+        },
+        source: "client.harmonic-distrotion-effect",
+        toolSlug: TOOL_SLUG,
+        userPrompt: prompt,
+      });
       setPatch(nextPatch);
       setAgentStatus(`prompt patch ready at ${context.bpm} bpm`);
     } finally {

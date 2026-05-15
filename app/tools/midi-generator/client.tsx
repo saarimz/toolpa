@@ -41,6 +41,7 @@ import { Button } from "@/components/ui/button";
 import { getScaleDefinition } from "@/lib/music/scale-catalog";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
 import { exportMidiClipMidiArtifact } from "@/lib/tool-exports/adapters/midi-clip";
+import { logClientPromptMemory } from "@/lib/prompt-memory/client";
 import { usePromptParamState } from "@/lib/tools/use-prompt-param";
 
 const TOOL_SLUG = "midi-generator";
@@ -114,6 +115,16 @@ export function MidiGeneratorClient() {
 
   async function generateClip(nextPrompt = prompt) {
     await withGenerationState("generating", async () => {
+      logClientPromptMemory({
+        action: "generate-midi",
+        metadata: {
+          generationMode,
+          styleProfile,
+        },
+        source: "client.midi-generator",
+        toolSlug: TOOL_SLUG,
+        userPrompt: nextPrompt,
+      });
       const nextClip = generateMidiClipFromPrompt({
         generationMode,
         musicalContext: globalContext,
@@ -130,6 +141,17 @@ export function MidiGeneratorClient() {
 
   async function editClip() {
     await withGenerationState("editing", async () => {
+      logClientPromptMemory({
+        action: "edit-midi",
+        metadata: {
+          clipId: clip.id,
+          generationMode,
+          styleProfile,
+        },
+        source: "client.midi-generator",
+        toolSlug: TOOL_SLUG,
+        userPrompt: editPrompt,
+      });
       const nextClip = editMidiClipWithPrompt(clip, editPrompt, globalContext);
       applyClip(nextClip);
       if (isPlaying) {
@@ -141,6 +163,17 @@ export function MidiGeneratorClient() {
   async function chooseBars(bars: MidiClipBars) {
     await withGenerationState("resizing", async () => {
       const nextPrompt = `${prompt} ${bars} bars`;
+      logClientPromptMemory({
+        action: "resize-midi",
+        metadata: {
+          bars,
+          generationMode,
+          styleProfile,
+        },
+        source: "client.midi-generator",
+        toolSlug: TOOL_SLUG,
+        userPrompt: nextPrompt,
+      });
       const nextClip = generateMidiClipFromPrompt({
         generationMode,
         musicalContext: globalContext,

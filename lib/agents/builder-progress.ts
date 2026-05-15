@@ -54,7 +54,7 @@ const STAGE_DEFINITIONS: Array<Omit<BuilderProgressStage, "status" | "evidence">
   {
     id: "schema",
     label: "schemas read",
-    description: "Shared Pattern, SynthScene, sample, and manifest contracts are loaded.",
+    description: "Shared Pattern, SynthScene, visual-scene, sample, and manifest contracts are loaded.",
   },
   {
     id: "reference",

@@ -12,6 +12,7 @@ import {
   GlobalMusicContextSchema,
   type GlobalMusicContext,
 } from "@/lib/music/context";
+import { recordPromptMemory } from "@/lib/prompt-memory/server";
 
 const GenerateSynthSceneModeSchema = z.enum(["generate", "evolve"]);
 type GenerateSynthSceneMode = z.infer<typeof GenerateSynthSceneModeSchema>;
@@ -46,6 +47,18 @@ export async function handleGenerateSynthSceneRequest(
       { status: 400 },
     );
   }
+
+  await recordPromptMemory({
+    action: parsed.data.mode,
+    metadata: {
+      hasMusicalContext: Boolean(parsed.data.musicalContext),
+      hasScene: Boolean(parsed.data.scene),
+    },
+    route: "/api/synth",
+    source: "api.synth",
+    toolSlug: "synth-scene",
+    userPrompt: parsed.data.prompt,
+  });
 
   try {
     const scene = await deps.generateSynthSceneWithGateway({

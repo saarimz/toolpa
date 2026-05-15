@@ -4,6 +4,7 @@ import { stepCountIs, tool, ToolLoopAgent } from "ai";
 import { z } from "zod";
 
 import { getGatewayModel } from "@/lib/ai/gateway";
+import { recordPromptMemory } from "@/lib/prompt-memory/server";
 
 export type GridToolTrace = {
   name: string;
@@ -25,14 +26,15 @@ export async function runGridToolAgent({
   model,
 }: RunGridToolAgentInput): Promise<GridToolTrace[]> {
   const traces: GridToolTrace[] = [];
+  const instructions = [
+    "You are the grid-sampler tool-calling agent.",
+    "Call chop first, then place, then audition. Use regenerate if audition fails.",
+    "Stop after you have a usable placement plan.",
+  ].join("\n");
 
   const agent = new ToolLoopAgent({
     model: getGatewayModel(model),
-    instructions: [
-      "You are the grid-sampler tool-calling agent.",
-      "Call chop first, then place, then audition. Use regenerate if audition fails.",
-      "Stop after you have a usable placement plan.",
-    ].join("\n"),
+    instructions,
     stopWhen: stepCountIs(5),
     tools: {
       chop: tool({
@@ -86,12 +88,25 @@ export async function runGridToolAgent({
     },
   });
 
+  const resolvedPrompt = [
+    `User prompt: ${prompt}`,
+    `Current slice count: ${sliceCount}`,
+    `Current traversal: ${traversal}`,
+  ].join("\n");
+
+  await recordPromptMemory({
+    action: "tool-loop",
+    metadata: { sliceCount, traversal },
+    model,
+    resolvedPrompt,
+    source: "ai.grid-tool-agent",
+    systemPrompt: instructions,
+    toolSlug: "grid-sampler",
+    userPrompt: prompt,
+  });
+
   await agent.generate({
-    prompt: [
-      `User prompt: ${prompt}`,
-      `Current slice count: ${sliceCount}`,
-      `Current traversal: ${traversal}`,
-    ].join("\n"),
+    prompt: resolvedPrompt,
   });
 
   return traces;

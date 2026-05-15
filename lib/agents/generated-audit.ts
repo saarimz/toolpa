@@ -17,6 +17,7 @@ const DOCUMENT_OUTPUT_BY_TYPE = {
   "midi-clip": "midi",
   pattern: "pattern",
   "synth-scene": "synthScene",
+  "visual-scene": "visualScene",
 } as const satisfies Record<InstrumentDocument, keyof AgentManifest["outputs"]>;
 
 export const GeneratedToolAuditEntrySchema = z.object({
@@ -148,6 +149,7 @@ function createEntry(
       manifest.outputs.audio ||
       manifest.outputs.midi ||
       manifest.outputs.pattern ||
+      manifest.outputs.visualScene ||
       manifest.outputs.synthScene ||
       manifest.outputs.recording,
     hasRouteFile: fileStatus.hasRouteFile,
@@ -230,7 +232,7 @@ function createEntryIssues(entry: GeneratedToolAuditEntry): GeneratedToolAuditIs
 
   if (!entry.hasRenderableOutput) {
     issues.push({
-      detail: `${entry.slug} has no Pattern, SynthScene, audio, or recording output declared.`,
+      detail: `${entry.slug} has no Pattern, SynthScene, visual-scene, audio, or recording output declared.`,
       id: `${entry.slug}:output`,
       severity: "error",
       slug: entry.slug,

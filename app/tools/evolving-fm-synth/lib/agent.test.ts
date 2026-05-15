@@ -48,6 +48,24 @@ describe("evolving fm synth agent", () => {
     expect(sineScene.metadata.rationale).toContain("Carrier root starts from sine");
   });
 
+  it("keeps warm patches rounder than explicitly metallic patches", () => {
+    const warmScene = generateSynthSceneFromPrompt({
+      prompt: "warm soft tape pad in C minor with mellow dub space",
+      seed: 901,
+    });
+    const metallicScene = generateSynthSceneFromPrompt({
+      prompt: "metallic glass bell acid FM in C minor with bright clang",
+      seed: 901,
+    });
+
+    expect(countRootWaveform(warmScene, "sine")).toBeGreaterThanOrEqual(3);
+    expect(averageModulationIndex(warmScene)).toBeLessThan(
+      averageModulationIndex(metallicScene),
+    );
+    expect(warmScene.metadata.rationale).toContain("Timbre leans warm");
+    expect(metallicScene.metadata.rationale).toContain("Timbre leans metallic");
+  });
+
   it("preserves selected root waveforms when evolving without a new root prompt", () => {
     const scene = createDefaultSynthScene();
     const patched = {
@@ -119,7 +137,21 @@ describe("evolving fm synth agent", () => {
       "current macros",
     );
     expect(buildEvolvingFmSynthPrompt({ prompt: "dub techno", scene })).toContain(
-      "root=wavetable",
+      "root=",
     );
   });
 });
+
+function averageModulationIndex(scene: ReturnType<typeof createDefaultSynthScene>) {
+  return (
+    scene.voices.reduce((sum, voice) => sum + voice.patch.modulationIndex, 0) /
+    scene.voices.length
+  );
+}
+
+function countRootWaveform(
+  scene: ReturnType<typeof createDefaultSynthScene>,
+  waveform: "sine" | "wavetable" | "square" | "sawtooth",
+) {
+  return scene.voices.filter((voice) => voice.patch.rootWaveform === waveform).length;
+}

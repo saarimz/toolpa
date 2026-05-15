@@ -79,6 +79,8 @@ describe("pattern event planner", () => {
     const pattern = createPattern({
       id: "pattern",
       name: "pattern",
+      bars: 1,
+      stepsPerBar: 1,
       tracks: [
         createTrack({
           id: "track",
@@ -224,5 +226,32 @@ describe("pattern event planner", () => {
       "library:test/fill",
       "library:test/ghost",
     ]);
+  });
+
+  it("schedules each drum lane with its own track sample id", () => {
+    const pattern = createPattern({
+      id: "pattern",
+      name: "pattern",
+      bars: 1,
+      stepsPerBar: 1,
+      tracks: [
+        createTrack({
+          id: "kick",
+          name: "kick",
+          sampleId: "library:test/kick",
+          steps: [createStep({ active: true })],
+        }),
+        createTrack({
+          id: "snare",
+          name: "snare",
+          sampleId: "library:test/snare",
+          steps: [createStep({ active: true })],
+        }),
+      ],
+    });
+
+    expect(
+      collectPatternEvents(pattern, { random: () => 0 }).map((event) => event.sampleId),
+    ).toEqual(["library:test/kick", "library:test/snare"]);
   });
 });

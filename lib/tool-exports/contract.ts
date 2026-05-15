@@ -29,6 +29,7 @@ export const ExportableDocumentSchema = z.enum([
   "synth-scene",
   "midi-clip",
   "audio-stream",
+  "visual-scene",
 ]);
 
 export const ToolExportDeclarationSchema = z.object({

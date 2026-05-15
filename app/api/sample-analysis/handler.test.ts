@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/ai/gateway", () => ({
+  getConfiguredGatewayModelId: vi.fn(() => "model"),
   isGatewayConfigured: vi.fn(() => false),
   getGatewayModel: vi.fn(() => "model"),
 }));

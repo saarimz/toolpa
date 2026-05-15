@@ -27,7 +27,7 @@ const introSlides = [
   {
     eyebrow: "Agentic flow",
     title: "Prompt, edit, and keep control.",
-    body: "Use global BPM, key, scale, samples, and tool-specific prompts to move from an idea into playable Pattern, SynthScene, or MIDI Clip documents.",
+    body: "Use global BPM, key, scale, samples, audio inputs, and tool-specific prompts to move from an idea into playable Pattern, SynthScene, MIDI Clip, or visual-scene documents.",
     icon: Laptop,
   },
   {

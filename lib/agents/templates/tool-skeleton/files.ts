@@ -20,7 +20,7 @@ export type ToolSkeletonInput = {
   description: string;
   capabilities?: string[];
   sampleRoles?: SampleRole[];
-  instrumentType?: "sample" | "synth" | "hybrid" | "effect";
+  instrumentType?: "sample" | "synth" | "hybrid" | "effect" | "visualizer";
 };
 
 export type ToolSkeletonInstance = {
@@ -33,6 +33,7 @@ export const SUPPORTED_TOOL_SKELETON_INSTRUMENTS = [
   "synth",
   "effect",
   "hybrid",
+  "visualizer",
 ] as const;
 
 export function createToolSkeleton(
@@ -47,6 +48,9 @@ export function createToolSkeleton(
   }
   if (instrumentType === "hybrid") {
     return createHybridToolSkeleton(input);
+  }
+  if (instrumentType === "visualizer") {
+    return createVisualizerToolSkeleton(input);
   }
 
   const instrument = resolveSampleSkeletonInstrument(instrumentType);
@@ -298,10 +302,86 @@ function createHybridToolSkeleton(input: ToolSkeletonInput): ToolSkeletonInstanc
   return { manifest, files };
 }
 
+function createVisualizerToolSkeleton(input: ToolSkeletonInput): ToolSkeletonInstance {
+  const manifest = AgentManifestSchema.parse({
+    name: input.name,
+    slug: input.slug,
+    level: 1,
+    origin: "generated",
+    description: input.description,
+    route: `/tools/${input.slug}`,
+    instrument: {
+      type: "visualizer",
+      workflow: "audio-reactive-visual-scene",
+      document: "visual-scene",
+      usesSamples: true,
+      usesSynthesis: true,
+    },
+    capabilities: input.capabilities ?? [
+      "promptToVisualScene",
+      "liveAudioInput",
+      "microphoneInput",
+      "audioFileInput",
+      "spectrogram",
+      "audioFeatureMapping",
+      "fullscreenVisuals",
+    ],
+    inputs: {
+      samples: input.sampleRoles ?? ["loop", "oneshot", "melodic", "pad", "fx"],
+      bpm: true,
+      globalBpm: true,
+      globalKey: false,
+      scaleSearch: false,
+      prompt: true,
+      audioSources: ["live-audio", "audio-file", "microphone"],
+      requiredAnalysis: [],
+    },
+    musicContext: {
+      globalBpm: true,
+      globalKey: false,
+      scaleSearch: false,
+    },
+    outputs: {
+      pattern: false,
+      synthScene: false,
+      midi: false,
+      visualScene: true,
+      audio: true,
+      recording: false,
+    },
+    exports: {
+      document: "visual-scene",
+      audio: {
+        strategy: "source-audio",
+        formats: ["wav"],
+        maxDefaultDurationSec: 600,
+        requiresUserGestureForPreview: true,
+      },
+    },
+    autonomy: "assist",
+    status: "enabled",
+  });
+  const exportName = `${toCamelCase(input.slug)}Manifest`;
+  const files = new Map<string, string>([
+    [`app/tools/${input.slug}/manifest.ts`, renderManifest(manifest, exportName)],
+    [`app/tools/${input.slug}/page.tsx`, renderPage(input.slug, input.name)],
+    [`app/tools/${input.slug}/client.tsx`, renderVisualizerClient(input.slug, input.name, input.description)],
+    [`app/tools/${input.slug}/render.ts`, renderVisualizerOfflineRenderer(input.slug, input.description)],
+    [`app/tools/${input.slug}/render.audio.test.ts`, renderOfflineAudioTest(input.slug, "audio-stream")],
+    [`app/tools/${input.slug}/render.visual.test.ts`, renderVisualizerFrameTest(input.slug)],
+    [`app/tools/${input.slug}/lib/prompt.ts`, renderVisualizerPrompt(input.slug)],
+    [`app/tools/${input.slug}/__tests__/manifest.test.ts`, renderManifestTest(exportName)],
+    [`app/tools/${input.slug}/client.test.tsx`, renderVisualizerClientTest(input.slug, input.name)],
+    [`app/tools/${input.slug}/lib/prompt.test.ts`, renderVisualizerPromptTest(input.slug)],
+  ]);
+
+  return { manifest, files };
+}
+
 function resolveSampleSkeletonInstrument(type: NonNullable<ToolSkeletonInput["instrumentType"]>) {
   if (type !== "sample") {
     throw new Error(
-      `The current L2 skeleton supports sample, synth, effect, and hybrid instruments only; requested ${type}`,
+      `The current L2 skeleton supports sample, synth, effect, hybrid, and visualizer instruments only; requested ${type}`,
     );
   }
 
@@ -475,6 +555,76 @@ function renderEffectOfflineRenderer(slug: string) {
     "}",
     "",
     `export const renderId = "${slug}:audio-stream";`,
+    "",
+  ].join("\n");
+}
+
+function renderVisualizerOfflineRenderer(slug: string, description: string) {
+  return [
+    `import { createDefaultVisualizerScene, VisualizerSceneSchema, type VisualizerScene } from "@/lib/visualizers/schema";`,
+    `import { createSilentFeatureFrame, selectAudioFeature, type AudioFeatureFrame } from "@/lib/visualizers/audio-features";`,
+    "",
+    `export const defaultDocument = createDefaultVisualizerScene("${escapeString(description)}");`,
+    "",
+    "export type VisualFrameRenderSummary = {",
+    "  brightness: number;",
+    "  hueShift: number;",
+    "  mode: VisualizerScene[\"mode\"];",
+    "  primaryDriver: number;",
+    "  zoom: number;",
+    "};",
+    "",
+    "export function renderVisualFrame(",
+    "  document: VisualizerScene = defaultDocument,",
+    "  frame: AudioFeatureFrame = createSilentFeatureFrame(),",
+    "): VisualFrameRenderSummary {",
+    "  const scene = VisualizerSceneSchema.parse(document);",
+    "  const primaryDriver = selectAudioFeature(frame, scene.mapping.primaryFeature);",
+    "  const secondaryDriver = selectAudioFeature(frame, scene.mapping.secondaryFeature);",
+    "  const beatDriver = Math.max(frame.beat, frame.onset);",
+    "  return {",
+    "    brightness: clamp01(0.25 + primaryDriver * scene.mapping.sensitivity + beatDriver * 0.35),",
+    "    hueShift: clamp01(secondaryDriver + frame.centroid * 0.5),",
+    "    mode: scene.mode,",
+    "    primaryDriver,",
+    "    zoom: clamp01(0.25 + scene.motion.zoom / 4 + frame.bass * 0.35),",
+    "  };",
+    "}",
+    "",
+    "export async function renderOffline(",
+    "  document: VisualizerScene = defaultDocument,",
+    "  durationSec = 1,",
+    "): Promise<AudioBuffer> {",
+    "  if (typeof OfflineAudioContext === \"undefined\") {",
+    "    throw new Error(\"OfflineAudioContext is required for the generated visualizer audio gate\");",
+    "  }",
+    "  const scene = VisualizerSceneSchema.parse(document);",
+    "  const sampleRate = 44100;",
+    "  const context = new OfflineAudioContext(2, Math.ceil(durationSec * sampleRate), sampleRate);",
+    "  const oscillator = context.createOscillator();",
+    "  const gain = context.createGain();",
+    "  const filter = context.createBiquadFilter();",
+    "  oscillator.type = \"sine\";",
+    "  oscillator.frequency.setValueAtTime(110 + (scene.motion.seed % 180), 0);",
+    "  gain.gain.setValueAtTime(0.18, 0);",
+    "  filter.type = \"lowpass\";",
+    "  filter.frequency.setValueAtTime(900 + scene.mapping.sensitivity * 900, 0);",
+    "  oscillator.connect(filter);",
+    "  filter.connect(gain);",
+    "  gain.connect(context.destination);",
+    "  oscillator.start(0);",
+    "  oscillator.stop(durationSec);",
+    "  return context.startRendering();",
+    "}",
+    "",
+    `export const renderId = "${slug}:visual-scene";`,
+    "",
+    "function clamp01(value: number) {",
+    "  if (!Number.isFinite(value)) {",
+    "    return 0;",
+    "  }",
+    "  return Math.max(0, Math.min(1, value));",
+    "}",
     "",
   ].join("\n");
 }
@@ -687,6 +837,32 @@ function renderHybridPrompt(slug: string, name: string, description: string) {
   ].join("\n");
 }
 
+function renderVisualizerPrompt(slug: string) {
+  return [
+    `import type { VisualizerScene } from "@/lib/visualizers/schema";`,
+    `import { buildAudioVisualizerPrompt, buildAudioVisualizerSystemPrompt, createVisualizerSceneFromPrompt } from "@/lib/visualizers/prompt";`,
+    "",
+    `export function build${toPascalCase(slug)}SystemPrompt() {`,
+    "  return buildAudioVisualizerSystemPrompt();",
+    "}",
+    "",
+    `export function build${toPascalCase(slug)}Prompt({`,
+    "  prompt,",
+    "  scene,",
+    "}: {",
+    "  prompt: string;",
+    "  scene: VisualizerScene;",
+    "}) {",
+    "  return buildAudioVisualizerPrompt({ prompt, scene });",
+    "}",
+    "",
+    `export function create${toPascalCase(slug)}SceneFromPrompt(prompt: string, scene?: VisualizerScene) {`,
+    "  return createVisualizerSceneFromPrompt(prompt, scene);",
+    "}",
+    "",
+  ].join("\n");
+}
+
 function renderManifestTest(exportName: string) {
   return [
     `import { describe, expect, it } from "vitest";`,
@@ -860,6 +1036,132 @@ function renderHybridClientTest(slug: string, name: string) {
     "    expect(screen.getByRole(\"region\", { name: /midi playback/i })).toBeInTheDocument();",
     "  });",
     "});",
+    "",
+  ].join("\n");
+}
+
+function renderVisualizerClient(slug: string, name: string, description: string) {
+  return [
+    `"use client";`,
+    "",
+    `import { AudioVisualizerTool } from "@/components/audio-visualizer-tool";`,
+    "",
+    `const DEFAULT_PROMPT = "${escapeString(description)}";`,
+    "",
+    `export function ${toPascalCase(slug)}Client() {`,
+    "  return (",
+    "    <AudioVisualizerTool",
+    "      defaultPrompt={DEFAULT_PROMPT}",
+    `      description="${escapeString(description)}"`,
+    "      manifestLabel=\"generated visualizer\"",
+    `      toolName="${escapeString(name)}"`,
+    `      toolSlug="${slug}"`,
+    "    />",
+    "  );",
+    "}",
+    "",
+  ].join("\n");
+}
+
+function renderVisualizerClientTest(slug: string, name: string) {
+  return [
+    `import { render, screen } from "@testing-library/react";`,
+    `import { describe, expect, it } from "vitest";`,
+    "",
+    `import { ${toPascalCase(slug)}Client } from "./client";`,
+    "",
+    `describe("${slug} client", () => {`,
+    "  it(\"renders a usable generated visualizer interface\", () => {",
+    `    render(<${toPascalCase(slug)}Client />);`,
+    "",
+    `    expect(screen.getByText("${escapeString(name)}")).toBeInTheDocument();`,
+    "    expect(screen.getByLabelText(\"visualizer prompt\")).toBeInTheDocument();",
+    "    expect(screen.getByText(\"recorded input\")).toBeInTheDocument();",
+    "    expect(screen.getByRole(\"button\", { name: /start/i })).toBeInTheDocument();",
+    "    expect(screen.getByRole(\"button\", { name: /generate/i })).toBeInTheDocument();",
+    "    expect(screen.getByRole(\"button\", { name: /fullscreen/i })).toBeInTheDocument();",
+    "    expect(screen.getByLabelText(\"source\")).toBeInTheDocument();",
+    "    expect(screen.getByRole(\"option\", { name: \"live audio\" })).toBeInTheDocument();",
+    "    expect(screen.getByLabelText(\"mode\")).toBeInTheDocument();",
+    "    expect(screen.getByLabelText(\"palette\")).toBeInTheDocument();",
+    "  });",
+    "});",
+    "",
+  ].join("\n");
+}
+
+function renderVisualizerPromptTest(slug: string) {
+  const pascal = toPascalCase(slug);
+  return [
+    `import { describe, expect, it } from "vitest";`,
+    `import { createDefaultVisualizerScene } from "@/lib/visualizers/schema";`,
+    `import { build${pascal}Prompt, build${pascal}SystemPrompt, create${pascal}SceneFromPrompt } from "./prompt";`,
+    "",
+    `describe("${slug} visualizer prompt", () => {`,
+    "  it(\"declares the L1 visualizer identity and VisualizerScene output contract\", () => {",
+    `    const system = build${pascal}SystemPrompt();`,
+    "    expect(system.length).toBeGreaterThan(180);",
+    "    expect(system).toContain(\"VisualizerScene\");",
+    "    expect(system).toContain(\"FFT\");",
+    "  });",
+    "",
+    "  it(\"propagates prompt text and current scene into the request prompt\", () => {",
+    "    const scene = createDefaultVisualizerScene(\"test visual\");",
+    `    const prompt = build${pascal}Prompt({`,
+    "      prompt: \"bass reactive prism tunnel\",",
+    "      scene,",
+    "    });",
+    "    expect(prompt).toContain(\"bass reactive prism tunnel\");",
+    "    expect(prompt).toContain(\"visual-scene\");",
+    "  });",
+    "",
+    "  it(\"creates a bounded scene from visualizer language\", () => {",
+    `    const scene = create${pascal}SceneFromPrompt("prism particle field reacting to kick bass with micro fluctuations");`,
+    "    expect(scene.mode).toBe(\"particle-field\");",
+    "    expect(scene.palette).toBe(\"prism\");",
+    "    expect(scene.source).toBe(\"live-audio\");",
+    "    expect(scene.mapping.primaryFeature).toBe(\"bass\");",
+    "  });",
+    "});",
+    "",
+  ].join("\n");
+}
+
+function renderVisualizerFrameTest(slug: string) {
+  return [
+    `import { describe, expect, it } from "vitest";`,
+    `import { defaultDocument, renderVisualFrame } from "./render";`,
+    `import type { AudioFeatureFrame } from "@/lib/visualizers/audio-features";`,
+    "",
+    `describe("${slug} visual frame renderer", () => {`,
+    "  it(\"changes visual output when audio features change\", () => {",
+    "    const quiet = renderVisualFrame(defaultDocument, makeFrame({ rms: 0.02, bass: 0.02, timestampMs: 100 }));",
+    "    const loud = renderVisualFrame(defaultDocument, makeFrame({ rms: 0.8, bass: 0.8, beat: 0.9, timestampMs: 200 }));",
+    "",
+    "    expect(loud.brightness).toBeGreaterThan(quiet.brightness);",
+    "    expect(loud.zoom).toBeGreaterThan(quiet.zoom);",
+    "    expect(Number.isFinite(loud.hueShift)).toBe(true);",
+    "  });",
+    "});",
+    "",
+    "function makeFrame(patch: Partial<AudioFeatureFrame>): AudioFeatureFrame {",
+    "  return {",
+    "    air: 0.1,",
+    "    bass: 0.1,",
+    "    beat: 0,",
+    "    centroid: 0.35,",
+    "    flux: 0.1,",
+    "    highMid: 0.1,",
+    "    lowMid: 0.1,",
+    "    mid: 0.1,",
+    "    onset: 0,",
+    "    peak: 0.1,",
+    "    rms: 0.1,",
+    "    sub: 0.1,",
+    "    timestampMs: 0,",
+    "    ...patch,",
+    "  };",
+    "}",
     "",
   ].join("\n");
 }

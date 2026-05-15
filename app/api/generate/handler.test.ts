@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { handleGenerateRequest } from "@/app/api/generate/handler";
+import { createDefaultDrumPattern } from "@/app/tools/drum-machine/lib/polyrhythm";
 import { createIntelligenceSamplerPattern } from "@/lib/pattern/defaults";
 import {
   createSpliceLabState,
@@ -192,6 +193,60 @@ describe("generate handler", () => {
     expect(streamPattern).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: expect.stringContaining("B: Glasychord"),
+      }),
+    );
+  });
+
+  it("passes drum-machine multi-sample lane context into the prompt", async () => {
+    const pattern = createDefaultDrumPattern(
+      "library:jungle/let-there-break",
+      "Let There Break",
+    );
+    const streamPattern = vi.fn().mockResolvedValue({
+      partialOutputStream: (async function* () {})(),
+      output: Promise.resolve(pattern),
+    });
+
+    const response = await handleGenerateRequest(
+      new Request("http://localhost/api/generate", {
+        method: "POST",
+        body: JSON.stringify({
+          toolSlug: "drum-machine",
+          mode: "polyrhythm",
+          prompt: "bossa nova with separate drum hits",
+          context: {
+            pattern,
+            sampleId: "library:jungle/let-there-break",
+            sampleName: "Let There Break",
+            sampleRole: "break",
+            sampleMode: "multi",
+            trackSamples: [
+              {
+                sampleId: "library:test/kick",
+                sampleName: "Kick",
+                sampleRole: "oneshot",
+                trackId: "kick",
+                trackName: "kick",
+              },
+            ],
+            bpm: 132,
+            swing: 0.18,
+          },
+        }),
+      }),
+      { streamPattern },
+    );
+
+    expect(response.status).toBe(200);
+    await readNdjson(response);
+    expect(streamPattern).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining("sample mode: multi"),
+      }),
+    );
+    expect(streamPattern).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining("kick / Kick / oneshot / library:test/kick"),
       }),
     );
   });

@@ -1,8 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
   <defs>
     <linearGradient id="waveGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#A18CD1" />
-      <stop offset="100%" stop-color="#FBC2EB" />
+      <stop offset="0%" stop-color="#D7FF36" />
+      <stop offset="52%" stop-color="#7CFF2E" />
+      <stop offset="100%" stop-color="#00F5A0" />
     </linearGradient>
     
     <style>
@@ -22,21 +23,21 @@
     </style>
   </defs>
 
-  <ellipse cx="100" cy="185" rx="70" ry="8" fill="#1A1A24" opacity="0.1">
+  <ellipse cx="100" cy="185" rx="70" ry="8" fill="#07170D" opacity="0.16">
     <animate attributeName="rx" values="70; 60; 70" dur="2s" repeatCount="indefinite" />
     <animate attributeName="opacity" values="0.1; 0.05; 0.1" dur="2s" repeatCount="indefinite" />
   </ellipse>
 
   <g>
-    <path class="sparkle" d="M 35 20 Q 35 35 20 35 Q 35 35 35 50 Q 35 35 50 35 Q 35 35 35 20" fill="#FFD700" />
-    <path class="sparkle-delayed" d="M 165 145 Q 165 155 155 155 Q 165 155 165 165 Q 165 155 175 155 Q 165 155 165 145" fill="#00f2fe" />
-    <path class="sparkle" d="M 150 25 Q 150 32 143 32 Q 150 32 150 39 Q 150 32 157 32 Q 150 32 150 25" fill="#FF7eb3" />
+    <path class="sparkle" d="M 35 20 Q 35 35 20 35 Q 35 35 35 50 Q 35 35 50 35 Q 35 35 35 20" fill="#D7FF36" />
+    <path class="sparkle-delayed" d="M 165 145 Q 165 155 155 155 Q 165 155 165 165 Q 165 155 175 155 Q 165 155 165 145" fill="#00F5A0" />
+    <path class="sparkle" d="M 150 25 Q 150 32 143 32 Q 150 32 150 39 Q 150 32 157 32 Q 150 32 150 25" fill="#7CFF2E" />
   </g>
 
   <g>
     <animateTransform attributeName="transform" type="translate" values="0,0; 0,-8; 0,0" dur="2s" repeatCount="indefinite" />
 
-    <path d="M 20 75 C 20 -5, 180 -5, 180 75" fill="none" stroke="#2B2D42" stroke-width="6" stroke-linecap="round" />
+    <path d="M 20 75 C 20 -5, 180 -5, 180 75" fill="none" stroke="#0A2011" stroke-width="6" stroke-linecap="round" />
 
     <g fill="url(#waveGradient)">
       <rect x="14" y="80" width="12" height="40" rx="6" />
@@ -51,24 +52,24 @@
     </g>
 
     <g>
-      <ellipse cx="58" cy="98" rx="8" ry="5" fill="#FF477E" opacity="0.5" />
-      <ellipse cx="142" cy="98" rx="8" ry="5" fill="#FF477E" opacity="0.5" />
+      <ellipse cx="58" cy="98" rx="8" ry="5" fill="#B7FF3C" opacity="0.42" />
+      <ellipse cx="142" cy="98" rx="8" ry="5" fill="#B7FF3C" opacity="0.42" />
       
-      <circle cx="80" cy="85" r="9" fill="#2B2D42" />
-      <circle cx="77" cy="81" r="3" fill="#FFFFFF" />
+      <circle cx="80" cy="85" r="9" fill="#0A2011" />
+      <circle cx="77" cy="81" r="3" fill="#F4FFE8" />
       
-      <circle cx="120" cy="85" r="9" fill="#2B2D42" />
-      <circle cx="117" cy="81" r="3" fill="#FFFFFF" />
+      <circle cx="120" cy="85" r="9" fill="#0A2011" />
+      <circle cx="117" cy="81" r="3" fill="#F4FFE8" />
       
-      <path d="M 92 100 Q 100 112 108 100" fill="none" stroke="#2B2D42" stroke-width="4" stroke-linecap="round" />
+      <path d="M 92 100 Q 100 112 108 100" fill="none" stroke="#0A2011" stroke-width="4" stroke-linecap="round" />
     </g>
 
     <g>
-      <rect x="12" y="65" width="16" height="36" rx="8" fill="#FF477E" />
-      <rect x="22" y="72" width="6" height="22" rx="3" fill="#2B2D42" />
+      <rect x="12" y="65" width="16" height="36" rx="8" fill="#7CFF2E" />
+      <rect x="22" y="72" width="6" height="22" rx="3" fill="#0A2011" />
       
-      <rect x="172" y="65" width="16" height="36" rx="8" fill="#FF477E" />
-      <rect x="172" y="72" width="6" height="22" rx="3" fill="#2B2D42" />
+      <rect x="172" y="65" width="16" height="36" rx="8" fill="#7CFF2E" />
+      <rect x="172" y="72" width="6" height="22" rx="3" fill="#0A2011" />
     </g>
   </g>
 </svg>

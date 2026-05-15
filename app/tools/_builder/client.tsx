@@ -379,6 +379,7 @@ export function ToolBuilderClient({
                     <option value="synth">synth</option>
                     <option value="hybrid">hybrid</option>
                     <option value="effect">effect</option>
+                    <option value="visualizer">visualizer</option>
                   </select>
                 </label>
                 <p className="mt-3 text-xs leading-5 text-zinc-500">
@@ -463,6 +464,7 @@ export function ToolBuilderClient({
                     <option value="drum-machine">drum-machine</option>
                     <option value="splice-lab">splice-lab</option>
                     <option value="evolving-fm-synth">evolving-fm-synth</option>
+                    <option value="audio-visualizer">audio-visualizer</option>
                   </select>
                 </label>
                 <label className="block text-xs text-zinc-500">
@@ -827,6 +829,10 @@ function getDefaultReferenceAgent(instrumentType: string) {
 
   if (instrumentType === "effect" || instrumentType === "hybrid") {
     return "splice-lab";
+  }
+
+  if (instrumentType === "visualizer") {
+    return "audio-visualizer";
   }
 
   return "intelligence-sampler";

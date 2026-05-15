@@ -12,11 +12,12 @@ export const BuilderProfileDomainSchema = z.enum([
   "effect",
   "hybrid",
   "microtonal",
+  "visualizer",
 ]);
 
 export type BuilderProfileDomain = z.infer<typeof BuilderProfileDomainSchema>;
 
-type TargetDocument = "pattern" | "synth-scene" | "audio-stream";
+type TargetDocument = "pattern" | "synth-scene" | "audio-stream" | "visual-scene";
 type BuilderTargetInstrumentType = Exclude<InstrumentType, "builder" | "midi">;
 
 type MusicContextFlags = {
@@ -72,7 +73,7 @@ const DEFAULT_DESCRIPTION =
 
 const COMMON_IMPLEMENTATION_STEPS = [
   "Keep manifest, route, audio behavior, and UI state separated so generated L1s are inspectable and rebuildable.",
-  "Keep the generated musical document serializable as Pattern JSON, SynthScene JSON, or an audio-stream patch.",
+  "Keep the generated creative document serializable as Pattern JSON, SynthScene JSON, visual-scene JSON, or an audio-stream patch.",
 ];
 
 const COMMON_VERIFICATION_GATES = [
@@ -308,6 +309,49 @@ const BUILDER_PROFILE_BLUEPRINTS: Record<BuilderProfileDomain, BuilderProfileBlu
       "Microtonal generated tools must not collapse every scale into integer pitchSemitones.",
       "The active scale must be visible as data below the prompt result.",
       "Manual controls need to remain available even when the LLM scale prompt fails.",
+    ],
+  },
+  visualizer: {
+    domain: "visualizer",
+    label: "Audio Visualizer Builder",
+    builderSlug: "_visualizer-builder",
+    builderName: "visualizer-builder",
+    route: "/build/visualizer",
+    targetInstrumentType: "visualizer",
+    targetDocument: "visual-scene",
+    targetWorkflow: "audio-reactive-visual-scene",
+    referenceAgent: "audio-visualizer",
+    secondaryReferenceAgents: ["sample-analysis", "time-stretch"],
+    templateKit: "audio-visualizer-tool-skeleton",
+    sandboxRoot: "app/tools/_visualizer-builder/",
+    capabilities: [
+      "generateVisualizerTool",
+      "wireAnalyserNodeInput",
+      "mapAudioFeatures",
+      "verifyTool",
+      "registerTool",
+    ],
+    musicContext: {
+      globalBpm: true,
+      globalKey: false,
+      scaleSearch: false,
+    },
+    implementationSteps: [
+      "Generate prompt-driven visual-scene tools that use live generated audio, microphone, and recorded audio-file inputs.",
+      "Map FFT bands, waveform RMS, spectral centroid, spectral flux, onset, and beat pulse into visible canvas parameters instead of random animation.",
+      "Expose fullscreen controls plus bounded sensitivity, motion, palette, micro-fluctuation, and feature-mapping controls.",
+      "Verify manifest, visual-scene schema, visual frame responsiveness, typecheck, tests, registry metadata, and sandbox scope before registration.",
+    ],
+    verificationGates: [
+      "Generated visualizer manifest validates as level 1 with instrument.document = visual-scene.",
+      "Generated visualizer scene parses with VisualizerSceneSchema and declares live-audio, microphone, and audio-file sources.",
+      "Generated render.visual.test.ts proves visual frame output changes when audio feature inputs change.",
+      "Generated client tests cover prompt input, source selection, fullscreen control, and visual-scene JSON copy.",
+    ],
+    constraints: [
+      "Visualizer tools may generate a bounded live-audio source, but must not pretend to transform external audio unless they explicitly declare a hybrid or effect workflow.",
+      "Micro fluctuations must be bounded and layered over measured audio features, not used as the primary driver.",
+      "Microphone input must be user-gesture initiated and recoverable when permission is denied.",
     ],
   },
 };

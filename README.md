@@ -38,6 +38,7 @@ instrument families that all speak a shared platform language.
 - [L2 Builders](#l2-builders)
 - [Generated Tool Contract](#generated-tool-contract)
 - [AI Generation Architecture](#ai-generation-architecture)
+- [Prompt Memory Ledger](#prompt-memory-ledger)
 - [Audio Architecture](#audio-architecture)
 - [FX Architecture](#fx-architecture)
 - [Sample Library And Analysis](#sample-library-and-analysis)
@@ -173,11 +174,46 @@ AI_GATEWAY_API_KEY=
 AI_GATEWAY_MODEL=deepseek/deepseek-v4-flash
 ```
 
-Paste your AI Gateway key after `AI_GATEWAY_API_KEY=`:
+Get the API key from Vercel AI Gateway:
+
+1. Sign in to Vercel.
+2. Open the
+   [AI Gateway API Keys page](https://vercel.com/d?to=%2F%5Bteam%5D%2F~%2Fai-gateway%2Fapi-keys&title=AI+Gateway+API+Keys).
+3. Click `Create key`.
+4. Copy the key. You usually only get one chance to copy the full value.
+
+Paste that key after `AI_GATEWAY_API_KEY=`:
 
 ```bash
 AI_GATEWAY_API_KEY=your_key_goes_here
 AI_GATEWAY_MODEL=deepseek/deepseek-v4-flash
+```
+
+Choose the model by changing `AI_GATEWAY_MODEL`. Vercel model IDs use the
+`provider/model-name` shape, for example `deepseek/deepseek-v4-flash`.
+
+To choose a different model:
+
+1. Open the
+   [Vercel AI Gateway model catalog](https://vercel.com/ai-gateway/models).
+2. Filter for language models and compare context window, latency, throughput,
+   and price.
+3. Copy the exact model ID from the `Model` column.
+4. Paste it into `.env.local`:
+
+```bash
+AI_GATEWAY_MODEL=provider/model-name
+```
+
+For this repo, keep `deepseek/deepseek-v4-flash` unless you are intentionally
+testing another model. Fast, low-cost models are better for iteration; larger
+reasoning models can be useful when the tool-loop builder needs deeper code
+changes.
+
+You can also inspect the current model list from Terminal:
+
+```bash
+curl https://ai-gateway.vercel.sh/v1/models
 ```
 
 Save the file. Do not add spaces around the `=` signs.
@@ -376,17 +412,19 @@ The framework gives each instrument:
 
 - A validated identity: name, slug, level, origin, route, status, autonomy, and
   declared capabilities.
-- A declared musical family: sample, synth, hybrid, effect, MIDI, or builder.
-- A saved document format: Pattern, SynthScene, MidiClip, audio-stream patch, or
-  generated files.
+- A declared musical family: sample, synth, hybrid, effect, MIDI, visualizer, or
+  builder.
+- A saved document format: Pattern, SynthScene, MidiClip, visual-scene,
+  audio-stream patch, or generated files.
 - A prompt-first control surface that makes AI generation the first meaningful
   creative gesture.
-- A real Web Audio or MIDI output path.
+- A real Web Audio, MIDI, or audio-reactive visual output path.
 - A record/export path where the generated result can leave the browser.
 - A registry and audit trail so generated instruments are not silently detached
   from the workstation.
 - A verification path that proves the tool can render, typecheck, test, and
-  produce finite audible output where audio is expected.
+  produce finite audible output where audio is expected and deterministic visual
+  frame output where visuals are expected.
 
 The framework is intentionally instrument-centered. The unit of work is not
 "call a model and play a sound"; the unit of work is "create a reusable musical
@@ -405,9 +443,9 @@ a framework, those outputs become hard to trust:
 
 This repo solves that by making each instrument explain itself in code.
 `AgentManifestSchema` declares what the tool is. Pattern, SynthScene, MidiClip,
-and audio-stream contracts declare what the tool produces. The dashboard and
-audit layers read those declarations and decide whether the tool belongs in the
-workstation.
+visual-scene, and audio-stream contracts declare what the tool produces. The
+dashboard and audit layers read those declarations and decide whether the tool
+belongs in the workstation.
 
 ### The Modular Rig Analogy
 
@@ -418,7 +456,7 @@ The framework pieces line up with a modular system:
 | Module panel | `/tools/<slug>` route and React client |
 | Module label | `app/tools/<slug>/manifest.ts` |
 | Patch cable | Serializable document passed between UI, engine, export, and tests |
-| Sequencer | Pattern, SynthScene, or MidiClip document |
+| Sequencer / visual patch | Pattern, SynthScene, MidiClip, or visual-scene document |
 | Oscillator / sampler / processor | Web Audio and Tone.js engine code |
 | Rack power and clock | Shared audio bootstrap, Tone transport, global BPM/key/scale context |
 | Utility module | Shared SamplePicker, FX slots, ToolExportPanel, AudioOutputRecorder |
@@ -436,7 +474,7 @@ The platform has two levels.
 | Level | Meaning | Routes |
 | --- | --- | --- |
 | L1 | Playable AI-native instruments, effects, analyzers, and generators | `/tools/<slug>` |
-| L2 | Builders that generate or rebuild L1 tools | `/build`, `/build/sample`, `/build/synth`, `/build/effect`, `/build/hybrid`, `/build/microtonal` |
+| L2 | Builders that generate or rebuild L1 tools | `/build`, `/build/sample`, `/build/synth`, `/build/effect`, `/build/hybrid`, `/build/microtonal`, `/build/visualizer` |
 
 There is no higher builder tier in the product. `AgentManifestSchema` accepts
 only `level: 1` and `level: 2`.
@@ -447,13 +485,13 @@ The runtime registry currently resolves:
 
 | Count | Value |
 | --- | --- |
-| Total manifests | 17 |
-| L1 tools | 11 |
-| L2 builders | 6 |
-| Installed manifests | 15 |
-| Generated manifests | 2 |
-| Instrument types | builder 6, sample 5, synth 3, effect 1, midi 1, hybrid 1 |
-| Document types | files 6, pattern 4, synth-scene 3, audio-stream 3, midi-clip 1 |
+| Total manifests | 20 |
+| L1 tools | 13 |
+| L2 builders | 7 |
+| Installed manifests | 17 |
+| Generated manifests | 3 |
+| Instrument types | builder 7, visualizer 1, synth 4, sample 5, effect 1, midi 1, hybrid 1 |
+| Document types | files 7, visual-scene 1, synth-scene 4, pattern 4, audio-stream 3, midi-clip 1 |
 
 Those counts come from `getAgentManifests()` in `lib/agents/registry.ts`, which
 merges the generated registry with in-tree manifests.
@@ -581,6 +619,7 @@ Primary routes:
 - `/build/effect`: specialized audio-stream effect L2 builder.
 - `/build/hybrid`: specialized sample-informed synth L2 builder.
 - `/build/microtonal`: specialized microtonal sample-pattern L2 builder.
+- `/build/visualizer`: specialized audio-reactive visual-scene L2 builder.
 
 Important API routes:
 
@@ -612,15 +651,15 @@ Core fields:
 | `origin` | `installed` for committed platform tools, `generated` for L2-created tools. |
 | `description` | Product description of the instrument or builder. |
 | `route` | Route where the tool mounts. |
-| `instrument.type` | `sample`, `synth`, `hybrid`, `effect`, `midi`, or `builder`. |
+| `instrument.type` | `sample`, `synth`, `hybrid`, `effect`, `midi`, `visualizer`, or `builder`. |
 | `instrument.workflow` | More specific workflow label such as `sample-pattern` or `synth-scene`. |
-| `instrument.document` | Saved output contract: `pattern`, `synth-scene`, `midi-clip`, `audio-stream`, or `files`. |
+| `instrument.document` | Saved output contract: `pattern`, `synth-scene`, `midi-clip`, `audio-stream`, `visual-scene`, or `files`. |
 | `instrument.usesSamples` | Whether the tool consumes sample library or upload sources. |
 | `instrument.usesSynthesis` | Whether the tool creates sound through synthesis. |
 | `capabilities` | Feature flags such as `generatePattern`, `fxSlots`, `exportMidi`, `recordOutput`, `verifyTool`. |
-| `inputs` | Declared input needs: prompt, samples, BPM, global context, scale search, description, reference agent. |
+| `inputs` | Declared input needs: prompt, samples, BPM, global context, scale search, audio sources, description, reference agent. |
 | `musicContext` | Whether the tool participates in global BPM, key, and scale. |
-| `outputs` | Declared outputs: Pattern, SynthScene, MIDI, audio, recording, files, manifest. |
+| `outputs` | Declared outputs: Pattern, SynthScene, MIDI, visual-scene, audio, recording, files, manifest. |
 | `exports` | Portable artifact strategy for audio and MIDI. |
 | `fx` | Optional shared FX slot declaration. |
 | `autonomy` | `manual`, `assist`, or `driven`. |
@@ -635,12 +674,20 @@ L1 tools must:
 - Expose prompt input for AI-native generation.
 - Declare the output matching their document type.
 - Declare audible Web Audio output when they produce sound.
-- Expose recording output and the `recordOutput` capability.
+- Expose recording output and the `recordOutput` capability when they are
+  audio-producing instruments rather than visualizers.
 - Opt into the required shared music context for their instrument type.
 - Avoid descriptions that read like builder tasks.
 
 SynthScene L1 tools must also declare MIDI output and `exportMidi` unless they
 are continuous live synths such as `camera-theremin`.
+
+Visualizer L1 tools must declare `instrument.type = "visualizer"`,
+`instrument.document = "visual-scene"`, `outputs.visualScene = true`, and the
+live analyser sources they support, such as `live-audio`, `audio-file`, and
+`microphone`. Built-in live audio is allowed, but microphone access must remain
+user-gesture initiated and visual motion must be bounded around measured audio
+features rather than random animation.
 
 ### L2 Manifest Rules
 
@@ -665,6 +712,7 @@ The current document families are:
 | `pattern` | `lib/pattern/schema.ts` | Sample sequencing, slicing, grid traversal, drum machines, microtonal sample patterns. |
 | `synth-scene` | `app/tools/evolving-fm-synth/lib/schema.ts` | Multi-voice synth scenes, FM/wavetable patches, macro evolution, MIDI export. |
 | `midi-clip` | `app/tools/midi-generator/lib/schema.ts` | Discrete MIDI notes, tracks, channels, pitch bend, CC data, long-form MIDI generation. |
+| `visual-scene` | `lib/visualizers/schema.ts` | Audio-reactive fullscreen visuals driven by FFT bands, waveform RMS, centroid, flux, onset, beat, and bounded motion. |
 | `audio-stream` | Manifest/document convention plus tool-local patch schemas | Effects, analysis, time-stretching, live input or rendered audio transformation. |
 | `files` | L2 builder output | Generated source files and manifests. |
 
@@ -732,6 +780,26 @@ or audio analysis rather than a note grid. Examples include:
 Audio-stream tools still need explicit manifests, bounded controls, and export
 contracts. They should not pretend to be Pattern or SynthScene tools.
 
+### VisualScene
+
+`VisualizerSceneSchema` is the audio-reactive visual document in
+`lib/visualizers/schema.ts`.
+
+It contains:
+
+- Source selection for `live-audio`, uploaded `audio-file`, or `microphone`
+  analyser input.
+- Canvas mode and palette choices for spectral bloom/fabric, frequency crowns,
+  radial bloom, particle field, waveform ribbon, and tunnel visuals.
+- Audio feature mapping for RMS, peak, bass, mids, air, centroid, flux, onset,
+  and beat.
+- Bounded motion, zoom, rotation, warp, and micro-fluctuation parameters.
+- Automation entries that map measured audio features into visual targets.
+
+Visualizer tools can render live from a built-in Web Audio source, a recorded
+file, or microphone input. They should keep visual movement tied to analyser
+features and use micro fluctuation only as a subtle secondary layer.
+
 ## L1 Instruments
 
 Installed L1 tools live under `app/tools/<slug>/` and export a validated
@@ -750,6 +818,7 @@ Current installed L1 surfaces:
 | `sample-analysis` | sample | audio-stream | Upload/library analysis with DSP features, AI descriptors, production ideas, and audition. |
 | `midi-generator` | midi | midi-clip | Prompt-driven MIDI clips with global context sync, sine preview, visualization, and Standard MIDI export. |
 | `time-stretch` | hybrid | audio-stream | Prompted sample stretching, spectral freeze, subharmonic bloom, render, and recording. |
+| `audio-visualizer` | visualizer | visual-scene | Prompted fullscreen spectral patterns for live generated audio, uploaded files, or microphone input. |
 
 Current generated L1 examples:
 
@@ -774,11 +843,13 @@ The general builder is `/build`. Specialized builder profiles live in
 - `/build/effect`
 - `/build/hybrid`
 - `/build/microtonal`
+- `/build/visualizer`
 
 Each profile constrains:
 
 - Target instrument type.
-- Target document type: `pattern`, `synth-scene`, or `audio-stream`.
+- Target document type: `pattern`, `synth-scene`, `audio-stream`, or
+  `visual-scene`.
 - Target workflow label.
 - Primary reference tool.
 - Secondary reference tools.
@@ -796,12 +867,13 @@ anything" and more like "patch a specific builder module into the rack."
 
 | Builder | Route | Target | Document | Reference |
 | --- | --- | --- | --- | --- |
-| General builder | `/build` | sample, synth, effect, or hybrid | inferred | chosen from request |
+| General builder | `/build` | sample, synth, effect, hybrid, or visualizer | inferred | chosen from request |
 | Sample Pattern Builder | `/build/sample` | sample | pattern | `intelligence-sampler`, with `splice-lab`, `drum-machine`, `grid-sampler` as secondary references |
 | Synth Scene Builder | `/build/synth` | synth | synth-scene | `evolving-fm-synth` |
 | Audio Stream Effect Builder | `/build/effect` | effect | audio-stream | `evolving-fm-synth`, `splice-lab` |
 | Sample-Informed Synth Builder | `/build/hybrid` | hybrid | synth-scene | `evolving-fm-synth`, `intelligence-sampler` |
 | Microtonal Sample Builder | `/build/microtonal` | sample | pattern | `intelligence-sampler`, `evolving-fm-synth` |
+| Audio Visualizer Builder | `/build/visualizer` | visualizer | visual-scene | `audio-visualizer`, with `sample-analysis`, `time-stretch` as secondary references |
 
 ### Create Flow
 
@@ -811,7 +883,8 @@ The create path is:
 2. Client posts a `BuildToolRequest` to `/api/build`.
 3. `handleBuildRequest` validates the request with `BuildToolRequestSchema`.
 4. By default, `runBuilderAgent` creates a deterministic generated L1 from the
-   canonical skeleton for the requested sample, synth, effect, or hybrid target.
+   canonical skeleton for the requested sample, synth, effect, hybrid, or
+   visualizer target.
 5. If `TOOLPA_JS_BUILDER_MODE=tool-loop` is set, `runBuilderToolLoopAgent` starts
    an AI Gateway tool-loop agent that reads tool lists, reference files, and
    schemas; instantiates a skeleton; edits files in the sandbox; and runs gates.
@@ -859,6 +932,7 @@ Every generated L1 should have:
 - A valid `AgentManifestSchema` with `origin: "generated"` and `level: 1`.
 - Manifest `exports` for declared audio and MIDI outputs.
 - A prompt-first UI layout.
+- Prompt-memory logging for any prompt application path.
 - A visible document/artifact path, not only hidden sound generation.
 
 Generated tools are accepted only when their code, manifest, route, tests,
@@ -875,14 +949,17 @@ AI_GATEWAY_MODEL=deepseek/deepseek-v4-flash
 ```
 
 Set `AI_GATEWAY_API_KEY` in `.env.local`, or use Vercel OIDC auth in
-deployment.
+deployment. To switch models, copy a model ID from the
+[Vercel AI Gateway model catalog](https://vercel.com/ai-gateway/models) or the
+unauthenticated `https://ai-gateway.vercel.sh/v1/models` endpoint and set
+`AI_GATEWAY_MODEL` to that exact value.
 
 Gateway configuration lives in `lib/ai/gateway.ts`.
 
 AI is used in several distinct modes:
 
-- L1 document generation: create or mutate Pattern, SynthScene, or MidiClip
-  documents from prompts.
+- L1 document generation: create or mutate Pattern, SynthScene, MidiClip, or
+  VisualScene documents from prompts.
 - L1 contextual suggestions: use sample metadata, analysis summaries, global
   context, and prompt history to suggest useful musical directions.
 - L1 descriptor enrichment: annotate measured audio analysis with human-facing
@@ -915,10 +992,47 @@ Common context sources:
 - Global BPM, swing, key, scale, and reference frequency.
 - Selected library sample metadata.
 - Upload or library sample analysis.
-- Active Pattern, SynthScene, MidiClip, or patch document.
+- Active Pattern, SynthScene, MidiClip, VisualScene, or patch document.
 - Instrument manifest capabilities.
 - Reference tool files for L2 builds.
 - Builder profile constraints and verification gates.
+
+## Prompt Memory Ledger
+
+Every prompt path writes a local audit entry under `.memory/prompts/`.
+
+The directory is intentionally gitignored. It is for local continuity across
+sessions, debugging, and future agents that need to inspect exactly what was
+asked of a tool without committing private creative prompts to the repo.
+
+Prompt memory entries are newline-delimited JSON files named by day:
+
+```text
+.memory/prompts/YYYY-MM-DD.ndjson
+```
+
+Each entry includes a timestamp, source, action, optional tool slug, the user
+prompt, and when available the resolved system/model prompt plus metadata such
+as sample IDs, builder profile, model, tempo, or selected document state.
+
+The shared implementation lives in:
+
+- `lib/prompt-memory/server.ts` for server-side filesystem writes.
+- `app/api/prompt-memory/route.ts` for browser-only prompt surfaces that need
+  to append to local memory.
+- `lib/prompt-memory/client.ts` for best-effort client logging.
+
+Existing prompt surfaces log through this layer:
+
+- `/api/generate`, `/api/synth`, `/api/suggestions`, `/api/copilot`,
+  `/api/sample-analysis`, and the global tempo/scale endpoints.
+- AI SDK calls in `lib/ai/*`, `lib/music/*`, and L2 builder agents.
+- Deterministic browser prompt tools such as MIDI Generator, Time Stretch,
+  Camera Theremin, Drum Machine geometry prompts, generated local effect
+  patches, and Audio Visualizer scenes.
+
+Set `TOOLPA_PROMPT_MEMORY_DIR` to relocate the log directory. Set
+`TOOLPA_PROMPT_MEMORY_DISABLED=1` to disable writes for tests or one-off runs.
 
 ## Audio Architecture
 
@@ -1211,12 +1325,13 @@ all runtime manifests against platform rules.
 
 It encodes these conventions:
 
-- Every L1 exposes a Pattern, SynthScene, MIDI clip, or audio-stream document
-  instead of hiding output only inside transient Web Audio nodes.
+- Every L1 exposes a Pattern, SynthScene, MIDI clip, visual-scene, or
+  audio-stream document instead of hiding output only inside transient Web Audio
+  nodes.
 - Manifest, audio behavior, and UI route stay explicit so generated tools can
   be loaded, inspected, and rebuilt.
-- Playable L1s expose bounded prompt/audio controls, recording, and
-  user-triggered audio output.
+- Playable L1s expose bounded prompt/audio controls, recording when relevant,
+  and user-triggered audio output.
 - L2 builders validate manifests, static safety, tests, audio-gate output,
   registry metadata, and sandbox scope before a generated L1 becomes part of
   the suite.
@@ -1237,6 +1352,10 @@ description as the first editing surface.
 The reason is product-level, not cosmetic: AI is the creative front panel of the
 framework. Manual editing is still important, but it should refine or inspect
 the generated document after the prompt creates a musical direction.
+
+Any new prompt-first surface must also write prompt memory. Server-backed tools
+should log at the route or AI SDK boundary. Browser-only deterministic tools
+should call `logClientPromptMemory()` when the prompt is applied.
 
 ## Verification Gauntlet
 
@@ -1371,7 +1490,7 @@ generated tool.
    autonomy, and status.
 3. Create `page.tsx` and `client.tsx`.
 4. Use an existing document schema where possible: Pattern, SynthScene,
-   MidiClip, or audio-stream patch.
+   MidiClip, VisualScene, or audio-stream patch.
 5. Route audio through shared audio helpers where possible.
 6. Use `SamplePicker`, `ToolExportPanel`, `AudioOutputRecorder`, FX slots, and
    global music context when relevant.
@@ -1410,8 +1529,8 @@ Use this when a new family of generated instruments needs its own constraints.
 
 ### Add A New Musical Document Primitive
 
-Use this only when Pattern, SynthScene, MidiClip, and audio-stream patch
-documents cannot represent the instrument honestly.
+Use this only when Pattern, SynthScene, MidiClip, VisualScene, and audio-stream
+patch documents cannot represent the instrument honestly.
 
 1. Define a Zod schema and type for the document.
 2. Add a manifest document enum value in `InstrumentDocumentSchema`.
@@ -1456,7 +1575,8 @@ The framework favors:
 - Verification before registration.
 - Local deterministic fallback when AI services fail.
 - Honest document types: sample tools output Pattern, synth tools output
-  SynthScene, MIDI tools output MidiClip, effects output audio-stream patches.
+  SynthScene, MIDI tools output MidiClip, visualizers output VisualScene, and
+  effects output audio-stream patches.
 
 The framework avoids:
 
@@ -1479,6 +1599,7 @@ The framework avoids:
 | Pattern | Serializable sample sequencing document. |
 | SynthScene | Serializable multi-voice synth document. |
 | MidiClip | Serializable discrete MIDI document. |
+| VisualScene | Serializable audio-reactive visualizer document. |
 | Audio stream | Serializable or bounded audio processing/analysis patch family. |
 | Generated registry | `.audit/generated-tools.json`, the accepted generated tool registry. |
 | Snapshot | `.audit/snapshots/<slug>/`, accepted generated source at registration time. |

@@ -18,6 +18,7 @@ const DOCUMENT_OUTPUT_BY_TYPE = {
   "midi-clip": "midi",
   pattern: "pattern",
   "synth-scene": "synthScene",
+  "visual-scene": "visualScene",
 } as const satisfies Record<InstrumentDocument, keyof AgentManifest["outputs"]>;
 
 const REQUIRED_SPECIALIZED_TARGETS = {
@@ -26,6 +27,7 @@ const REQUIRED_SPECIALIZED_TARGETS = {
   microtonal: { document: "pattern", instrumentType: "sample" },
   sample: { document: "pattern", instrumentType: "sample" },
   synth: { document: "synth-scene", instrumentType: "synth" },
+  visualizer: { document: "visual-scene", instrumentType: "visualizer" },
 } as const;
 
 const ReferenceConventionSchema = z.object({
@@ -39,7 +41,7 @@ export const WEB_AUDIO_REFERENCE_CONVENTIONS = [
     id: "serializable-audio-documents",
     source: "Ameobea/web-synth, GridSound, Strudel",
     requirement:
-      "Every L1 exposes a Pattern, SynthScene, or audio-stream document instead of hiding output only inside transient Web Audio nodes.",
+      "Every L1 exposes a Pattern, SynthScene, MidiClip, visual-scene, or audio-stream document instead of hiding output only inside transient Web Audio nodes.",
   },
   {
     id: "explicit-audio-ui-boundary",
@@ -148,7 +150,7 @@ function createL1Issues(manifest: AgentManifest): PlatformHardeningIssue[] {
     );
   }
 
-  if (!manifest.outputs.audio) {
+  if (manifest.instrument.type !== "visualizer" && !manifest.outputs.audio) {
     issues.push(issue(manifest, "l1-audio-output", "error", "L1 tools must declare an audible Web Audio output."));
   }
 
@@ -166,7 +168,10 @@ function createL1Issues(manifest: AgentManifest): PlatformHardeningIssue[] {
     );
   }
 
-  if (!manifest.outputs.recording || !manifest.capabilities.includes("recordOutput")) {
+  if (
+    manifest.instrument.type !== "visualizer" &&
+    (!manifest.outputs.recording || !manifest.capabilities.includes("recordOutput"))
+  ) {
     issues.push(
       issue(
         manifest,
@@ -329,7 +334,7 @@ function hasRequiredMusicContext(
   instrumentType: InstrumentType,
   context: AgentManifest["musicContext"],
 ) {
-  if (instrumentType === "effect") {
+  if (instrumentType === "effect" || instrumentType === "visualizer") {
     return context.globalBpm;
   }
   return context.globalBpm && context.globalKey && context.scaleSearch;

@@ -28,6 +28,7 @@ export const harmonicDistrotionEffectManifest = {
     "prompt": true,
     "description": false,
     "referenceAgent": false,
+    "audioSources": [],
     "requiredAnalysis": []
   },
   "musicContext": {
@@ -39,6 +40,7 @@ export const harmonicDistrotionEffectManifest = {
     "pattern": false,
     "synthScene": false,
     "midi": false,
+    "visualScene": false,
     "audio": true,
     "recording": true,
     "files": false,

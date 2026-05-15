@@ -86,6 +86,10 @@ function getDefaultToolName(domain: BuilderProfileDomain) {
     return "Microtonal Sampler";
   }
 
+  if (domain === "visualizer") {
+    return "Audio Reactive Visualizer";
+  }
+
   return "Evolving Synth Tool";
 }
 
@@ -106,6 +110,10 @@ function getDefaultToolSlug(domain: BuilderProfileDomain) {
     return "microtonal-pattern-tool";
   }
 
+  if (domain === "visualizer") {
+    return "audio-reactive-visualizer";
+  }
+
   return "evolving-synth-tool";
 }
 
@@ -124,6 +132,10 @@ function getDefaultToolBrief(domain: BuilderProfileDomain) {
 
   if (domain === "microtonal") {
     return "Build a microtonal sample-pattern L1 tool that exposes scale-search prompts, manual root/scale controls, pitchCents, tuningRef, declicked playback, and WAV export.";
+  }
+
+  if (domain === "visualizer") {
+    return "Build an audio-reactive visual-scene L1 tool with live generated audio, microphone, and recorded audio inputs, FFT/spectrogram feature mapping, fullscreen controls, prompt-shaped parameters, and bounded micro fluctuations.";
   }
 
   return "Build an evolving SynthScene L1 tool with global BPM/key/scale sync, local-agent gateway fallback, macro controls, WAV export, recording, and JSON copy.";

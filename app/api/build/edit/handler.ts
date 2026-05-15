@@ -7,6 +7,7 @@ import {
   runBuilderEditAgent,
   type RunBuilderEditAgentInput,
 } from "@/app/tools/_builder/lib/builder-agent";
+import { recordPromptMemory } from "@/lib/prompt-memory/server";
 
 export type BuildEditHandlerDeps = {
   runEditAgent?: (input: RunBuilderEditAgentInput) => Promise<unknown>;
@@ -25,6 +26,18 @@ export async function handleBuildEditRequest(
   }
 
   const runEditAgent = deps.runEditAgent ?? runBuilderEditAgent;
+
+  await recordPromptMemory({
+    action: "edit-tool",
+    metadata: {
+      register: parsed.data.register,
+      tokenBudget: parsed.data.tokenBudget,
+    },
+    route: "/api/build/edit",
+    source: "api.build.edit",
+    toolSlug: parsed.data.slug,
+    userPrompt: parsed.data.description,
+  });
 
   return new Response(
     new ReadableStream({

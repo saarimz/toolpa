@@ -34,6 +34,7 @@ export const timeStretchManifest = {
     prompt: true,
     description: false,
     referenceAgent: false,
+    audioSources: [],
     requiredAnalysis: [
       "global.true_peak_dbfs",
       "rhythm.onsets_s",
@@ -50,6 +51,7 @@ export const timeStretchManifest = {
     pattern: false,
     synthScene: false,
     midi: false,
+    visualScene: false,
     audio: true,
     recording: true,
     files: true,

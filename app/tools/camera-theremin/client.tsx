@@ -50,6 +50,7 @@ import {
   resolveScaleKey,
 } from "@/lib/music/scale-catalog";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
+import { logClientPromptMemory } from "@/lib/prompt-memory/client";
 import { usePromptParamState } from "@/lib/tools/use-prompt-param";
 import {
   applyThereminPromptToControls,
@@ -340,6 +341,20 @@ export function CameraThereminClient() {
       nextPrompt,
       controlSettingsRef.current,
     );
+    logClientPromptMemory({
+      action: "apply-theremin-prompt",
+      metadata: {
+        chordCycle: next.chordCycle,
+        chordMode: next.chordMode,
+        degreeSpan: next.degreeSpan,
+        octaveShift: next.octaveShift,
+        smoothing: next.smoothing,
+        trackingMode: next.trackingMode,
+      },
+      source: "client.camera-theremin",
+      toolSlug: TOOL_SLUG,
+      userPrompt: nextPrompt,
+    });
 
     setIsApplyingPrompt(true);
     setPromptStatus("applying prompt");

@@ -155,8 +155,10 @@ describe("EvolvingFmSynthClient", () => {
   it("lets each selected voice choose a carrier root waveform", async () => {
     render(<EvolvingFmSynthClient />);
 
+    await userEvent.click(screen.getByText(/sound editor/i));
+
     const rootWaveSelect = screen.getByLabelText(/root wave/i);
-    expect(rootWaveSelect).toHaveValue("wavetable");
+    expect(rootWaveSelect).toHaveValue("sine");
 
     await userEvent.selectOptions(rootWaveSelect, "square");
 
@@ -172,6 +174,7 @@ describe("EvolvingFmSynthClient", () => {
     render(<EvolvingFmSynthClient />);
 
     await userEvent.click(screen.getByRole("button", { name: /download midi/i }));
+    await userEvent.click(screen.getByText(/MIDI editor/i));
 
     expect(exportSynthSceneMidiArtifact).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -180,6 +183,16 @@ describe("EvolvingFmSynthClient", () => {
       }),
     );
     expect(screen.getByRole("region", { name: /midi playback/i })).toBeInTheDocument();
+  });
+
+  it("keeps the first screen focused on a compact sound map", () => {
+    render(<EvolvingFmSynthClient />);
+
+    expect(screen.getByText("sound map")).toBeInTheDocument();
+    expect(screen.getByText("warmth")).toBeInTheDocument();
+    expect(screen.getByText("metal")).toBeInTheDocument();
+    expect(screen.getByText(/MIDI editor/i)).toBeInTheDocument();
+    expect(screen.getByText(/sound editor/i)).toBeInTheDocument();
   });
 
   it("imports uploaded MIDI files into the synth scene", async () => {

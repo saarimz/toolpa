@@ -82,6 +82,32 @@ describe("generated tool audit", () => {
     });
   });
 
+  it("treats visual scenes as renderable visual document outputs", () => {
+    const audit = createGeneratedToolAudit([
+      generatedManifest({
+        document: "visual-scene",
+        instrumentType: "visualizer",
+        outputs: { audio: true, visualScene: true },
+        slug: "generated-visualizer",
+      }),
+    ]);
+
+    expect(audit).toMatchObject({
+      byDocument: {
+        "visual-scene": 1,
+      },
+      byInstrument: {
+        visualizer: 1,
+      },
+      readyCount: 1,
+      status: "ready",
+    });
+    expect(audit.entries[0]).toMatchObject({
+      hasDocumentOutput: true,
+      hasRenderableOutput: true,
+    });
+  });
+
   it("surfaces generated tools that are not prompt-first or renderable", () => {
     const audit = createGeneratedToolAudit([
       generatedManifest({
@@ -288,6 +314,7 @@ function generatedManifest({
     pattern: false,
     recording: false,
     synthScene: false,
+    visualScene: false,
     ...outputs,
   };
 
@@ -302,15 +329,16 @@ function generatedManifest({
       globalKey: false,
       prompt,
       referenceAgent: false,
+      audioSources: instrumentType === "visualizer" ? ["live-audio", "audio-file", "microphone"] : [],
       requiredAnalysis: [],
       scaleSearch: false,
-      samples: instrumentType === "sample" || instrumentType === "hybrid" ? ["break"] : [],
+      samples: instrumentType === "sample" || instrumentType === "hybrid" || instrumentType === "visualizer" ? ["break"] : [],
     },
     instrument: {
       document,
       type: instrumentType,
-      usesSamples: instrumentType === "sample" || instrumentType === "hybrid",
-      usesSynthesis: instrumentType === "synth" || instrumentType === "hybrid",
+      usesSamples: instrumentType === "sample" || instrumentType === "hybrid" || instrumentType === "visualizer",
+      usesSynthesis: instrumentType === "synth" || instrumentType === "hybrid" || instrumentType === "visualizer",
       workflow: `${instrumentType}-workflow`,
     },
     level: 1,
@@ -342,7 +370,12 @@ function createGeneratedExportContract(
     ...(outputs.audio
       ? {
           audio: {
-            strategy: document === "audio-stream" ? "live-recording" : "offline-render",
+            strategy:
+              document === "audio-stream"
+                ? "live-recording"
+                : document === "visual-scene"
+                  ? "source-audio"
+                  : "offline-render",
             formats: ["wav"] as const,
             maxDefaultDurationSec: 120,
             requiresUserGestureForPreview: true,

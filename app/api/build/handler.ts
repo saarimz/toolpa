@@ -8,6 +8,7 @@ import {
   runBuilderToolLoopAgent,
   type RunBuilderToolLoopAgentInput,
 } from "@/app/tools/_builder/lib/builder-agent";
+import { recordPromptMemory } from "@/lib/prompt-memory/server";
 
 export type BuildHandlerDeps = {
   runBuilder?: (input: RunBuilderToolLoopAgentInput) => Promise<unknown>;
@@ -26,6 +27,22 @@ export async function handleBuildRequest(
   }
 
   const runBuilder = deps.runBuilder ?? getDefaultBuildRunner();
+
+  await recordPromptMemory({
+    action: "build-tool",
+    metadata: {
+      builderSpecialization: parsed.data.builderSpecialization?.builderSlug,
+      instrumentType: parsed.data.instrumentType,
+      register: parsed.data.register,
+      requestedName: parsed.data.name,
+      requestedSlug: parsed.data.slug,
+      tokenBudget: parsed.data.tokenBudget,
+    },
+    route: "/api/build",
+    source: "api.build",
+    toolSlug: parsed.data.builderSpecialization?.builderSlug ?? "_builder",
+    userPrompt: parsed.data.description,
+  });
 
   return new Response(
     new ReadableStream({

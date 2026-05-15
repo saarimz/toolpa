@@ -33,6 +33,7 @@ describe("AgentManifestSchema", () => {
         prompt: true,
         description: false,
         referenceAgent: false,
+        audioSources: [],
       },
       musicContext: {
         globalBpm: false,
@@ -43,6 +44,7 @@ describe("AgentManifestSchema", () => {
         pattern: true,
         synthScene: false,
         midi: false,
+        visualScene: false,
         audio: false,
         recording: false,
         files: false,
@@ -87,6 +89,7 @@ describe("AgentManifestSchema", () => {
         pattern: false,
         synthScene: false,
         midi: false,
+        visualScene: false,
         audio: false,
         recording: false,
         files: true,
@@ -228,6 +231,7 @@ describe("AgentManifestSchema", () => {
       },
       outputs: {
         midi: true,
+        visualScene: false,
         audio: true,
         recording: true,
       },
@@ -237,6 +241,54 @@ describe("AgentManifestSchema", () => {
           format: "smf-1",
           strategy: "standard-midi-file",
         },
+      },
+    });
+  });
+
+  it("accepts audio-reactive visualizer manifests", () => {
+    expect(
+      AgentManifestSchema.parse({
+        name: "audio visualizer",
+        slug: "audio-visualizer",
+        level: 1,
+        description: "Prompt-generated audio reactive visuals.",
+        route: "/tools/audio-visualizer",
+        instrument: {
+          type: "visualizer",
+          workflow: "audio-reactive-visual-scene",
+          document: "visual-scene",
+          usesSamples: true,
+          usesSynthesis: true,
+        },
+        capabilities: ["promptToVisualScene", "liveAudioInput", "microphoneInput", "audioFileInput", "fullscreenVisuals"],
+        inputs: {
+          audioSources: ["live-audio", "audio-file", "microphone"],
+          globalBpm: true,
+          globalKey: false,
+          scaleSearch: false,
+        },
+        musicContext: { globalBpm: true, globalKey: false, scaleSearch: false },
+        outputs: { visualScene: true, audio: true },
+        exports: {
+          document: "visual-scene",
+          audio: {
+            strategy: "source-audio",
+            formats: ["wav"],
+            maxDefaultDurationSec: 600,
+            requiresUserGestureForPreview: true,
+          },
+        },
+      }),
+    ).toMatchObject({
+      instrument: {
+        type: "visualizer",
+        document: "visual-scene",
+      },
+      inputs: {
+        audioSources: ["live-audio", "audio-file", "microphone"],
+      },
+      outputs: {
+        visualScene: true,
       },
     });
   });

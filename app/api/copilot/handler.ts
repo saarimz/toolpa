@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import type { ProducerCopilotMessage } from "@/lib/ai/producer-copilot";
 import { getAgentManifests } from "@/lib/agents/registry";
+import { recordPromptMemory } from "@/lib/prompt-memory/server";
 
 const CopilotChatRequestSchema = z.object({
   messages: z
@@ -44,6 +45,22 @@ export async function handleCopilotRequest(
       { status: 503 },
     );
   }
+
+  await recordPromptMemory({
+    action: "chat",
+    metadata: {
+      messageCount: parsed.data.messages.length,
+      userMessageCount: parsed.data.messages.filter((message) => message.role === "user")
+        .length,
+    },
+    route: "/api/copilot",
+    source: "api.copilot",
+    toolSlug: "producer-copilot",
+    userPrompt: parsed.data.messages
+      .filter((message) => message.role === "user")
+      .map((message) => message.content)
+      .join("\n\n"),
+  });
 
   const reply = await deps.generateReply({
     messages: parsed.data.messages,

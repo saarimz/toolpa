@@ -10,6 +10,7 @@ export const BuilderSpecializationDomainSchema = z.enum([
   "effect",
   "hybrid",
   "microtonal",
+  "visualizer",
 ]);
 
 export const BuilderTargetInstrumentTypeSchema = z.enum([
@@ -17,12 +18,14 @@ export const BuilderTargetInstrumentTypeSchema = z.enum([
   "synth",
   "effect",
   "hybrid",
+  "visualizer",
 ]);
 
 export const BuilderTargetDocumentSchema = z.enum([
   "pattern",
   "synth-scene",
   "audio-stream",
+  "visual-scene",
 ]);
 
 export const BuildToolSpecializationSchema = z.object({
@@ -33,8 +36,8 @@ export const BuildToolSpecializationSchema = z.object({
   targetWorkflow: z.string().min(1).max(120),
   templateKit: z.string().min(1).max(160),
   referenceAgent: z.string().min(1).max(80),
-  constraints: z.array(z.string().min(1).max(500)).max(8).default([]),
-  verificationGates: z.array(z.string().min(1).max(500)).max(8).default([]),
+  constraints: z.array(z.string().min(1).max(500)).max(16).default([]),
+  verificationGates: z.array(z.string().min(1).max(500)).max(16).default([]),
 });
 
 export const BuildToolRequestSchema = z.object({

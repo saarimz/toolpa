@@ -2,6 +2,7 @@ import { PromptSuggestionsRequestSchema } from "@/lib/ai/contracts";
 import type { PromptSuggestionsInput } from "@/lib/ai/prompt-suggestions.shared";
 import { getAiSampleContext } from "@/lib/ai/sample-context";
 import { getAgentManifest } from "@/lib/agents/registry";
+import { recordPromptMemory } from "@/lib/prompt-memory/server";
 
 export type SuggestionsHandlerDeps = {
   generatePromptSuggestions: (
@@ -40,6 +41,22 @@ export async function handleSuggestionsRequest(
         role: parsed.data.context.secondarySampleRole,
       })
     : null;
+
+  await recordPromptMemory({
+    action: "suggestions",
+    metadata: {
+      bpm: parsed.data.context.bpm,
+      sampleId: parsed.data.context.sampleId,
+      sampleName: sample?.name,
+      secondarySampleId: parsed.data.context.secondarySampleId,
+      secondarySampleName: secondarySample?.name,
+      swing: parsed.data.context.swing,
+    },
+    route: "/api/suggestions",
+    source: "api.suggestions",
+    toolSlug: parsed.data.toolSlug,
+    userPrompt: parsed.data.prompt,
+  });
 
   const suggestions = await deps.generatePromptSuggestions({
     toolSlug: parsed.data.toolSlug,

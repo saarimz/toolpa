@@ -5,7 +5,7 @@ export const drumMachineManifest: AgentManifest = {
   slug: "drum-machine",
   level: 1,
   origin: "installed",
-  description: "Sequence one-shots with probability, conditions, and polyrhythm.",
+  description: "Circular Euclidean drum timelines with prompt-mapped geometry.",
   route: "/tools/drum-machine",
   instrument: {
     type: "sample",
@@ -14,7 +14,16 @@ export const drumMachineManifest: AgentManifest = {
     usesSamples: true,
     usesSynthesis: false,
   },
-  capabilities: ["sequence", "mutatePattern", "polyrhythm", "fxSlots", "recordOutput"],
+  capabilities: [
+    "sequence",
+    "mutatePattern",
+    "polyrhythm",
+    "euclideanRhythm",
+    "circularGeometry",
+    "promptToMath",
+    "fxSlots",
+    "recordOutput",
+  ],
   inputs: {
     samples: ["break", "loop", "oneshot", "fx"],
     bpm: true,
@@ -24,6 +33,7 @@ export const drumMachineManifest: AgentManifest = {
     prompt: true,
     description: false,
     referenceAgent: false,
+    audioSources: [],
     requiredAnalysis: ["global.true_peak_dbfs", "rhythm.onsets_s", "envelope.attack_ms", "slices"],
   },
   musicContext: {
@@ -35,6 +45,7 @@ export const drumMachineManifest: AgentManifest = {
     pattern: true,
     synthScene: false,
     midi: false,
+    visualScene: false,
     audio: true,
     recording: true,
     files: false,

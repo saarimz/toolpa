@@ -5,6 +5,7 @@ const aiMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/ai/gateway", () => ({
+  getConfiguredGatewayModelId: vi.fn(() => "model"),
   getGatewayModel: vi.fn((model?: string) => model ?? "model"),
 }));
 vi.mock("server-only", () => ({}));

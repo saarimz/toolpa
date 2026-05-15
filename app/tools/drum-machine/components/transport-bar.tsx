@@ -90,10 +90,10 @@ export function DrumTransportBar() {
           <span className="w-10 text-zinc-300">{Math.round(pattern.swing * 100)}%</span>
         </label>
         <PatternLiveTrace patternId={pattern.id} />
-        <div className="basis-full">
+        <div className="min-w-0 basis-full">
           <MidiPlaybackPanel
             {...midiPlayback}
-            className="border border-zinc-800 p-3"
+            className="min-w-0 border border-zinc-800 p-3"
             isPlaying={isPlaying}
           />
         </div>

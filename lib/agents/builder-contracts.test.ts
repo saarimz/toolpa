@@ -7,7 +7,7 @@ import {
 
 describe("builder contracts", () => {
   it("accepts currently supported generated-tool instrument targets", () => {
-    for (const instrumentType of ["sample", "synth", "effect", "hybrid"] as const) {
+    for (const instrumentType of ["sample", "synth", "effect", "hybrid", "visualizer"] as const) {
       expect(
         BuildToolRequestSchema.parse({
           description: `build a ${instrumentType} instrument that is useful`,
@@ -50,5 +50,23 @@ describe("builder contracts", () => {
         templateKit: "midi-clip-tool-skeleton",
       }),
     ).toThrow();
+  });
+
+  it("accepts visualizer builder specialization targets", () => {
+    expect(
+      BuildToolSpecializationSchema.parse({
+        builderSlug: "_visualizer-builder",
+        domain: "visualizer",
+        referenceAgent: "audio-visualizer",
+        targetDocument: "visual-scene",
+        targetInstrumentType: "visualizer",
+        targetWorkflow: "audio-reactive-visual-scene",
+        templateKit: "audio-visualizer-tool-skeleton",
+      }),
+    ).toMatchObject({
+      domain: "visualizer",
+      targetDocument: "visual-scene",
+      targetInstrumentType: "visualizer",
+    });
   });
 });

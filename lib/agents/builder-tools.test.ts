@@ -23,6 +23,7 @@ function createRoot() {
     "lib/pattern",
     "lib/agents",
     "lib/audio",
+    "lib/visualizers",
     "lib/samples",
     "app/tools/evolving-fm-synth/lib",
   ]) {
@@ -31,6 +32,8 @@ function createRoot() {
   writeFileSync(join(rootDir, "lib/pattern/schema.ts"), "export const Pattern = 1;\n");
   writeFileSync(join(rootDir, "lib/agents/contract.ts"), "export const Agent = 1;\n");
   writeFileSync(join(rootDir, "lib/audio/fx-manifest.ts"), "export const Fx = 1;\n");
+  writeFileSync(join(rootDir, "lib/visualizers/schema.ts"), "export const VisualizerScene = 1;\n");
+  writeFileSync(join(rootDir, "lib/visualizers/audio-features.ts"), "export const AudioFeatures = 1;\n");
   writeFileSync(join(rootDir, "lib/samples/roles.ts"), "export const Roles = 1;\n");
   writeFileSync(
     join(rootDir, "app/tools/evolving-fm-synth/lib/schema.ts"),
@@ -50,6 +53,8 @@ describe("builder tools", () => {
       "lib/pattern/schema.ts",
       "lib/agents/contract.ts",
       "lib/audio/fx-manifest.ts",
+      "lib/visualizers/schema.ts",
+      "lib/visualizers/audio-features.ts",
       "lib/samples/roles.ts",
       "app/tools/evolving-fm-synth/lib/schema.ts",
     ]);

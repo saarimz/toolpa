@@ -14,6 +14,7 @@ import { getAiSampleContext } from "@/lib/ai/sample-context";
 import { resolveToolPrompts } from "@/lib/agents/dispatch";
 import { getAgentManifest } from "@/lib/agents/registry";
 import { PatternSchema } from "@/lib/pattern/schema";
+import { recordPromptMemory } from "@/lib/prompt-memory/server";
 
 export type GenerateHandlerDeps = {
   streamPattern: (input: StreamPatternInput) => Promise<PatternStreamResult>;
@@ -63,11 +64,31 @@ export async function handleGenerateRequest(
     secondarySample,
     bpm: parsed.data.context.bpm,
     swing: parsed.data.context.swing,
+    sampleMode: parsed.data.context.sampleMode,
+    trackSamples: parsed.data.context.trackSamples,
     vibe: parsed.data.prompt,
     sliceCount: parsed.data.context.sliceCount,
     traversal: parsed.data.context.traversal,
     musicalContext: parsed.data.context.musicalContext,
     agentMode: parsed.data.agentMode,
+  });
+
+  await recordPromptMemory({
+    action: parsed.data.mode,
+    metadata: {
+      agentMode: parsed.data.agentMode,
+      bpm: parsed.data.context.bpm,
+      sampleId: parsed.data.context.sampleId,
+      sampleName: sample.name,
+      secondarySampleId: parsed.data.context.secondarySampleId,
+      swing: parsed.data.context.swing,
+    },
+    resolvedPrompt: prompt,
+    route: "/api/generate",
+    source: "api.generate",
+    systemPrompt: system,
+    toolSlug: manifest.slug,
+    userPrompt: parsed.data.prompt,
   });
 
   const result = await deps.streamPattern({ system, prompt });

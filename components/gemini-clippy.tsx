@@ -436,7 +436,7 @@ export function GeminiClippy() {
 
         .gemini-clippy-button:focus-visible {
           border-radius: 1.25rem;
-          outline: 2px solid rgba(251, 194, 235, 0.95);
+          outline: 2px solid rgba(183, 255, 60, 0.95);
           outline-offset: 0.25rem;
         }
 
@@ -475,8 +475,9 @@ export function GeminiClippy() {
         .gemini-clippy-glow {
           animation: gemini-clippy-glow 1.7s ease-in-out infinite;
           background:
-            radial-gradient(circle at 48% 40%, rgba(251, 194, 235, 0.44), transparent 45%),
-            radial-gradient(circle at 60% 70%, rgba(0, 242, 254, 0.24), transparent 52%);
+            radial-gradient(circle at 45% 38%, rgba(183, 255, 60, 0.48), transparent 44%),
+            radial-gradient(circle at 64% 70%, rgba(0, 245, 160, 0.3), transparent 52%),
+            radial-gradient(circle at 32% 75%, rgba(124, 255, 46, 0.22), transparent 55%);
           border-radius: 999px;
           filter: blur(10px);
           inset: 11% 1% 0;
@@ -506,9 +507,9 @@ export function GeminiClippy() {
         .gemini-clippy-spark {
           animation: gemini-clippy-spark 760ms ease-out both;
           animation-delay: var(--spark-delay);
-          background: #fbc2eb;
+          background: #b7ff3c;
           border-radius: 999px;
-          box-shadow: 0 0 12px rgba(251, 194, 235, 0.85);
+          box-shadow: 0 0 12px rgba(183, 255, 60, 0.85);
           display: block;
           height: 0.42rem;
           left: 50%;
@@ -520,8 +521,13 @@ export function GeminiClippy() {
         }
 
         .gemini-clippy-spark:nth-child(3n) {
-          background: #00f2fe;
-          box-shadow: 0 0 12px rgba(0, 242, 254, 0.78);
+          background: #00f5a0;
+          box-shadow: 0 0 12px rgba(0, 245, 160, 0.78);
+        }
+
+        .gemini-clippy-spark:nth-child(3n + 2) {
+          background: #7cff2e;
+          box-shadow: 0 0 12px rgba(124, 255, 46, 0.78);
         }
 
         .gemini-clippy-spark-core {
@@ -660,7 +666,7 @@ export function GeminiClippy() {
         }
 
         .gemini-clippy-input:focus {
-          border-color: rgba(251, 194, 235, 0.7);
+          border-color: rgba(183, 255, 60, 0.72);
         }
 
         .gemini-clippy-input::placeholder {

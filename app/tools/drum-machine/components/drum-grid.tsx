@@ -17,24 +17,69 @@ import { cn } from "@/lib/utils";
 export function DrumSourceControls() {
   const sampleId = useDrumMachineStore((state) => state.sampleId);
   const sampleName = useDrumMachineStore((state) => state.sampleName);
+  const sampleMode = useDrumMachineStore((state) => state.sampleMode);
+  const pattern = useDrumMachineStore((state) => state.pattern);
   const cycleLength = useDrumMachineStore((state) => state.cycleLength());
   const setSample = useDrumMachineStore((state) => state.setSample);
+  const setSampleMode = useDrumMachineStore((state) => state.setSampleMode);
+  const setLaneSample = useDrumMachineStore((state) => state.setLaneSample);
 
   return (
     <section className="border-b border-zinc-800 p-4">
       <div className="flex flex-wrap items-center gap-3">
-        <SamplePicker
-          id="drum-sample"
-          value={sampleId}
-          label="source"
-          roles={["break", "loop", "oneshot", "fx"]}
-          onSelect={(sample) => {
-            setSample(sample.id, sample.name, sample.role);
-          }}
-        />
-        <span className="text-xs text-zinc-600">{sampleName}</span>
+        <div className="flex overflow-hidden rounded-sm border border-zinc-700">
+          {(["slice", "multi"] as const).map((mode) => (
+            <button
+              className={cn(
+                "h-9 px-3 text-xs transition",
+                sampleMode === mode
+                  ? "bg-zinc-100 text-zinc-950"
+                  : "bg-zinc-950 text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100",
+              )}
+              key={mode}
+              onClick={() => setSampleMode(mode)}
+              type="button"
+            >
+              {mode === "slice" ? "slice mode" : "multi-sample"}
+            </button>
+          ))}
+        </div>
+        {sampleMode === "slice" ? (
+          <>
+            <SamplePicker
+              id="drum-sample"
+              value={sampleId}
+              label="source"
+              roles={["break", "loop", "oneshot", "fx"]}
+              onSelect={(sample) => {
+                setSample(sample.id, sample.name, sample.role);
+              }}
+            />
+            <span className="text-xs text-zinc-600">{sampleName}</span>
+          </>
+        ) : null}
         <span className="text-xs text-zinc-500">cycle {cycleLength} steps</span>
       </div>
+      {sampleMode === "multi" ? (
+        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {pattern.tracks.map((track) => (
+            <div
+              className="min-w-0 border border-zinc-900 bg-black/20 p-3"
+              key={track.id}
+            >
+              <SamplePicker
+                id={`drum-lane-${track.id}-sample`}
+                value={track.sampleId}
+                label={`${track.name} source`}
+                roles={["break", "loop", "oneshot", "fx"]}
+                onSelect={(sample) => {
+                  setLaneSample(track.id, sample.id, sample.name, sample.role);
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -59,10 +104,10 @@ export function DrumGrid() {
 
   return (
     <section className="grid grid-cols-1 border-b border-zinc-800 lg:grid-cols-[1fr_280px]">
-      <div className="overflow-x-auto p-4">
-        <div className="min-w-[920px] space-y-2">
+      <div className="min-w-0 overflow-x-auto p-4">
+        <div className="min-w-0 space-y-2 lg:min-w-[920px]">
           {pattern.tracks.map((track) => (
-            <div key={track.id} className="grid grid-cols-[300px_1fr] items-center gap-3">
+            <div key={track.id} className="grid grid-cols-1 gap-3 lg:grid-cols-[300px_1fr] lg:items-center">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="w-16 truncate text-xs text-zinc-500">{track.name}</span>
                 <select

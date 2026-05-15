@@ -38,6 +38,12 @@ type SynthPitch = {
   tuningCents: number;
 };
 
+type TimbreProfile = {
+  grit: number;
+  metal: number;
+  warmth: number;
+};
+
 export function buildEvolvingFmSynthSystemPrompt() {
   return [
     "You are the evolving-fm-synth L1 agent inside toolpa.",
@@ -106,8 +112,11 @@ export function generateSynthSceneFromPrompt({
   const effects = inferEffects(normalizedPrompt, macros, previousScene?.effects);
   const explicitNotes = parsePromptNotes(normalizedPrompt);
   const rootWaveform = parseRootWaveform(normalizedPrompt);
+  const timbreProfile = inferTimbreProfile(normalizedPrompt);
   const rationaleRootWaveform =
-    rootWaveform ?? previousScene?.voices[0]?.patch.rootWaveform ?? "wavetable";
+    rootWaveform ??
+    previousScene?.voices[0]?.patch.rootWaveform ??
+    chooseDefaultRootWaveform("bass", timbreProfile, random);
   const rootMidi = keyToMidiRoot(key, normalizedPrompt.toLowerCase().includes("sub") ? 1 : 2);
   const bars = parseEvolutionBars(normalizedPrompt) ??
     previousScene?.bars ??
@@ -125,6 +134,7 @@ export function generateSynthSceneFromPrompt({
     scale,
     stepsPerBar,
     sustained,
+    timbreProfile,
     totalSteps,
   });
 
@@ -152,6 +162,7 @@ export function generateSynthSceneFromPrompt({
         bars,
         macros,
         rootWaveform: rationaleRootWaveform,
+        timbreProfile,
       }),
       influences: inferInfluences(normalizedPrompt),
       agentPlan: plan,
@@ -259,6 +270,7 @@ function buildVoices({
   scale,
   stepsPerBar,
   sustained,
+  timbreProfile,
   totalSteps,
 }: {
   explicitNotes: number[];
@@ -270,6 +282,7 @@ function buildVoices({
   scale: SynthScale;
   stepsPerBar: number;
   sustained: boolean;
+  timbreProfile: TimbreProfile;
   totalSteps: number;
 }): SynthVoice[] {
   const previousVoicesById = new Map(
@@ -281,6 +294,7 @@ function buildVoices({
       macros,
       random,
       rootWaveform: rootWaveform ?? previousVoicesById.get(id)?.patch.rootWaveform,
+      timbreProfile,
     });
   const notePool =
     explicitNotes.length > 0
@@ -382,35 +396,46 @@ function createPatch({
   macros,
   random,
   rootWaveform,
+  timbreProfile,
 }: {
   role: SynthVoice["role"];
   macros: SynthMacros;
   random: () => number;
   rootWaveform?: SynthRootWaveform;
+  timbreProfile: TimbreProfile;
 }): VoicePatch {
-  const brightness = role === "bass" ? macros.brightness * 0.55 : macros.brightness;
-  const bite = role === "texture" ? 1 : role === "lead" ? 0.8 : 0.62;
+  const brightness = role === "bass" ? macros.brightness * 0.45 : macros.brightness;
+  const bite =
+    (role === "texture" ? 0.82 : role === "lead" ? 0.68 : 0.48) +
+    timbreProfile.metal * 0.42 -
+    timbreProfile.warmth * 0.18;
+  const modulationBase = getRoleModulationBase(role, timbreProfile);
 
   return {
-    partials: createPartials({ brightness, bite, random }),
-    rootWaveform: rootWaveform ?? "wavetable",
+    partials: createPartials({ brightness, bite, random, timbreProfile }),
+    rootWaveform: rootWaveform ?? chooseDefaultRootWaveform(role, timbreProfile, random),
     modulationIndex: clamp(
-      (role === "bass" ? 3 : role === "texture" ? 18 : 10) +
-        macros.mutationDepth * 24 +
-        random() * 5,
+      modulationBase + macros.mutationDepth * (8 + timbreProfile.metal * 14) + random() * 2.4,
       0,
       48,
     ),
     harmonicity: clamp(
       role === "bass"
-        ? 0.5 + random() * 0.35
+        ? 0.45 + random() * 0.22 + timbreProfile.metal * 0.14
         : role === "texture"
-          ? 1.5 + random() * 3.5
-          : 1 + random() * 1.6,
+          ? 1.1 + random() * (1.6 + timbreProfile.metal * 2.8)
+          : 0.72 + random() * (0.88 + timbreProfile.metal * 1.3),
       0.125,
       8,
     ),
-    modulationType: role === "texture" ? "sawtooth" : role === "lead" ? "triangle" : "sine",
+    modulationType:
+      timbreProfile.metal > 0.55
+        ? role === "bass"
+          ? "triangle"
+          : "sawtooth"
+        : role === "lead" || role === "texture"
+          ? "triangle"
+          : "sine",
     detuneCents: (random() - 0.5) * macros.analogDrift * 48,
     attack: role === "stab" || role === "chord" ? 0.01 + random() * 0.025 : 0.02,
     decay: role === "bass" ? 0.18 + random() * 0.22 : 0.35 + macros.dubSpace * 0.7,
@@ -425,10 +450,12 @@ function createPartials({
   brightness,
   bite,
   random,
+  timbreProfile,
 }: {
   brightness: number;
   bite: number;
   random: () => number;
+  timbreProfile: TimbreProfile;
 }) {
   return Array.from({ length: 12 }, (_, index) => {
     if (index === 0) {
@@ -436,10 +463,64 @@ function createPartials({
     }
 
     const harmonic = index + 1;
-    const falloff = 1 / harmonic ** (1.25 - brightness * 0.6);
+    const falloffExponent = 1.62 - brightness * 0.46 + timbreProfile.metal * 0.26;
+    const falloff = 1 / harmonic ** falloffExponent;
     const movement = 0.75 + random() * 0.5;
-    return clamp(falloff * bite * movement, 0, 1);
+    const warmDamping = 1 - timbreProfile.warmth * clamp((harmonic - 2) / 10, 0, 0.55);
+    const metalLift = 1 + timbreProfile.metal * (index % 2 === 0 ? 0.34 : 0.18);
+    return clamp(falloff * bite * movement * warmDamping * metalLift, 0, 1);
   });
+}
+
+function getRoleModulationBase(role: SynthVoice["role"], timbreProfile: TimbreProfile) {
+  const warmOffset = timbreProfile.warmth * -1.4;
+  const metalOffset = timbreProfile.metal * 7;
+
+  if (role === "bass") {
+    return 1.2 + timbreProfile.grit * 1.4 + metalOffset * 0.18;
+  }
+
+  if (role === "texture") {
+    return 5.8 + timbreProfile.grit * 4 + metalOffset;
+  }
+
+  if (role === "lead") {
+    return 3.8 + timbreProfile.grit * 2.2 + metalOffset * 0.65;
+  }
+
+  return 2.9 + warmOffset + timbreProfile.grit * 2 + metalOffset * 0.5;
+}
+
+function chooseDefaultRootWaveform(
+  role: SynthVoice["role"],
+  timbreProfile: TimbreProfile,
+  random: () => number,
+): SynthRootWaveform {
+  if (timbreProfile.metal > 0.55) {
+    if (role === "bass") {
+      return "sine";
+    }
+
+    return random() < 0.5 ? "wavetable" : role === "texture" ? "sawtooth" : "square";
+  }
+
+  if (timbreProfile.warmth > 0.45) {
+    if (role === "texture" && random() < 0.35) {
+      return "wavetable";
+    }
+
+    return "sine";
+  }
+
+  if (role === "bass") {
+    return "sine";
+  }
+
+  if (role === "texture") {
+    return random() < 0.5 ? "wavetable" : "sawtooth";
+  }
+
+  return "wavetable";
 }
 
 function createBassSteps({
@@ -686,6 +767,7 @@ function inferEffects(
   previousEffects?: SynthEffects,
 ): SynthEffects {
   const lower = prompt.toLowerCase();
+  const timbreProfile = inferTimbreProfile(prompt);
   const dubBias = lower.includes("dub") || lower.includes("echo") ? 0.18 : 0;
   const acidBias = lower.includes("acid") ? 0.2 : 0;
   const base = previousEffects;
@@ -693,11 +775,19 @@ function inferEffects(
   return {
     filter: {
       cutoffHz: clamp(
-        (base?.filter.cutoffHz ?? 900) + macros.brightness * 3600 + acidBias * 2600,
+        (base?.filter.cutoffHz ?? 720) +
+          macros.brightness * 3000 +
+          acidBias * 2600 +
+          timbreProfile.metal * 1400 -
+          timbreProfile.warmth * 420,
         80,
         12000,
       ),
-      resonance: clamp((base?.filter.resonance ?? 5) + acidBias * 8, 0.1, 18),
+      resonance: clamp(
+        (base?.filter.resonance ?? 3.8) + acidBias * 8 + timbreProfile.metal * 2.4,
+        0.1,
+        18,
+      ),
       motion: clamp(macros.evolution * 0.8 + macros.analogDrift * 0.2, 0, 1),
     },
     delay: {
@@ -716,8 +806,12 @@ function inferEffects(
       wet: clamp(0.06 + macros.dubSpace * 0.22, 0, 0.8),
     },
     drive: {
-      amount: clamp(0.08 + macros.brightness * 0.25 + acidBias, 0, 0.9),
-      wet: clamp(0.08 + macros.mutationDepth * 0.2, 0, 0.7),
+      amount: clamp(
+        0.04 + macros.brightness * 0.16 + acidBias + timbreProfile.grit * 0.16,
+        0,
+        0.9,
+      ),
+      wet: clamp(0.05 + macros.mutationDepth * 0.16 + timbreProfile.grit * 0.08, 0, 0.7),
     },
     masterDb: -8,
   };
@@ -947,6 +1041,68 @@ function parseRootWaveform(prompt: string): SynthRootWaveform | null {
   return null;
 }
 
+function inferTimbreProfile(prompt: string): TimbreProfile {
+  const lower = prompt.toLowerCase();
+  const warmth = inferTimbreAmount(lower, 0.34, [
+    ["warm", 0.28],
+    ["soft", 0.22],
+    ["round", 0.2],
+    ["mellow", 0.2],
+    ["tape", 0.18],
+    ["pad", 0.16],
+    ["ambient", 0.14],
+    ["dub", 0.12],
+    ["deep", 0.1],
+    ["metal", -0.3],
+    ["metallic", -0.34],
+    ["acid", -0.18],
+    ["harsh", -0.24],
+  ]);
+  const metal = inferTimbreAmount(lower, 0.12, [
+    ["metallic", 0.48],
+    ["metal", 0.42],
+    ["glass", 0.34],
+    ["glassy", 0.34],
+    ["bell", 0.34],
+    ["clang", 0.36],
+    ["acid", 0.28],
+    ["harsh", 0.24],
+    ["bright", 0.18],
+    ["warm", -0.16],
+    ["soft", -0.14],
+    ["mellow", -0.14],
+    ["tape", -0.1],
+  ]);
+  const grit = inferTimbreAmount(lower, 0.18, [
+    ["dirty", 0.28],
+    ["drive", 0.24],
+    ["driven", 0.24],
+    ["distorted", 0.28],
+    ["acid", 0.24],
+    ["harsh", 0.2],
+    ["tape", 0.1],
+    ["clean", -0.24],
+    ["soft", -0.12],
+  ]);
+
+  return { grit, metal, warmth };
+}
+
+function inferTimbreAmount(
+  prompt: string,
+  base: number,
+  signals: Array<[needle: string, delta: number]>,
+) {
+  return clamp(
+    signals.reduce(
+      (value, [needle, delta]) => (prompt.includes(needle) ? value + delta : value),
+      base,
+    ),
+    0,
+    1,
+  );
+}
+
 function createAgentPlan(prompt: string) {
   const specific = parsePromptNotes(prompt).length > 0 || parseKey(prompt) || parseBpm(prompt);
   return [
@@ -968,6 +1124,7 @@ function createRationale({
   bars,
   macros,
   rootWaveform,
+  timbreProfile,
 }: {
   prompt: string;
   key: string;
@@ -976,12 +1133,14 @@ function createRationale({
   bars: EvolutionBars;
   macros: SynthMacros;
   rootWaveform: SynthRootWaveform;
+  timbreProfile: TimbreProfile;
 }) {
   const notes = parsePromptNotes(prompt).map(midiToNoteName);
   return [
     `Built a ${normalizeKey(key)} ${getScaleDisplayName(scale)} scene at ${bpm} BPM over ${bars} bars.`,
     notes.length > 0 ? `Prompt notes anchored the pitch set: ${notes.join(", ")}.` : null,
     `Carrier root starts from ${formatRootWaveform(rootWaveform)}.`,
+    `Timbre leans ${formatTimbreProfile(timbreProfile)}.`,
     `Evolution ${Math.round(macros.evolution * 100)}%, dub space ${Math.round(
       macros.dubSpace * 100,
     )}%, mutation ${Math.round(macros.mutationDepth * 100)}%.`,
@@ -992,6 +1151,22 @@ function createRationale({
 
 function formatRootWaveform(rootWaveform: SynthRootWaveform) {
   return rootWaveform === "sawtooth" ? "saw" : rootWaveform;
+}
+
+function formatTimbreProfile(profile: TimbreProfile) {
+  if (profile.metal > 0.5) {
+    return "metallic";
+  }
+
+  if (profile.warmth > 0.5) {
+    return "warm";
+  }
+
+  if (profile.grit > 0.45) {
+    return "driven";
+  }
+
+  return "balanced";
 }
 
 function inferInfluences(prompt: string) {

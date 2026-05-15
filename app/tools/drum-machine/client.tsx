@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 
 import { DrumGenerationPanel } from "@/app/tools/drum-machine/components/generation-panel";
+import { CircularDrumGeometry } from "@/app/tools/drum-machine/components/circular-rhythm";
 import {
   DrumGrid,
   DrumSourceControls,
@@ -55,6 +56,7 @@ export function DrumMachineClient() {
       </header>
       <DrumSourceControls />
       <DrumGenerationPanel />
+      <CircularDrumGeometry />
       <DrumGrid />
       <DrumTransportBar />
     </main>

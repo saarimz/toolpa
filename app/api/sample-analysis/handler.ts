@@ -3,6 +3,7 @@ import { z } from "zod";
 import { describeSample } from "@/lib/ai/sample-descriptors";
 import { isGatewayConfigured } from "@/lib/ai/gateway";
 import { suggestSampleUseIdeas } from "@/lib/ai/sample-ideas";
+import { recordPromptMemory } from "@/lib/prompt-memory/server";
 import { SampleAnalysisSchema } from "@/lib/samples/analysis/schema";
 
 const RequestSchema = z.object({
@@ -50,6 +51,18 @@ export async function handleSampleAnalysisRequest(
 
   const intentPrompt = parsed.data.intentPrompt?.trim() ?? "";
   const task = parsed.data.task ?? (intentPrompt ? "all" : "descriptors");
+
+  await recordPromptMemory({
+    action: task,
+    metadata: {
+      hasIntentPrompt: Boolean(intentPrompt),
+      sourceName: parsed.data.sourceName,
+    },
+    route: "/api/sample-analysis",
+    source: "api.sample-analysis",
+    toolSlug: "sample-analysis",
+    userPrompt: intentPrompt,
+  });
 
   if (task === "ideas" && !intentPrompt) {
     return Response.json(

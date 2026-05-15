@@ -6,7 +6,7 @@ import {
   type Track,
 } from "@/lib/pattern/schema";
 
-export const DrumStepCounts = [8, 12, 13, 15, 16, 24, 32] as const;
+export const DrumStepCounts = [5, 7, 8, 9, 11, 12, 13, 15, 16, 24, 32] as const;
 
 export type DrumTrackConfig = {
   trackId: string;

@@ -55,6 +55,7 @@ import { useEvolvingFmSynthStore } from "@/app/tools/evolving-fm-synth/store";
 import { MAX_BPM, MIN_BPM } from "@/lib/music/context";
 import { useGlobalSynthContextSync } from "@/lib/music/use-global-context-sync";
 import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
+import { logClientPromptMemory } from "@/lib/prompt-memory/client";
 import {
   exportSynthSceneMidiArtifact,
   exportSynthSceneWavArtifact,
@@ -89,15 +90,16 @@ const rootWaveformOptions: Array<{
 ];
 
 const macroControls: Array<{
+  advanced?: boolean;
   key: keyof SynthMacros;
   label: string;
 }> = [
-  { key: "evolution", label: "evolution" },
-  { key: "mutationDepth", label: "mutation" },
-  { key: "brightness", label: "brightness" },
-  { key: "dubSpace", label: "dub space" },
+  { key: "evolution", label: "motion" },
+  { key: "brightness", label: "tone" },
+  { key: "dubSpace", label: "space" },
   { key: "density", label: "density" },
-  { key: "analogDrift", label: "drift" },
+  { advanced: true, key: "mutationDepth", label: "mutation" },
+  { advanced: true, key: "analogDrift", label: "drift" },
 ];
 
 export function EvolvingFmSynthClient() {
@@ -246,6 +248,15 @@ export function EvolvingFmSynthClient() {
   }
 
   async function generateScene() {
+    logClientPromptMemory({
+      action: "local-generate-synth-scene",
+      metadata: {
+        sceneId: sceneRef.current.id,
+      },
+      source: "client.evolving-fm-synth",
+      toolSlug: TOOL_SLUG,
+      userPrompt: prompt,
+    });
     generate(globalMusicContext);
     setAgentSource("local-agent");
     setAgentError(null);
@@ -256,6 +267,15 @@ export function EvolvingFmSynthClient() {
   }
 
   async function evolveScene() {
+    logClientPromptMemory({
+      action: "local-evolve-synth-scene",
+      metadata: {
+        sceneId: sceneRef.current.id,
+      },
+      source: "client.evolving-fm-synth",
+      toolSlug: TOOL_SLUG,
+      userPrompt: prompt,
+    });
     evolve(globalMusicContext);
     setAgentSource("local-agent");
     setAgentError(null);
@@ -497,61 +517,82 @@ export function EvolvingFmSynthClient() {
         </div>
       </PromptFirstSection>
 
-      <MidiPlaybackPanel
-        {...midiPlayback}
-        currentBeat={currentBeat}
-        isPlaying={isPlaying}
-      />
-
-      <Sequencer
-        scene={scene}
+      <SynthPerformancePanel
         currentStepIndex={currentStepIndex}
-        selectedVoiceId={selectedVoiceId}
-        selectedStepIndex={selectedStepIndex}
-        setSelectedVoiceId={setSelectedVoiceId}
-        setSelectedStepIndex={setSelectedStepIndex}
-        toggleStep={toggleStep}
+        isPlaying={isPlaying}
+        scene={scene}
       />
 
-      <section className="grid border-b border-zinc-800 lg:grid-cols-[minmax(0,1fr)_420px]">
-        <PatchPanel
-          selectedVoice={selectedVoice}
-          selectedStep={selectedStep}
-          updateStep={updateStep}
-          updateVoicePatch={updateVoicePatch}
+      <details className="border-b border-zinc-800">
+        <summary className="cursor-pointer px-4 py-3 text-xs text-zinc-400 hover:text-zinc-100">
+          MIDI editor - {midiPlayback.notes.length} notes - {scene.bars} bars
+        </summary>
+        <MidiPlaybackPanel
+          {...midiPlayback}
+          className="border-t border-zinc-800"
+          currentBeat={currentBeat}
+          isPlaying={isPlaying}
         />
-        <div className="border-t border-zinc-800 lg:border-l lg:border-t-0">
-          <EffectsPanel scene={scene} patchEffects={patchEffects} />
-          <FxSlotPanel toolId={TOOL_SLUG} />
-        </div>
-      </section>
+        <Sequencer
+          scene={scene}
+          currentStepIndex={currentStepIndex}
+          selectedVoiceId={selectedVoiceId}
+          selectedStepIndex={selectedStepIndex}
+          setSelectedVoiceId={setSelectedVoiceId}
+          setSelectedStepIndex={setSelectedStepIndex}
+          toggleStep={toggleStep}
+        />
+      </details>
 
-      <section className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_420px]">
-        <div className="border border-zinc-800 bg-zinc-950 p-3">
-          <div className="mb-2 flex items-center gap-2 text-xs text-zinc-400">
-            <BrainCircuit className="size-4 text-zinc-200" />
-            agent trace
+      <details className="border-b border-zinc-800">
+        <summary className="cursor-pointer px-4 py-3 text-xs text-zinc-400 hover:text-zinc-100">
+          sound editor - {selectedVoice?.label ?? "voice"} - effects
+        </summary>
+        <section className="grid border-t border-zinc-800 lg:grid-cols-[minmax(0,1fr)_420px]">
+          <PatchPanel
+            selectedVoice={selectedVoice}
+            selectedStep={selectedStep}
+            updateStep={updateStep}
+            updateVoicePatch={updateVoicePatch}
+          />
+          <div className="border-t border-zinc-800 lg:border-l lg:border-t-0">
+            <EffectsPanel scene={scene} patchEffects={patchEffects} />
+            <FxSlotPanel toolId={TOOL_SLUG} />
           </div>
-          <pre className="max-h-56 overflow-auto text-[11px] leading-5 text-zinc-500">
-            {[
-              scene.metadata.rationale,
-              "",
-              ...scene.metadata.agentPlan.map((item, index) => `${index + 1}. ${item}`),
-              "",
-              ...scene.metadata.researchBasis,
-            ].join("\n")}
-          </pre>
-        </div>
-        <div className="border border-zinc-800 bg-black p-3">
-          <div className="mb-2 flex items-center gap-2 text-xs text-zinc-400">
-            <Zap className="size-4 text-zinc-200" />
-            prompt contract
+        </section>
+      </details>
+
+      <details className="border-b border-zinc-800">
+        <summary className="cursor-pointer px-4 py-3 text-xs text-zinc-500 hover:text-zinc-200">
+          agent detail - prompt contract
+        </summary>
+        <section className="grid gap-4 border-t border-zinc-800 p-4 lg:grid-cols-[minmax(0,1fr)_420px]">
+          <div className="border border-zinc-800 bg-zinc-950 p-3">
+            <div className="mb-2 flex items-center gap-2 text-xs text-zinc-400">
+              <BrainCircuit className="size-4 text-zinc-200" />
+              agent trace
+            </div>
+            <pre className="max-h-56 overflow-auto text-[11px] leading-5 text-zinc-500">
+              {[
+                scene.metadata.rationale,
+                "",
+                ...scene.metadata.agentPlan.map((item, index) => `${index + 1}. ${item}`),
+                "",
+                ...scene.metadata.researchBasis,
+              ].join("\n")}
+            </pre>
           </div>
-          <pre className="max-h-56 overflow-auto text-[11px] leading-5 text-zinc-100">
-            {[buildEvolvingFmSynthSystemPrompt(), "", agentPrompt].join("\n")}
-          </pre>
-        </div>
-      </section>
+          <div className="border border-zinc-800 bg-black p-3">
+            <div className="mb-2 flex items-center gap-2 text-xs text-zinc-400">
+              <Zap className="size-4 text-zinc-200" />
+              prompt contract
+            </div>
+            <pre className="max-h-56 overflow-auto text-[11px] leading-5 text-zinc-100">
+              {[buildEvolvingFmSynthSystemPrompt(), "", agentPrompt].join("\n")}
+            </pre>
+          </div>
+        </section>
+      </details>
     </main>
   );
 }
@@ -563,9 +604,12 @@ function MacroPanel({
   macros: SynthMacros;
   setMacro: (macro: keyof SynthMacros, value: number) => void;
 }) {
+  const primaryControls = macroControls.filter((control) => !control.advanced);
+  const advancedControls = macroControls.filter((control) => control.advanced);
+
   return (
     <div className="grid gap-2">
-      {macroControls.map((control) => (
+      {primaryControls.map((control) => (
         <SliderRow
           key={control.key}
           label={control.label}
@@ -576,6 +620,24 @@ function MacroPanel({
           onChange={(value) => setMacro(control.key, value)}
         />
       ))}
+      <details>
+        <summary className="cursor-pointer text-xs text-zinc-500 hover:text-zinc-200">
+          deeper motion
+        </summary>
+        <div className="mt-2 grid gap-2">
+          {advancedControls.map((control) => (
+            <SliderRow
+              key={control.key}
+              label={control.label}
+              max={1}
+              min={0}
+              step={0.01}
+              value={macros[control.key]}
+              onChange={(value) => setMacro(control.key, value)}
+            />
+          ))}
+        </div>
+      </details>
     </div>
   );
 }
@@ -604,6 +666,151 @@ function getAgentStatus({
 
 function isTimeoutFallbackWarning(warning: string) {
   return /gateway timed out|timed out after|aborted due to timeout/i.test(warning);
+}
+
+function SynthPerformancePanel({
+  currentStepIndex,
+  isPlaying,
+  scene,
+}: {
+  currentStepIndex: number | null;
+  isPlaying: boolean;
+  scene: SynthScene;
+}) {
+  const summary = summarizeSynthScene(scene);
+  const bar =
+    currentStepIndex === null
+      ? 1
+      : Math.floor(currentStepIndex / scene.stepsPerBar) + 1;
+
+  return (
+    <section className="border-b border-zinc-800 bg-zinc-950/60 p-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="flex items-center gap-2 text-zinc-100">
+          <Waves className="size-4 text-zinc-300" />
+          sound map
+        </div>
+        <div className="flex flex-wrap gap-2 text-zinc-500">
+          <span>{summary.noteCount} notes</span>
+          <span>{summary.activeVoiceCount} voices</span>
+          <span>{isPlaying ? `bar ${bar}/${scene.bars}` : `${scene.bars} bars`}</span>
+        </div>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <div className="grid gap-2">
+          <ToneMeter label="warmth" value={summary.warmth} />
+          <ToneMeter label="metal" value={summary.metal} />
+          <ToneMeter label="space" value={summary.space} />
+          <ToneMeter label="motion" value={summary.motion} />
+        </div>
+        <div className="grid gap-2">
+          {scene.voices.map((voice) => {
+            const activeSteps = voice.steps.filter((step) => step.active);
+            const density = activeSteps.length / Math.max(1, voice.steps.length);
+            const firstActive = activeSteps[0];
+
+            return (
+              <div
+                className="grid gap-2 border border-zinc-800 bg-black/25 p-3 md:grid-cols-[150px_1fr_90px]"
+                key={voice.id}
+              >
+                <div className="min-w-0">
+                  <div className="truncate text-xs text-zinc-100">{voice.label}</div>
+                  <div className="mt-1 text-[11px] text-zinc-600">
+                    {voice.role} - {voice.patch.rootWaveform}
+                  </div>
+                </div>
+                <div className="flex h-8 items-center gap-1">
+                  {voice.steps.slice(0, 64).map((step) => (
+                    <span
+                      aria-hidden="true"
+                      className={`h-2 flex-1 rounded-sm ${
+                        step.active ? "bg-zinc-100" : "bg-zinc-800"
+                      }`}
+                      key={step.step}
+                      style={{
+                        opacity: step.active
+                          ? 0.35 + step.velocity * 0.65
+                          : 0.45,
+                      }}
+                    />
+                  ))}
+                </div>
+                <div className="text-right text-[11px] text-zinc-500">
+                  <div>{formatPercent(density)}</div>
+                  <div>{firstActive ? midiToNoteName(firstActive.midi) : "rest"}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ToneMeter({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="grid gap-1 text-xs">
+      <div className="flex justify-between gap-3">
+        <span className="text-zinc-500">{label}</span>
+        <span className="text-zinc-300">{formatPercent(value)}</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-sm bg-zinc-900">
+        <div
+          className="h-full rounded-sm bg-zinc-200"
+          style={{ width: `${formatPercent(value)}` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function summarizeSynthScene(scene: SynthScene) {
+  const activeSteps = scene.voices.flatMap((voice) =>
+    voice.steps.filter((step) => step.active),
+  );
+  const averageModulationIndex = average(
+    scene.voices.map((voice) => voice.patch.modulationIndex),
+  );
+  const averageHarmonicity = average(
+    scene.voices.map((voice) => voice.patch.harmonicity),
+  );
+  const sineShare =
+    scene.voices.filter((voice) => voice.patch.rootWaveform === "sine").length /
+    Math.max(1, scene.voices.length);
+
+  return {
+    activeVoiceCount: scene.voices.filter((voice) =>
+      voice.steps.some((step) => step.active),
+    ).length,
+    metal: clampUnit(
+      (averageModulationIndex / 24) * 0.5 +
+        (averageHarmonicity / 8) * 0.25 +
+        scene.macros.brightness * 0.25,
+    ),
+    motion: clampUnit(scene.macros.evolution * 0.7 + scene.macros.analogDrift * 0.3),
+    noteCount: activeSteps.length,
+    space: clampUnit(scene.macros.dubSpace),
+    warmth: clampUnit(
+      (1 - scene.macros.brightness) * 0.28 +
+        (1 - averageModulationIndex / 24) * 0.34 +
+        scene.macros.dubSpace * 0.22 +
+        sineShare * 0.16,
+    ),
+  };
+}
+
+function average(values: number[]) {
+  if (values.length === 0) {
+    return 0;
+  }
+
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function clampUnit(value: number) {
+  return Math.max(0, Math.min(1, value));
 }
 
 function Sequencer({
@@ -986,4 +1193,8 @@ function formatControlValue(value: number) {
   }
 
   return value.toFixed(2);
+}
+
+function formatPercent(value: number) {
+  return `${Math.round(clampUnit(value) * 100)}%`;
 }

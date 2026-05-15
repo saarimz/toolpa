@@ -232,4 +232,48 @@ describe("instantiateToolSkeleton", () => {
       "do not pretend full sample resynthesis exists",
     );
   });
+
+  it("renders an audio-reactive visualizer skeleton for L2 visualizer requests", () => {
+    const instance = instantiateToolSkeleton({
+      slug: "show-visualizer",
+      name: "Show Visualizer",
+      description: "A prompt-driven fullscreen audio visualizer.",
+      instrumentType: "visualizer",
+    });
+
+    expect(AgentManifestSchema.parse(instance.manifest)).toMatchObject({
+      slug: "show-visualizer",
+      instrument: {
+        type: "visualizer",
+        workflow: "audio-reactive-visual-scene",
+        document: "visual-scene",
+        usesSamples: true,
+        usesSynthesis: true,
+      },
+      inputs: {
+        audioSources: ["live-audio", "audio-file", "microphone"],
+      },
+      outputs: {
+        audio: true,
+        visualScene: true,
+      },
+      exports: {
+        document: "visual-scene",
+        audio: { strategy: "source-audio", formats: ["wav"] },
+      },
+      musicContext: { globalBpm: true, globalKey: false, scaleSearch: false },
+    });
+    expect(instance.files.get("app/tools/show-visualizer/client.tsx")).toContain(
+      "AudioVisualizerTool",
+    );
+    expect(instance.files.get("app/tools/show-visualizer/lib/prompt.ts")).toContain(
+      "buildAudioVisualizerPrompt",
+    );
+    expect(instance.files.get("app/tools/show-visualizer/render.ts")).toContain(
+      "renderVisualFrame",
+    );
+    expect([...instance.files.keys()]).toContain(
+      "app/tools/show-visualizer/render.visual.test.ts",
+    );
+  });
 });

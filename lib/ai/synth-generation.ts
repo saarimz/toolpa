@@ -13,8 +13,9 @@ import {
   SynthSceneSchema,
   type SynthScene,
 } from "@/app/tools/evolving-fm-synth/lib/schema";
-import { getGatewayModel } from "@/lib/ai/gateway";
+import { getConfiguredGatewayModelId, getGatewayModel } from "@/lib/ai/gateway";
 import type { GlobalMusicContext } from "@/lib/music/context";
+import { recordPromptMemory } from "@/lib/prompt-memory/server";
 
 export const GenerateSynthSceneModeSchema = z.enum(["generate", "evolve"]);
 
@@ -47,21 +48,37 @@ export async function generateSynthSceneWithGateway({
     mode === "evolve" && scene
       ? evolveSynthScene(scene, prompt, musicalContext)
       : generateSynthSceneFromPrompt({ musicalContext, prompt, previousScene: scene });
+  const system = buildEvolvingFmSynthSystemPrompt();
+  const resolvedPrompt = [
+    buildEvolvingFmSynthPrompt({ musicalContext, prompt, scene: draft }),
+    "",
+    "Use this deterministic local-agent draft as the structural contract.",
+    JSON.stringify(draft),
+    "",
+    "Improve it as an AI sound-design pass while preserving valid schema bounds.",
+    "Keep it playable in Tone.js with FMSynth rootWaveform values and custom oscillator partials when rootWaveform is wavetable.",
+  ].join("\n");
+
+  await recordPromptMemory({
+    action: mode,
+    metadata: {
+      hasMusicalContext: Boolean(musicalContext),
+      hasPreviousScene: Boolean(scene),
+    },
+    model: model ?? getConfiguredGatewayModelId(),
+    resolvedPrompt,
+    source: "ai.synth-generation",
+    systemPrompt: system,
+    toolSlug: "synth-scene",
+    userPrompt: prompt,
+  });
 
   const { output } = await generateText({
     model: getGatewayModel(model),
     output: Output.object({ schema: SynthSceneSchema }),
-    system: buildEvolvingFmSynthSystemPrompt(),
+    system,
     ...(timeoutMs ? { timeout: { totalMs: timeoutMs } } : {}),
-    prompt: [
-      buildEvolvingFmSynthPrompt({ musicalContext, prompt, scene: draft }),
-      "",
-      "Use this deterministic local-agent draft as the structural contract.",
-      JSON.stringify(draft),
-      "",
-      "Improve it as an AI sound-design pass while preserving valid schema bounds.",
-      "Keep it playable in Tone.js with FMSynth rootWaveform values and custom oscillator partials when rootWaveform is wavetable.",
-    ].join("\n"),
+    prompt: resolvedPrompt,
     temperature: 0.75,
   });
 

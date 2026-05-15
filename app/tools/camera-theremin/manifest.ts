@@ -36,6 +36,7 @@ export const cameraThereminManifest = {
     prompt: true,
     description: false,
     referenceAgent: false,
+    audioSources: [],
     requiredAnalysis: [],
   },
   musicContext: {
@@ -47,6 +48,7 @@ export const cameraThereminManifest = {
     pattern: false,
     synthScene: true,
     midi: false,
+    visualScene: false,
     audio: true,
     recording: true,
     files: false,

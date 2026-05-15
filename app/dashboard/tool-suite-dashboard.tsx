@@ -26,10 +26,12 @@ type SecondaryFilter =
   | "effect"
   | "hybrid"
   | "midi"
+  | "visualizer"
   | "pattern"
   | "midi-clip"
   | "synth-scene"
-  | "audio-stream";
+  | "audio-stream"
+  | "visual-scene";
 
 type ToolSuiteDashboardProps = {
   generatedAudit: GeneratedToolAudit;
@@ -51,10 +53,12 @@ const secondaryFilters: Array<{ label: string; value: SecondaryFilter }> = [
   { label: "Effect", value: "effect" },
   { label: "Hybrid", value: "hybrid" },
   { label: "MIDI", value: "midi" },
+  { label: "Visualizer", value: "visualizer" },
   { label: "Pattern", value: "pattern" },
   { label: "MIDI Clip", value: "midi-clip" },
   { label: "SynthScene", value: "synth-scene" },
   { label: "Audio Stream", value: "audio-stream" },
+  { label: "Visual Scene", value: "visual-scene" },
 ];
 
 export function ToolSuiteDashboard({

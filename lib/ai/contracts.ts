@@ -4,6 +4,16 @@ import { GlobalBpmSchema, GlobalMusicContextSchema } from "@/lib/music/context";
 import { SampleAnalysisSchema } from "@/lib/samples/analysis/schema";
 import { SampleRoleSchema } from "@/lib/samples/roles";
 
+export const DrumSampleModeSchema = z.enum(["slice", "multi"]);
+
+export const DrumTrackSampleContextSchema = z.object({
+  trackId: z.string().min(1),
+  trackName: z.string().min(1).optional(),
+  sampleId: z.string().min(1),
+  sampleName: z.string().min(1).optional(),
+  sampleRole: z.union([SampleRoleSchema, z.literal("unknown")]).optional(),
+});
+
 export const GeneratePatternRequestSchema = z.object({
   toolSlug: z.string().min(1),
   mode: z.enum(["fresh", "mutate", "fill", "polyrhythm", "splice"]).default("fresh"),
@@ -19,6 +29,8 @@ export const GeneratePatternRequestSchema = z.object({
     secondarySampleName: z.string().min(1).optional(),
     secondarySampleRole: z.union([SampleRoleSchema, z.literal("unknown")]).optional(),
     secondarySampleAnalysis: SampleAnalysisSchema.optional(),
+    sampleMode: DrumSampleModeSchema.optional(),
+    trackSamples: z.array(DrumTrackSampleContextSchema).max(64).optional(),
     bpm: GlobalBpmSchema,
     swing: z.number().min(0).max(0.5).default(0),
     musicalContext: GlobalMusicContextSchema.optional(),
@@ -28,6 +40,8 @@ export const GeneratePatternRequestSchema = z.object({
 });
 
 export type GeneratePatternRequest = z.infer<typeof GeneratePatternRequestSchema>;
+export type DrumSampleMode = z.infer<typeof DrumSampleModeSchema>;
+export type DrumTrackSampleContext = z.infer<typeof DrumTrackSampleContextSchema>;
 
 export const PromptSuggestionsRequestSchema = z.object({
   toolSlug: z.string().min(1),

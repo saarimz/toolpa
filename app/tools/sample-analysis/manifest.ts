@@ -32,6 +32,7 @@ export const sampleAnalysisManifest = {
     prompt: true,
     description: false,
     referenceAgent: false,
+    audioSources: [],
     requiredAnalysis: [
       "global.true_peak_dbfs",
       "rhythm.onsets_s",
@@ -49,6 +50,7 @@ export const sampleAnalysisManifest = {
     pattern: false,
     synthScene: false,
     midi: false,
+    visualScene: false,
     audio: true,
     recording: true,
     files: false,

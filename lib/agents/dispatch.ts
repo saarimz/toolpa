@@ -15,6 +15,10 @@ import {
   buildSpliceLabSystemPrompt,
 } from "@/app/tools/splice-lab/lib/prompt";
 import type { AiSampleContext } from "@/lib/ai/sample-context";
+import type {
+  DrumSampleMode,
+  DrumTrackSampleContext,
+} from "@/lib/ai/contracts";
 import type { AgentManifest } from "@/lib/agents/contract";
 import { getAgentManifest } from "@/lib/agents/registry";
 import type { GlobalMusicContext } from "@/lib/music/context";
@@ -32,6 +36,8 @@ export type ToolPromptInput = {
   sliceCount?: number;
   traversal?: string;
   musicalContext?: GlobalMusicContext;
+  sampleMode?: DrumSampleMode;
+  trackSamples?: DrumTrackSampleContext[];
   agentMode: "structured" | "tool-calling";
 };
 
@@ -69,6 +75,8 @@ const promptDispatchers: Record<string, ToolPromptDispatcher> = {
     prompt: buildDrumMachinePrompt({
       pattern: input.pattern,
       sample: input.sample,
+      sampleMode: input.sampleMode,
+      trackSamples: input.trackSamples,
       vibe: input.vibe,
     }),
   }),

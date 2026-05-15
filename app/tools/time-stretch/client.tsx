@@ -39,6 +39,7 @@ import {
 import { timeStretchManifest } from "@/app/tools/time-stretch/manifest";
 import { MAX_BPM, MIN_BPM } from "@/lib/music/context";
 import { useGlobalBpmSync } from "@/lib/music/use-global-context-sync";
+import { logClientPromptMemory } from "@/lib/prompt-memory/client";
 import { usePromptParamState } from "@/lib/tools/use-prompt-param";
 import { getDefaultLibrarySample } from "@/lib/samples/library";
 import type { SampleRole } from "@/lib/samples/roles";
@@ -203,6 +204,17 @@ export function TimeStretchClient() {
 
   function applyPrompt() {
     const result = applyTimeStretchPromptToPatch(patch, prompt);
+    logClientPromptMemory({
+      action: "apply-stretch-prompt",
+      metadata: {
+        decisions: result.decisions,
+        sourceId: patch.sourceId,
+        targetBars: result.patch.targetBars,
+      },
+      source: "client.time-stretch",
+      toolSlug: TOOL_SLUG,
+      userPrompt: prompt,
+    });
     setPatch(result.patch);
     setRenderedBuffer(null);
     setStatus("idle");

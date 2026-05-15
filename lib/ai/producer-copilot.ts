@@ -2,8 +2,9 @@ import "server-only";
 
 import { generateText } from "ai";
 
-import { getGatewayModel } from "@/lib/ai/gateway";
+import { getConfiguredGatewayModelId, getGatewayModel } from "@/lib/ai/gateway";
 import type { AgentManifest } from "@/lib/agents/contract";
+import { recordPromptMemory } from "@/lib/prompt-memory/server";
 
 export type ProducerCopilotMessage = {
   role: "assistant" | "user";
@@ -21,10 +22,30 @@ export async function generateProducerCopilotReply({
   tools,
   model,
 }: ProducerCopilotInput) {
+  const system = buildProducerCopilotSystem(tools);
+  const prompt = buildProducerCopilotPrompt(messages);
+
+  await recordPromptMemory({
+    action: "chat-completion",
+    metadata: {
+      enabledToolCount: tools.filter((tool) => tool.status === "enabled").length,
+      messageCount: messages.length,
+    },
+    model: model ?? getConfiguredGatewayModelId(),
+    resolvedPrompt: prompt,
+    source: "ai.producer-copilot",
+    systemPrompt: system,
+    toolSlug: "producer-copilot",
+    userPrompt: messages
+      .filter((message) => message.role === "user")
+      .map((message) => message.content)
+      .join("\n\n"),
+  });
+
   const { text } = await generateText({
     model: getGatewayModel(model),
-    system: buildProducerCopilotSystem(tools),
-    prompt: buildProducerCopilotPrompt(messages),
+    system,
+    prompt,
     temperature: 0.55,
   });
 

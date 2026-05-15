@@ -12,6 +12,7 @@ export const InstrumentTypeSchema = z.enum([
   "hybrid",
   "effect",
   "midi",
+  "visualizer",
   "builder",
 ]);
 
@@ -20,7 +21,15 @@ export const InstrumentDocumentSchema = z.enum([
   "synth-scene",
   "midi-clip",
   "audio-stream",
+  "visual-scene",
   "files",
+]);
+
+export const AudioInputSourceSchema = z.enum([
+  "live-audio",
+  "audio-file",
+  "microphone",
+  "generated-output",
 ]);
 
 export const InstrumentWorkflowSchema = z
@@ -58,6 +67,7 @@ export const AgentManifestSchema = z.object({
       prompt: z.boolean().default(true),
       description: z.boolean().default(false),
       referenceAgent: z.boolean().default(false),
+      audioSources: z.array(AudioInputSourceSchema).default([]),
       requiredAnalysis: z.array(AnalysisPathSchema).default([]),
     })
     .default({
@@ -69,6 +79,7 @@ export const AgentManifestSchema = z.object({
       prompt: true,
       description: false,
       referenceAgent: false,
+      audioSources: [],
       requiredAnalysis: [],
     }),
   musicContext: InstrumentMusicContextSchema,
@@ -77,6 +88,7 @@ export const AgentManifestSchema = z.object({
       pattern: z.boolean().default(false),
       synthScene: z.boolean().default(false),
       midi: z.boolean().default(false),
+      visualScene: z.boolean().default(false),
       audio: z.boolean().default(false),
       recording: z.boolean().default(false),
       files: z.boolean().default(false),
@@ -86,6 +98,7 @@ export const AgentManifestSchema = z.object({
       pattern: false,
       synthScene: false,
       midi: false,
+      visualScene: false,
       audio: false,
       recording: false,
       files: false,
@@ -100,3 +113,4 @@ export const AgentManifestSchema = z.object({
 export type AgentManifest = z.infer<typeof AgentManifestSchema>;
 export type InstrumentType = z.infer<typeof InstrumentTypeSchema>;
 export type InstrumentDocument = z.infer<typeof InstrumentDocumentSchema>;
+export type AudioInputSource = z.infer<typeof AudioInputSourceSchema>;

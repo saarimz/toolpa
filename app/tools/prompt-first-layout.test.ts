@@ -28,6 +28,7 @@ describe("prompt-first L1 and L2 layout", () => {
     expect(PROMPT_FIRST_LAYOUT_CONTRACT.l1).toContain("immediately after");
     expect(PROMPT_FIRST_LAYOUT_CONTRACT.l1).toContain("before playback");
     expect(PROMPT_FIRST_LAYOUT_CONTRACT.l2).toContain("before family selection");
+    expect(PROMPT_FIRST_LAYOUT_CONTRACT.memory).toContain("prompt memory");
   });
 
   it("keeps installed sample tools ordered as source, prompt, editing, playback", () => {

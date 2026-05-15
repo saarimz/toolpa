@@ -17,7 +17,7 @@ describe("platform hardening audit", () => {
     expect(audit).toMatchObject({
       l1Count,
       l2Count,
-      specializedBuilderCount: 5,
+      specializedBuilderCount: 6,
       status: "ready",
       summary: `${l1Count} L1 tools and ${l2Count} L2 builders pass platform hardening gates.`,
     });
@@ -109,6 +109,54 @@ describe("platform hardening audit", () => {
     );
   });
 
+  it("allows visualizer L1s to expose visual-scene output without recording output", () => {
+    const visualizer: AgentManifest = {
+      ...validL1,
+      capabilities: ["promptToVisualScene", "liveAudioInput", "microphoneInput", "audioFileInput", "fullscreenVisuals"],
+      instrument: {
+        document: "visual-scene",
+        type: "visualizer",
+        usesSamples: true,
+        usesSynthesis: true,
+        workflow: "audio-reactive-visual-scene",
+      },
+      inputs: {
+        ...validL1.inputs,
+        audioSources: ["live-audio", "audio-file", "microphone"],
+        globalKey: false,
+        samples: ["loop"],
+        scaleSearch: false,
+      },
+      musicContext: {
+        globalBpm: true,
+        globalKey: false,
+        scaleSearch: false,
+      },
+      outputs: {
+        ...validL1.outputs,
+        audio: true,
+        pattern: false,
+        recording: false,
+        visualScene: true,
+      },
+      exports: {
+        document: "visual-scene",
+        audio: {
+          strategy: "source-audio",
+          formats: ["wav"],
+          maxDefaultDurationSec: 120,
+          requiresUserGestureForPreview: true,
+        },
+      },
+      route: "/tools/visualizer",
+      slug: "visualizer",
+    };
+
+    const audit = createPlatformHardeningAudit([visualizer]);
+
+    expect(audit.issues.filter((issue) => issue.slug === "visualizer")).toEqual([]);
+  });
+
   it("flags L2 builders that cannot verify and register generated tools", () => {
     const weakL2: AgentManifest = {
       ...validL2,
@@ -142,6 +190,7 @@ const validL1: AgentManifest = {
     globalKey: true,
     prompt: true,
     referenceAgent: false,
+    audioSources: [],
     requiredAnalysis: [],
     samples: ["break"],
     scaleSearch: true,
@@ -169,6 +218,7 @@ const validL1: AgentManifest = {
     pattern: true,
     recording: true,
     synthScene: false,
+    visualScene: false,
   },
   exports: {
     document: "pattern",
@@ -195,6 +245,7 @@ const validL2: AgentManifest = {
     globalKey: false,
     prompt: false,
     referenceAgent: true,
+    audioSources: [],
     requiredAnalysis: [],
     samples: [],
     scaleSearch: false,
@@ -222,6 +273,7 @@ const validL2: AgentManifest = {
     pattern: false,
     recording: false,
     synthScene: false,
+    visualScene: false,
   },
   route: "/build/weak",
   slug: "_weak-builder",

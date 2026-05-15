@@ -21,6 +21,8 @@ describe("agent registry", () => {
         "_microtonal-builder",
         "_sample-builder",
         "_synth-builder",
+        "_visualizer-builder",
+        "audio-visualizer",
         "intelligence-sampler",
         "drum-machine",
         "evolving-fm-synth",
@@ -59,6 +61,8 @@ describe("agent registry", () => {
         "_sample-builder",
         "_synth-builder",
         "_builder",
+        "_visualizer-builder",
+        "audio-visualizer",
         "intelligence-sampler",
         "drum-machine",
         "evolving-fm-synth",
@@ -77,6 +81,8 @@ describe("agent registry", () => {
         "_microtonal-builder",
         "_sample-builder",
         "_synth-builder",
+        "_visualizer-builder",
+        "audio-visualizer",
         "intelligence-sampler",
         "drum-machine",
         "evolving-fm-synth",
@@ -97,6 +103,7 @@ describe("agent registry", () => {
     expect(getAgentManifest("drum-machine")?.origin).toBe("installed");
     expect(getAgentManifest("evolving-fm-synth")?.origin).toBe("installed");
     expect(getAgentManifest("grid-sampler")?.origin).toBe("installed");
+    expect(getAgentManifest("audio-visualizer")?.origin).toBe("installed");
     expect(getAgentManifest("midi-generator")?.origin).toBe("installed");
     expect(getAgentManifest("splice-lab")?.origin).toBe("installed");
     const installedSlugs = new Set([
@@ -104,6 +111,7 @@ describe("agent registry", () => {
       "drum-machine",
       "evolving-fm-synth",
       "grid-sampler",
+      "audio-visualizer",
       "midi-generator",
       "splice-lab",
     ]);
@@ -148,6 +156,21 @@ describe("agent registry", () => {
       midi: true,
       audio: true,
     });
+    expect(getAgentManifest("audio-visualizer")?.instrument).toMatchObject({
+      type: "visualizer",
+      document: "visual-scene",
+      usesSamples: true,
+      usesSynthesis: true,
+    });
+    expect(getAgentManifest("audio-visualizer")?.inputs.audioSources).toEqual([
+      "live-audio",
+      "audio-file",
+      "microphone",
+    ]);
+    expect(getAgentManifest("audio-visualizer")?.outputs).toMatchObject({
+      visualScene: true,
+      audio: true,
+    });
     expect(getAgentManifest("_builder")?.instrument).toMatchObject({
       type: "builder",
       document: "files",
@@ -183,6 +206,7 @@ describe("agent registry", () => {
         "_microtonal-builder",
         "_sample-builder",
         "_synth-builder",
+        "_visualizer-builder",
       ]),
     );
     expect(getAgentManifests().some((manifest) => manifest.level > 2)).toBe(false);

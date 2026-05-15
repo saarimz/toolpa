@@ -1,4 +1,4 @@
-app = "toolpa-js-poc"
+app = "ai-daw-tools-poc"
 primary_region = "iad"
 kill_signal = "SIGINT"
 kill_timeout = "30s"
@@ -9,12 +9,12 @@ kill_timeout = "30s"
 [env]
   TOOLPA_JS_VOLUME_ROOT = "/data"
   TOOLPA_JS_BUILDER_MODE = "scaffold"
-  WORKSPACE_ROOT = "/data/toolpa-js"
+  WORKSPACE_ROOT = "/data/ai-daw-tools"
   NEXT_TELEMETRY_DISABLED = "1"
   PORT = "3000"
 
 [[mounts]]
-  source = "toolpa_js_data"
+  source = "ai_daw_tools_data"
   destination = "/data"
   initial_size = "20gb"
   snapshot_retention = 3

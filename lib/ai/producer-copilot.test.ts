@@ -27,6 +27,7 @@ const tool = {
     prompt: true,
     description: false,
     referenceAgent: false,
+    audioSources: [],
     requiredAnalysis: [],
   },
   musicContext: {
@@ -38,6 +39,7 @@ const tool = {
     pattern: false,
     synthScene: false,
     midi: true,
+    visualScene: false,
     audio: true,
     recording: true,
     files: false,

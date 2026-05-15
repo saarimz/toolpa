@@ -2,12 +2,13 @@ import "server-only";
 
 import { Output, generateText } from "ai";
 
-import { getGatewayModel } from "@/lib/ai/gateway";
+import { getConfiguredGatewayModelId, getGatewayModel } from "@/lib/ai/gateway";
 import { compactAnalysisForPrompt } from "@/lib/ai/sample-descriptors";
 import {
   SampleUseIdeasOutputSchema,
   type SampleUseIdeasOutput,
 } from "@/lib/ai/sample-ideas.shared";
+import { recordPromptMemory } from "@/lib/prompt-memory/server";
 import type { SampleAnalysis } from "@/lib/samples/analysis/schema";
 
 export type SuggestSampleUseIdeasInput = {
@@ -29,15 +30,28 @@ export async function suggestSampleUseIdeas(
   input: SuggestSampleUseIdeasInput,
 ): Promise<SampleUseIdeasOutput> {
   const compact = compactAnalysisForPrompt(input.analysis);
+  const prompt = buildSampleUseIdeasPrompt({
+    compact,
+    intentPrompt: input.intentPrompt,
+    sourceName: input.sourceName,
+  });
+
+  await recordPromptMemory({
+    action: "sample-use-ideas",
+    metadata: { sourceName: input.sourceName },
+    model: input.model ?? getConfiguredGatewayModelId(),
+    resolvedPrompt: prompt,
+    source: "ai.sample-ideas",
+    systemPrompt: SYSTEM_PROMPT,
+    toolSlug: "sample-analysis",
+    userPrompt: input.intentPrompt,
+  });
+
   const { output } = await generateText({
     model: getGatewayModel(input.model),
     output: Output.object({ schema: SampleUseIdeasOutputSchema }),
     system: SYSTEM_PROMPT,
-    prompt: buildSampleUseIdeasPrompt({
-      compact,
-      intentPrompt: input.intentPrompt,
-      sourceName: input.sourceName,
-    }),
+    prompt,
     temperature: 0.78,
   });
 

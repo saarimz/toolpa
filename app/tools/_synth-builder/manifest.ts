@@ -32,6 +32,7 @@ export const synthBuilderManifest = {
     prompt: false,
     description: true,
     referenceAgent: true,
+    audioSources: [],
     requiredAnalysis: [],
   },
   musicContext: {
@@ -43,6 +44,7 @@ export const synthBuilderManifest = {
     pattern: false,
     synthScene: false,
     midi: false,
+    visualScene: false,
     audio: false,
     recording: false,
     files: true,

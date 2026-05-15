@@ -2,7 +2,11 @@ import "server-only";
 
 import { Output, generateText } from "ai";
 
-import { getGatewayModel, isGatewayConfigured } from "@/lib/ai/gateway";
+import {
+  getConfiguredGatewayModelId,
+  getGatewayModel,
+  isGatewayConfigured,
+} from "@/lib/ai/gateway";
 import {
   buildScaleAgentPrompt,
   createDeterministicScaleChoice,
@@ -12,6 +16,7 @@ import {
   type ScaleAgentOutput,
   type ScaleAgentRequest,
 } from "@/lib/music/scale-agent.shared";
+import { recordPromptMemory } from "@/lib/prompt-memory/server";
 
 export async function chooseScaleWithAgent(
   input: ScaleAgentRequest,
@@ -24,12 +29,29 @@ export async function chooseScaleWithAgent(
   }
 
   try {
+    const system =
+      "You are a music-theory selector for toolpa. Pick key and scale choices from a provided candidate list only.";
+    const prompt = buildScaleAgentPrompt(parsed, candidates);
+
+    await recordPromptMemory({
+      action: "scale-search",
+      metadata: {
+        candidateCount: candidates.length,
+        tonic: parsed.tonic,
+      },
+      model: getConfiguredGatewayModelId(),
+      resolvedPrompt: prompt,
+      source: "ai.scale-agent",
+      systemPrompt: system,
+      toolSlug: "global-music-controls",
+      userPrompt: parsed.prompt,
+    });
+
     const { output } = await generateText({
       model: getGatewayModel(),
       output: Output.object({ schema: ScaleAgentOutputSchema }),
-      system:
-        "You are a music-theory selector for toolpa. Pick key and scale choices from a provided candidate list only.",
-      prompt: buildScaleAgentPrompt(parsed, candidates),
+      system,
+      prompt,
       temperature: 0.55,
     });
 

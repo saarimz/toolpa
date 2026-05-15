@@ -30,6 +30,7 @@ export const sampleBuilderManifest = {
     prompt: false,
     description: true,
     referenceAgent: true,
+    audioSources: [],
     requiredAnalysis: [],
   },
   musicContext: {
@@ -41,6 +42,7 @@ export const sampleBuilderManifest = {
     pattern: false,
     synthScene: false,
     midi: false,
+    visualScene: false,
     audio: false,
     recording: false,
     files: true,
