@@ -6,3 +6,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Run alternate dev-server ports as `pnpm dev --port 3010`; `pnpm dev -- --port 3010` is parsed as a project directory.
 - If a same-directory Next dev server is already running, Next may refuse a second server even on another port; reuse the logged URL/PID or stop that server first.
 <!-- END:nextjs-agent-rules -->
+
+## Builder Generation
+
+- Never interpolate model/user text into generated TS/TSX as raw quoted text; escape string literals and keep instantiate-time syntax audits enabled.

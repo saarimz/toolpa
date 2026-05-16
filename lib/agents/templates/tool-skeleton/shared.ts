@@ -8,5 +8,5 @@ export function toPascalCase(value: string) {
 }
 
 export function escapeString(value: string) {
-  return value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
+  return JSON.stringify(value).slice(1, -1);
 }

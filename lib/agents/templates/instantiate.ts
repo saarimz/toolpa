@@ -3,6 +3,7 @@ import {
   type ToolSkeletonInput,
   type ToolSkeletonInstance,
 } from "@/lib/agents/templates/tool-skeleton/files";
+import { runGeneratedToolSourceSyntaxAudit } from "@/lib/agents/builder-verification";
 
 export type InstantiateToolInput = ToolSkeletonInput;
 
@@ -17,6 +18,16 @@ export function instantiateToolSkeleton(
 
     if (/\{\{[a-zA-Z]/.test(content)) {
       throw new Error(`Template placeholder was not rendered in ${path}`);
+    }
+
+    if (/\.(tsx?|mts)$/.test(path)) {
+      const syntaxAudit = runGeneratedToolSourceSyntaxAudit({
+        projectPath: path,
+        source: content,
+      });
+      if (!syntaxAudit.passed) {
+        throw new Error(`Template emitted invalid TypeScript in ${path}:\n${syntaxAudit.stdout}`);
+      }
     }
   }
 

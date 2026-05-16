@@ -102,6 +102,24 @@ describe("instantiateToolSkeleton", () => {
     ).toThrow();
   });
 
+  it("escapes multiline descriptions in generated TS string literals", () => {
+    const instrumentTypes = ["sample", "synth", "effect", "hybrid", "visualizer"] as const;
+
+    for (const instrumentType of instrumentTypes) {
+      const slug = `multiline-${instrumentType}`;
+      const instance = instantiateToolSkeleton({
+        slug,
+        name: "Multiline Tool",
+        description: "Line one\nLine \"two\" with \\ slash",
+        instrumentType,
+      });
+
+      expect(instance.files.get(`app/tools/${slug}/client.tsx`)).toContain(
+        'Line one\\nLine \\"two\\" with \\\\ slash',
+      );
+    }
+  });
+
   it("renders a generated synth-scene skeleton for L2 synth requests", () => {
     const instance = instantiateToolSkeleton({
       slug: "simple-synth",

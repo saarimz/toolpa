@@ -1,5 +1,14 @@
 # toolpa JavaScript implementation
 
+Created by [Debit](https://debit.media/) and [Saarim Zaman](https://saarimzaman.com/).
+
+`toolpa-js` is being open sourced under the [MIT License](#license) so artists,
+builders, educators, and researchers can inspect the system, fork it, build new
+instrument families, and reuse the browser/audio framework with minimal
+restriction. The license keeps attribution and warranty terms clear while
+leaving room for both creative experiments and commercial products built on top
+of the framework.
+
 `toolpa` is an AI-native instrument framework for the browser.
 This repo is the JavaScript implementation, published and deployed as
 `toolpa-js`.
@@ -27,6 +36,7 @@ instrument families that all speak a shared platform language.
 ## Table Of Contents
 
 - [Getting Started](#getting-started)
+- [License](#license)
 - [Dependency Map](#dependency-map)
 - [What This Framework Is](#what-this-framework-is)
 - [Core Model](#core-model)
@@ -309,6 +319,14 @@ pnpm start --port 3010
 Production playback is good for the currently committed tools. For brand-new
 generated routes, use dev mode while building them, or rebuild and restart after
 the generated tool has been written.
+
+## License
+
+`toolpa-js` is open source under the [MIT License](LICENSE). MIT is a good fit
+for this project because it is a creative software framework and browser
+workstation: contributors can study, fork, remix, and ship derivative tools
+while retaining the attribution and warranty protections expected for a public
+open-source codebase.
 
 ## Dependency Map
 
