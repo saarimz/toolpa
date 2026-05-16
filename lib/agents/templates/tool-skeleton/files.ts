@@ -2,6 +2,7 @@ import {
   type AgentManifest,
   AgentManifestSchema,
 } from "@/lib/agents/contract";
+import { runGeneratedToolSourceSyntaxAudit } from "@/lib/agents/builder-verification";
 import type { SampleRole } from "@/lib/samples/roles";
 
 import {
@@ -37,6 +38,12 @@ export const SUPPORTED_TOOL_SKELETON_INSTRUMENTS = [
 ] as const;
 
 export function createToolSkeleton(
+  input: ToolSkeletonInput,
+): ToolSkeletonInstance {
+  return validateToolSkeletonInstance(createToolSkeletonUnchecked(input));
+}
+
+function createToolSkeletonUnchecked(
   input: ToolSkeletonInput,
 ): ToolSkeletonInstance {
   const instrumentType = input.instrumentType ?? "sample";
@@ -392,6 +399,22 @@ function resolveSampleSkeletonInstrument(type: NonNullable<ToolSkeletonInput["in
     usesSamples: true,
     usesSynthesis: false,
   };
+}
+
+function validateToolSkeletonInstance(instance: ToolSkeletonInstance): ToolSkeletonInstance {
+  for (const [path, content] of instance.files) {
+    if (/\.(tsx?|mts)$/.test(path)) {
+      const syntaxAudit = runGeneratedToolSourceSyntaxAudit({
+        projectPath: path,
+        source: content,
+      });
+      if (!syntaxAudit.passed) {
+        throw new Error(`Template emitted invalid TypeScript in ${path}:\n${syntaxAudit.stdout}`);
+      }
+    }
+  }
+
+  return instance;
 }
 
 function renderManifest(manifest: AgentManifest, exportName: string) {
