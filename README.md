@@ -1,6 +1,6 @@
 # toolpa JavaScript implementation
 
-Created by [Debit](https://debit.media/) and [Saarim Zaman](https://saarimzaman.com/).
+Created by [Debit](https://debit.media/) and [Saarim Zaman](https://saarimz.com/).
 
 `toolpa-js` is being open sourced under the [MIT License](#license) so artists,
 builders, educators, and researchers can inspect the system, fork it, build new

@@ -1,0 +1,474 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Loader2, Pause, Play, Sparkles, Square } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { LlmGeneratingOverlay } from "@/components/llm-generating-overlay";
+import { createPatternMidiPlayback, MidiPlaybackPanel } from "@/components/midi-playback-panel";
+import { getPatternStepAgency, getPatternStepAgencyClassName, PatternStepAgencyBadge, usePatternStepAgency } from "@/components/pattern-step-agency";
+import { PatternLiveTrace } from "@/components/pattern-live-trace";
+import { PromptFirstSection } from "@/components/prompt-first-section";
+import { SamplePicker } from "@/components/sample-picker";
+import { ToolExportPanel } from "@/components/tool-export-panel";
+import { vocalSampleStutters20260516t194056756z7d9574dfManifest } from "@/app/tools/vocal-sample-stutters-20260516t194056756z-7d9574df/manifest";
+import { getSamplePlaybackHost } from "@/lib/audio/sample-playback";
+import { readGenerateStream } from "@/lib/ai/client-stream";
+import type { GenerateStreamChunk } from "@/lib/ai/contracts";
+import { useGlobalMusicContextStore } from "@/lib/music/use-global-music-context";
+import { createPattern, createStep, createTrack, PatternSchema, type Pattern, type Track } from "@/lib/pattern/schema";
+import { getDefaultLibrarySample } from "@/lib/samples/library";
+import { exportPatternWavArtifact } from "@/lib/tool-exports/adapters/pattern";
+import { usePromptParamState } from "@/lib/tools/use-prompt-param";
+import { cn } from "@/lib/utils";
+
+const TOOL_SLUG = "vocal-sample-stutters-20260516t194056756z-7d9574df";
+const TOOL_NAME = "Vocal Sample Stutters 20260516T194056756Z-7d9574df";
+const TOOL_DESCRIPTION = "a tool that takes a vocal sample and stutters it with probabilistic repeats";
+const playbackHost = getSamplePlaybackHost("vocal-sample-stutters-20260516t194056756z-7d9574df");
+const TRACK_NAMES = ["main", "repeat", "reverse", "fill"] as const;
+const SAMPLE_ROLES = ["loop", "oneshot", "melodic", "pad", "fx"] as const;
+
+export function VocalSampleStutters20260516t194056756z7d9574dfClient() {
+  const abortRef = useRef<AbortController | null>(null);
+  const defaultSample = useMemo(() => getDefaultLibrarySample([...SAMPLE_ROLES]), []);
+  const [sampleId, setSampleId] = useState(defaultSample.id);
+  const [sampleName, setSampleName] = useState(defaultSample.name);
+  const [sampleRole, setSampleRole] = useState<Track["role"]>(defaultSample.role);
+  const [sliceCount, setSliceCount] = useState(16);
+  const [pattern, setPattern] = useState(() =>
+    createGeneratedPattern(defaultSample.id, defaultSample.name, defaultSample.role),
+  );
+  const [prompt, setPrompt] = usePromptParamState("stutter the source with gated repeats");
+  const [streamText, setStreamText] = useState("");
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const musicalContext = useGlobalMusicContextStore((state) => state.context);
+  const hydrateGlobalContext = useGlobalMusicContextStore((state) => state.hydrate);
+  const agencyEvents = usePatternStepAgency(pattern.id);
+  const suggestions = useMemo(
+    () => [
+      "tight vocal stutter with gated repeats",
+      "sparse off-grid chops with reverse fills",
+      "probability-heavy glitch loop that keeps the downbeat",
+    ],
+    [],
+  );
+
+  useEffect(() => {
+    function handleGlobalContext(event: Event) {
+      const detail = (event as CustomEvent<typeof musicalContext>).detail;
+      setPattern((current) =>
+        current.bpm === detail.bpm
+          ? current
+          : PatternSchema.parse({ ...current, bpm: detail.bpm }),
+      );
+    }
+
+    window.addEventListener("global-music-context-change", handleGlobalContext);
+    hydrateGlobalContext();
+    return () => {
+      window.removeEventListener("global-music-context-change", handleGlobalContext);
+      abortRef.current?.abort();
+      void playbackHost.stopPattern();
+    };
+  }, [hydrateGlobalContext]);
+
+  function selectSample(sample: { id: string; name: string; role: Track["role"] }) {
+    setSampleId(sample.id);
+    setSampleName(sample.name);
+    setSampleRole(sample.role);
+    setPattern((current) =>
+      PatternSchema.parse({
+        ...current,
+        metadata: {
+          ...current.metadata,
+          sourceSampleId: sample.id,
+          sourceSampleName: sample.name,
+        },
+        tracks: current.tracks.map((track) => ({
+          ...track,
+          sampleId: sample.id,
+          role: sample.role,
+        })),
+      }),
+    );
+  }
+
+  function toggleStep(trackId: string, stepIndex: number) {
+    setPattern((current) =>
+      PatternSchema.parse({
+        ...current,
+        tracks: current.tracks.map((track) =>
+          track.id === trackId
+            ? {
+                ...track,
+                steps: track.steps.map((step, index) =>
+                  index === stepIndex
+                    ? createStep({
+                        ...step,
+                        active: !step.active,
+                        slot: step.slot ?? track.slot ?? 0,
+                      })
+                    : step,
+                ),
+              }
+            : track,
+        ),
+      }),
+    );
+  }
+
+  function setTrackSlot(trackId: string, slot: number) {
+    setPattern((current) =>
+      PatternSchema.parse({
+        ...current,
+        tracks: current.tracks.map((track) =>
+          track.id === trackId
+            ? {
+                ...track,
+                slot,
+                steps: track.steps.map((step) => createStep({ ...step, slot })),
+              }
+            : track,
+        ),
+      }),
+    );
+  }
+
+  function setBpm(bpm: number) {
+    setPattern((current) => PatternSchema.parse({ ...current, bpm }));
+  }
+
+  function setSwing(swing: number) {
+    setPattern((current) => PatternSchema.parse({ ...current, swing }));
+  }
+
+  async function togglePlayback() {
+    if (isPlaying) {
+      await playbackHost.stopPattern();
+      setIsPlaying(false);
+      return;
+    }
+
+    await playbackHost.playPattern(pattern, { musicalContext, sliceCount });
+    setIsPlaying(true);
+  }
+
+  function abortGeneration() {
+    abortRef.current?.abort();
+    setIsGenerating(false);
+  }
+
+  async function generatePattern() {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setIsGenerating(true);
+    setError(null);
+    setStreamText("");
+
+    try {
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          toolSlug: TOOL_SLUG,
+          mode: "fresh",
+          prompt,
+          context: {
+            pattern,
+            sampleId,
+            sampleName,
+            sampleRole,
+            bpm: pattern.bpm,
+            swing: pattern.swing,
+            musicalContext,
+            sliceCount,
+          },
+        }),
+      });
+
+      await readGenerateStream(response, handleChunk);
+    } catch (unknownError) {
+      if (!controller.signal.aborted) {
+        setError(unknownError instanceof Error ? unknownError.message : "Generation failed");
+      }
+    } finally {
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        setIsGenerating(false);
+      }
+    }
+  }
+
+  function handleChunk(chunk: GenerateStreamChunk) {
+    if (chunk.type === "partial" || chunk.type === "final") {
+      const nextPattern = chunk.pattern;
+      setStreamText(JSON.stringify(nextPattern, null, 2));
+      const parsed = PatternSchema.safeParse(nextPattern);
+      if (parsed.success) {
+        setPattern(parsed.data);
+      }
+      return;
+    }
+
+    if (chunk.type === "prompt") {
+      setStreamText(chunk.prompt);
+      return;
+    }
+
+    if (chunk.type === "error") {
+      setError(chunk.message);
+    }
+  }
+
+  const midiPlayback = createPatternMidiPlayback(pattern, { musicalContext });
+
+  return (
+    <main className="min-h-screen bg-zinc-950 text-zinc-100">
+      <section className="mx-auto flex max-w-7xl flex-col">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 p-4">
+          <div>
+            <Link href="/dashboard" className="text-xs text-zinc-500 hover:text-zinc-200">
+              /dashboard
+            </Link>
+            <h1 className="mt-1 text-lg text-zinc-100">{TOOL_NAME}</h1>
+            <p className="mt-1 max-w-3xl text-xs text-zinc-500">{TOOL_DESCRIPTION}</p>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-zinc-500">
+            <span>L1</span>
+            <span className="text-zinc-200">generated</span>
+            <span>{sampleName}</span>
+          </div>
+        </header>
+
+        <div className="flex flex-wrap items-center gap-3 border-b border-zinc-800 p-4">
+          <SamplePicker
+            id={`${TOOL_SLUG}-sample`}
+            label="source"
+            value={sampleId}
+            roles={SAMPLE_ROLES}
+            onSelect={selectSample}
+          />
+          <label className="flex items-center gap-2 text-xs text-zinc-500">
+            bpm
+            <input
+              className="h-9 w-20 rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-zinc-100"
+              type="number"
+              min={1}
+              max={260}
+              value={pattern.bpm}
+              onChange={(event) => setBpm(Number(event.target.value))}
+            />
+          </label>
+          <label className="flex items-center gap-2 text-xs text-zinc-500">
+            swing
+            <input
+              className="w-32 accent-zinc-200"
+              type="range"
+              min={0}
+              max={0.5}
+              step={0.01}
+              value={pattern.swing}
+              onChange={(event) => setSwing(Number(event.target.value))}
+            />
+          </label>
+          <label className="flex items-center gap-2 text-xs text-zinc-500">
+            slices
+            <select
+              className="h-9 rounded-sm border border-zinc-700 bg-zinc-950 px-2 text-zinc-100"
+              value={sliceCount}
+              onChange={(event) => setSliceCount(Number(event.target.value))}
+            >
+              {[8, 16, 32].map((count) => (
+                <option key={count} value={count}>
+                  {count}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <PromptFirstSection className="relative grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <section className="relative overflow-hidden border-b border-zinc-800 p-4 lg:border-b-0 lg:border-r">
+            {isGenerating ? (
+              <LlmGeneratingOverlay
+                detail="Prompting the LLM for a generated tool pattern."
+                label="generating pattern"
+              />
+            ) : null}
+
+            <label className="block text-xs text-zinc-500">
+              generation prompt
+              <textarea
+                className="mt-2 h-28 w-full resize-none rounded-sm border border-zinc-700 bg-zinc-950 p-3 text-xs text-zinc-100 outline-none focus:border-zinc-200"
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
+              />
+            </label>
+            <div className="mt-3 grid gap-2">
+              {suggestions.map((suggestion) => (
+                <button
+                  className="border border-zinc-800 px-3 py-2 text-left text-xs text-zinc-300 hover:border-zinc-200 hover:text-white"
+                  key={suggestion}
+                  type="button"
+                  onClick={() => setPrompt(suggestion)}
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+          <Button disabled={isGenerating} onClick={() => void generatePattern()}>
+            {isGenerating ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+            generate
+          </Button>
+          {isGenerating ? (
+            <Button variant="danger" onClick={abortGeneration}>
+              <Square className="size-4" />
+              abort
+            </Button>
+          ) : null}
+            </div>
+            {error ? <p className="mt-3 text-xs text-red-300">{error}</p> : null}
+          </section>
+          <aside className="p-4">
+            <pre className="max-h-64 overflow-auto border border-zinc-800 bg-black p-3 text-[11px] leading-5 text-zinc-500">
+              {streamText || pattern.metadata.rationale || "AI prompt, rationale, or pattern JSON will appear here"}
+            </pre>
+          </aside>
+        </PromptFirstSection>
+
+        <div className="flex flex-wrap items-center gap-3 border-b border-zinc-800 p-4">
+          <Button variant={isPlaying ? "danger" : "solid"} onClick={() => void togglePlayback()}>
+            {isPlaying ? <Pause className="size-4" /> : <Play className="size-4" />}
+            {isPlaying ? "stop" : "play"}
+          </Button>
+          <ToolExportPanel
+            audioExport={() =>
+              exportPatternWavArtifact({
+                filename: `${TOOL_SLUG}.wav`,
+                options: { musicalContext, sliceCount },
+                pattern,
+                toolSlug: TOOL_SLUG,
+              })
+            }
+            document={pattern}
+            filenameStem={TOOL_SLUG}
+            manifest={vocalSampleStutters20260516t194056756z7d9574dfManifest}
+          />
+          <PatternLiveTrace patternId={pattern.id} />
+        </div>
+
+        <div className="border-b border-zinc-800">
+          <section className="overflow-x-auto p-4">
+            <div className="min-w-[760px] space-y-2">
+              {pattern.tracks.map((track) => (
+                <div key={track.id} className="grid grid-cols-[160px_1fr] items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-20 truncate text-xs text-zinc-400">{track.name}</span>
+                    <select
+                      aria-label={`${track.name} slice`}
+                      className="h-8 rounded-sm border border-zinc-800 bg-zinc-950 px-2 text-xs text-zinc-100"
+                      value={track.slot ?? 0}
+                      onChange={(event) => setTrackSlot(track.id, Number(event.target.value))}
+                    >
+                      {Array.from({ length: sliceCount }, (_, slot) => (
+                        <option key={slot} value={slot}>
+                          s{slot + 1}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div
+                    className="grid gap-1"
+                    style={{ gridTemplateColumns: "repeat(16, minmax(0, 1fr))" }}
+                  >
+                    {track.steps.map((step, stepIndex) => {
+                      const agencyEvent = getPatternStepAgency(agencyEvents, {
+                        patternId: pattern.id,
+                        slot: step.slot ?? track.slot,
+                        stepIndex,
+                        trackId: track.id,
+                      });
+
+                      return (
+                        <button
+                          className={cn(
+                            "relative h-8 overflow-hidden border text-[10px] transition",
+                            step.active
+                              ? "border-zinc-200 bg-zinc-100 text-zinc-950"
+                              : "border-zinc-800 bg-zinc-950 text-zinc-700 hover:bg-zinc-900",
+                            getPatternStepAgencyClassName(agencyEvent),
+                          )}
+                          key={`${track.id}-${stepIndex}`}
+                          title={`${track.name} step ${stepIndex + 1}`}
+                          type="button"
+                          onClick={() => toggleStep(track.id, stepIndex)}
+                        >
+                          <PatternStepAgencyBadge event={agencyEvent} />
+                          {step.active ? "x" : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <MidiPlaybackPanel {...midiPlayback} isPlaying={isPlaying} />
+      </section>
+    </main>
+  );
+}
+
+function createGeneratedPattern(sampleId: string, sampleName: string, role: Track["role"]): Pattern {
+  return createPattern({
+    id: `${TOOL_SLUG}-pattern`,
+    name: `${TOOL_NAME} pattern`,
+    bpm: 138,
+    swing: 0.08,
+    bars: 1,
+    stepsPerBar: 16,
+    tracks: TRACK_NAMES.map((trackName, trackIndex) =>
+      createTrack({
+        id: trackName,
+        name: trackName,
+        sampleId,
+        role,
+        slot: trackIndex,
+        chokeGroup: `${TOOL_SLUG}-source`,
+        steps: Array.from({ length: 16 }, (_, stepIndex) =>
+          createStep({
+            active:
+              (trackIndex === 0 && stepIndex % 4 === 0) ||
+              (trackIndex === 1 && [3, 7, 11, 15].includes(stepIndex)) ||
+              (trackIndex === 2 && stepIndex === 10) ||
+              (trackIndex === 3 && stepIndex >= 12),
+            slot: trackIndex,
+            velocity: trackIndex === 1 ? 0.72 : 1,
+            probability: trackIndex === 3 ? 0.68 : 1,
+            microShift: trackIndex === 1 ? -0.06 : 0,
+            repeats: trackIndex === 1 ? 2 : 1,
+            reverse: trackIndex === 2,
+            decay: trackIndex === 0 ? 0.8 : 0.45,
+          }),
+        ),
+      }),
+    ),
+    metadata: {
+      toolSlug: TOOL_SLUG,
+      sourceSampleId: sampleId,
+      sourceSampleName: sampleName,
+      createdBy: "manual",
+      rationale: "Generated instrument scaffold with uploadable source, slice mapping, and choke-aware stutter lanes.",
+      tags: ["generated", "stutter"],
+    },
+  });
+}
