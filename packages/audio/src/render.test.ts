@@ -157,6 +157,44 @@ describe('offline render', () => {
     const restored = await renderChain({ chain: opened.chain, durationSeconds: 0.05 });
     expect(restored.wav).toEqual(direct.wav);
     expect(restored.hash).toBe(direct.hash);
+    expect(opened.graphHash).toBe(direct.hash);
+    expect(opened.parents).toEqual([]);
+  });
+
+  it('packs referenced sample bytes and renders the same WAV after unpack', async () => {
+    const file = sampleWav();
+    const decoded = await decodeWavSample(file);
+    const chain = {
+      ...sineChain,
+      effect: { ...tone, cutoffHz: 8000, gain: 0.5 },
+      source: { type: 'sample' as const, sha256: decoded.sha256, playbackRate: 1 },
+    };
+    const samples = new Map<string, SampleBuffer>([[decoded.sha256, { sampleRate: decoded.sampleRate, pcm: decoded.pcm }]]);
+    const direct = await renderChain({ chain, durationSeconds: 0.1, samples });
+    const parent = 'ab'.repeat(32);
+    const packed = await packToolpa({
+      chain,
+      title: 'Sample',
+      name: 'sample',
+      parents: [parent],
+      seq: 2,
+      samples: [{ sha256: decoded.sha256, bytes: file }],
+    });
+    const opened = await unpackToolpa(packed.bytes);
+    expect(opened.graphHash).toBe(direct.hash);
+    expect(opened.parents).toEqual([parent]);
+    expect(opened.seq).toBe(2);
+    expect(opened.samples.map((sample) => sample.sha256)).toEqual([decoded.sha256]);
+    const restoredBytes = opened.samples[0]?.bytes;
+    if (!restoredBytes) throw new Error('sample missing from the archive');
+    const restoredDecoded = await decodeWavSample(restoredBytes);
+    const restored = await renderChain({
+      chain: opened.chain,
+      durationSeconds: 0.1,
+      samples: new Map([[restoredDecoded.sha256, { sampleRate: restoredDecoded.sampleRate, pcm: restoredDecoded.pcm }]]),
+    });
+    expect(restored.hash).toBe(direct.hash);
+    expect(restored.wav).toEqual(direct.wav);
   });
 
   it('reports the Elementary versions pinned in the package', () => {

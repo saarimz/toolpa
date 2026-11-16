@@ -6,11 +6,21 @@ import { ArtifactError } from './artifact.ts';
 const EPOCH = new Date('1980-01-01T00:00:00Z');
 const MAX_ENTRY = 2 * 1024 * 1024 * 1024;
 
+export interface PackedSample {
+  sha256: string;
+  bytes: Uint8Array;
+}
+
 export interface PackedToolpa {
   bytes: Uint8Array;
   contentId: string;
   graphHash: string;
   chain: Chain;
+  parents: string[];
+  name: string;
+  title: string;
+  seq: number;
+  samples: PackedSample[];
 }
 
 interface FileEntry {
@@ -103,7 +113,14 @@ async function contentIdFor(manifest: Manifest): Promise<string> {
 }
 
 export async function packToolpa(
-  input: { chain: unknown; title: string; name: string; parents?: readonly string[]; seq?: number },
+  input: {
+    chain: unknown;
+    title: string;
+    name: string;
+    parents?: readonly string[];
+    seq?: number;
+    samples?: readonly PackedSample[];
+  },
   trace?: Trace,
 ): Promise<PackedToolpa> {
   const span = trace?.span('artifact.pack', { title: input.title });
@@ -125,24 +142,44 @@ export async function packToolpa(
       assets: [],
       status: 'draft',
     };
+    const packedSamples = [...(input.samples ?? [])].sort((left, right) => (left.sha256 < right.sha256 ? -1 : left.sha256 > right.sha256 ? 1 : 0));
+    const samplePayloads: Array<[string, Uint8Array]> = [];
+    for (const sample of packedSamples) {
+      if (!/^[a-f0-9]{64}$/.test(sample.sha256)) {
+        throw new ArtifactError('sample', 'sample id must be 64 lowercase hex characters');
+      }
+      const actual = await sha256Hex(sample.bytes);
+      if (actual !== sample.sha256) {
+        throw new ArtifactError('ARTIFACT_HASH_MISMATCH', `ARTIFACT_HASH_MISMATCH: samples/${sample.sha256}.wav`);
+      }
+      const path = `samples/${sample.sha256}.wav`;
+      manifest.files[path] = { sha256: actual, size: sample.bytes.byteLength, type: 'audio/wav' };
+      manifest.assets.push(path);
+      samplePayloads.push([path, sample.bytes]);
+    }
     assertNoFloat(manifest, 'manifest');
     const contentId = await contentIdFor(manifest);
     const stored: Manifest = { ...manifest, contentId };
-    const entries = {
-      'toolpa.json': [strToU8(canonicalize(stored)), zipOptions()] as [Uint8Array, ReturnType<typeof zipOptions>],
-      'graph.json': [graphBytes, zipOptions()] as [Uint8Array, ReturnType<typeof zipOptions>],
-      'previews/fingerprint.json': [strToU8(canonicalize({ graphHash: hashed.hash })), zipOptions()] as [
-        Uint8Array,
-        ReturnType<typeof zipOptions>,
-      ],
-      'verify.json': [strToU8(canonicalize({ contentId, ok: true })), zipOptions()] as [
-        Uint8Array,
-        ReturnType<typeof zipOptions>,
-      ],
+    const entries: Record<string, [Uint8Array, ReturnType<typeof zipOptions>]> = {
+      'toolpa.json': [strToU8(canonicalize(stored)), zipOptions()],
+      'graph.json': [graphBytes, zipOptions()],
+      'previews/fingerprint.json': [strToU8(canonicalize({ graphHash: hashed.hash })), zipOptions()],
+      'verify.json': [strToU8(canonicalize({ contentId, ok: true })), zipOptions()],
     };
+    for (const [path, payload] of samplePayloads) entries[path] = [payload, zipOptions()];
     const bytes = zipSync(entries, { level: 0 });
     span?.end({ contentId, bytes: bytes.byteLength, ok: true });
-    return { bytes, contentId, graphHash: hashed.hash, chain: hashed.chain };
+    return {
+      bytes,
+      contentId,
+      graphHash: hashed.hash,
+      chain: hashed.chain,
+      parents: manifest.parents,
+      name: manifest.name,
+      title: manifest.title,
+      seq: manifest.version.seq,
+      samples: packedSamples.map((sample) => ({ sha256: sample.sha256, bytes: sample.bytes })),
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const code = error instanceof ArtifactError ? error.code : 'error';
@@ -173,10 +210,40 @@ export async function unpackToolpa(bytes: Uint8Array, trace?: Trace): Promise<Pa
     if (manifest.contentId !== expectedId) {
       throw new ArtifactError('ARTIFACT_HASH_MISMATCH', 'ARTIFACT_HASH_MISMATCH: toolpa.json');
     }
+    if (!Array.isArray(manifest.parents) || manifest.parents.some((parent) => typeof parent !== 'string')) {
+      throw new ArtifactError('parents', 'parents must be a list of strings');
+    }
+    if (typeof manifest.name !== 'string' || typeof manifest.title !== 'string') {
+      throw new ArtifactError('shape', 'toolpa.json needs a name and a title');
+    }
+    if (!manifest.version || !Number.isInteger(manifest.version.seq)) {
+      throw new ArtifactError('shape', 'toolpa.json version.seq must be an integer');
+    }
+    const samples: PackedSample[] = [];
+    for (const name of Object.keys(files).sort()) {
+      const match = /^samples\/([a-f0-9]{64})\.wav$/.exec(name);
+      if (!match?.[1]) continue;
+      const payload = files[name];
+      const entry = manifest.files[name];
+      if (!payload || !entry || entry.sha256 !== match[1]) {
+        throw new ArtifactError('ARTIFACT_HASH_MISMATCH', `ARTIFACT_HASH_MISMATCH: ${name}`);
+      }
+      samples.push({ sha256: match[1], bytes: payload });
+    }
     const hashed = await hashChain(JSON.parse(new TextDecoder().decode(graphBytes)));
     span?.end({ contentId: expectedId, ok: true });
     trace?.event('artifact.verify', { ok: true, contentId: expectedId });
-    return { bytes, contentId: expectedId, graphHash: hashed.hash, chain: hashed.chain };
+    return {
+      bytes,
+      contentId: expectedId,
+      graphHash: hashed.hash,
+      chain: hashed.chain,
+      parents: manifest.parents,
+      name: manifest.name,
+      title: manifest.title,
+      seq: manifest.version.seq,
+      samples,
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const code = error instanceof ArtifactError ? error.code : 'error';
