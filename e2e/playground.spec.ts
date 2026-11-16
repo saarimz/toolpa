@@ -214,8 +214,10 @@ test('a downloaded .toolpa opens to the same hash and WAV', async ({ page, brows
   await page.getByLabel('Cutoff Hz').fill('600');
   await expect(page.getByTestId('hash')).not.toHaveText(sine.hash);
   const hash = (await page.getByTestId('hash').innerText()).trim();
+  const wavDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Render 1s WAV' }).click();
   await expect(page.getByTestId('render-count')).toHaveText('1');
+  expect((await wavDownload).suggestedFilename()).toMatch(/\.wav$/);
   const checksum = (await page.getByTestId('wav-sha').innerText()).trim();
   expect(checksum).toMatch(/^[a-f0-9]{64}$/);
 

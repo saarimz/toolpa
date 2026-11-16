@@ -33,7 +33,7 @@ function voiceNode(note: NoteEvent, instrument: Instrument, index: number) {
   return el.mul(envelope, el.cycle(midiHz(note.midi)));
 }
 
-export function lowerInstrument(instrument: Instrument, trace?: Trace) {
+export function sumVoices(instrument: Instrument, trace?: Trace) {
   const allocated = allocateVoices(instrument.notes, instrument.maxVoices);
   trace?.event('voice.allocate', {
     voices: allocated.sounding.length,
@@ -45,8 +45,22 @@ export function lowerInstrument(instrument: Instrument, trace?: Trace) {
   }
   const voices = allocated.sounding.map((note, index) => voiceNode(note, instrument, index));
   const sum = voices.length === 0 ? el.const({ key: 'silence', value: 0 }) : voices.length === 1 ? voices[0] : el.add(...voices);
-  const node = applyTone(sum, instrument.effect, trace);
-  return { node, ...allocated, svf: countNodes(node, 'svf') };
+  return { sum, ...allocated };
+}
+
+export function lowerEffects(instrument: Instrument, effects: Instrument['effect'][], trace?: Trace) {
+  if (effects.length < 1 || effects.length > 4) throw new Error('a rack mounts 1 to 4 effects');
+  const voices = sumVoices(instrument, trace);
+  let node = voices.sum;
+  for (const effect of effects) node = applyTone(node, effect, trace);
+  const svf = countNodes(node, 'svf');
+  if (svf !== effects.length) throw new Error(`mounted ${svf} lowpass filters for ${effects.length} effects`);
+  return { node, svf, sounding: voices.sounding, stolen: voices.stolen };
+}
+
+export function lowerInstrument(instrument: Instrument, trace?: Trace) {
+  const lowered = lowerEffects(instrument, [instrument.effect], trace);
+  return lowered;
 }
 
 export async function renderInstrument(
