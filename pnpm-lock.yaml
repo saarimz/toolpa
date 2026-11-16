@@ -32,6 +32,9 @@ importers:
       '@toolpa/graph':
         specifier: workspace:*
         version: link:../graph
+      '@toolpa/samples':
+        specifier: workspace:*
+        version: link:../samples
       '@toolpa/trace':
         specifier: workspace:*
         version: link:../trace

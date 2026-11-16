@@ -11,6 +11,7 @@
     "@elemaudio/core": "4.0.1",
     "@elemaudio/offline-renderer": "4.0.3",
     "@toolpa/graph": "workspace:*",
+    "@toolpa/samples": "workspace:*",
     "@toolpa/trace": "workspace:*"
   }
 }
