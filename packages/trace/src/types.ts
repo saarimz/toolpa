@@ -6,6 +6,8 @@ export type TraceFields = Record<string, TracePrimitive>;
 
 export interface TraceEvent {
   kind: 'event';
+  v: 1;
+  seq: number;
   t: string;
   name: string;
   level: TraceLevel;
@@ -14,6 +16,8 @@ export interface TraceEvent {
 
 export interface TraceMetric {
   kind: 'metric';
+  v: 1;
+  seq: number;
   t: string;
   name: string;
   value: number;
