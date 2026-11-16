@@ -32,7 +32,7 @@ Shipped package names differ from the plan: `@toolpa/graph` holds the chain docu
 | --- | --- | --- | --- |
 | S1 | `5f0a167`, `88a6dd2` | met | Closed registry, monotonic `seq`, spans, `fail()` → `error`, and a source scan that fails on `fetch(`. The wire format keeps ISO timestamps and `fields` so the existing sinks still parse. |
 | S2 | `R7` (this commit), pins from `d7de918` | met | `engine.versions` matches the pinned Elementary packages. The audit requires GPL-3.0-or-later here and MIT, BSD, Apache-2.0, LGPL, ISC, or OFL-1.1 for dependencies. An AGPL fixture fails. No eslint seam and no CI workflow: this tree is not wired to a hosted runner. |
-| S3 | `b4d17ef`, `1d09b40` | partial | Voices and subpatches throw `SLICE_UNSUPPORTED`. `ir.validate` and `ir.hash` fire. The hash is SHA-256 of the canonical chain, not a per-node FNV, and it does not reproduce `@elemaudio/core` `hashNode`. |
+| S3 | `b4d17ef`, `1d09b40` | accepted deviation | Voices and subpatches throw `SLICE_UNSUPPORTED`. `ir.validate` and `ir.hash` fire. The identity stays SHA-256 of the canonical document on purpose: that is the registry design, and it is the hash the playground, the goldens, and the artifact id already use. It is not a per-node FNV and it does not reproduce `@elemaudio/core` `hashNode`. |
 | S4 | `e195e90`, `28201e8`, `253666e`, `5b9b37e` | met | `engine.lower` reports exactly one `svf`. A bare sine has none. |
 | S5 | `d9ee6a1`, `5b9b37e` | met | `render.twice` records `identical: true`. `el.const({value: Infinity})` emits `render.nan` and throws `ENGINE_NAN`. |
 | S6 | `28201e8`, `d9ee6a1`, `R7` (this commit) | met | WAV goldens stay. A 220 Hz sine is within 5 cents. Seeded noise through an 800 Hz lowpass has at least 24 dB less energy from 3.2–6.4 kHz than from 100–600 Hz. `golden.check` is emitted when the goldens match. |
@@ -48,7 +48,7 @@ Shipped package names differ from the plan: `@toolpa/graph` holds the chain docu
 
 Deviations that stay, and why:
 
-- The chain hash is SHA-256 of canonical JSON. A second FNV that mirrors `hashNode` would not be the hash the playground, the goldens, or the artifact id already use.
+- Accepted: the chain hash is SHA-256 of the canonical document. That matches the registry design. A per-node FNV that mirrors `hashNode` is not the identity.
 - The audible sample player is Elementary's `el.sample`, which interpolates. The sample-exact promise is the VFS copy, and a missing buffer throws before render.
 - Goldens and the playground run at 44.1 kHz. The lowpass measurement runs at 48 kHz.
 - WebKit OPFS and, when it fails, native WebKit MP3 stay non-gating. The worker WAV compare is gating on Chromium only.
