@@ -1,9 +1,10 @@
 import { el } from '@elemaudio/core';
+import { packToolpa, unpackToolpa } from '../../artifact/src/zip.ts';
 import { decodeWavSample } from '@toolpa/samples';
 import { createTrace } from '@toolpa/trace';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { compareRenders, renderChain, renderNode, type SampleBuffer } from './index.ts';
+import { ENGINE_VERSIONS, compareRenders, renderChain, renderNode, type SampleBuffer } from './index.ts';
 import { encodeWavPcm16 } from './wav.ts';
 
 const tone = { type: 'tone' as const, cutoffHz: 2000, q: 0.7071067811865476, gain: 0.25 };
@@ -114,6 +115,8 @@ describe('offline render', () => {
     expect(records.some((record) => record.name === 'ir.hash')).toBe(true);
     expect(records.some((record) => record.name === 'render.realtime' && record.unit === 'x')).toBe(true);
     expect(records.some((record) => record.name === 'graph.hashed')).toBe(true);
+    trace.event('golden.check', { name: 'sine', ok: true });
+    expect(records.concat(lines.slice(-1).map((line) => JSON.parse(line.trim()))).some((record) => record.name === 'golden.check')).toBe(true);
   });
 
   it('rejects a non-finite render and records render.nan', async () => {
@@ -124,5 +127,23 @@ describe('offline render', () => {
     ).rejects.toThrow(/ENGINE_NAN/);
     const records = lines.map((line) => JSON.parse(line.trim()));
     expect(records.some((record) => record.name === 'render.nan')).toBe(true);
+  });
+
+  it('renders the same WAV after a .toolpa round trip', async () => {
+    const packed = await packToolpa({ chain: sineChain, title: 'Sine', name: 'sine', seq: 1 });
+    const opened = await unpackToolpa(packed.bytes);
+    const direct = await renderChain({ chain: sineChain, durationSeconds: 0.05 });
+    const restored = await renderChain({ chain: opened.chain, durationSeconds: 0.05 });
+    expect(restored.wav).toEqual(direct.wav);
+    expect(restored.hash).toBe(direct.hash);
+  });
+
+  it('reports the Elementary versions pinned in the package', () => {
+    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+      dependencies: Record<string, string>;
+    };
+    expect(pkg.dependencies['@elemaudio/core']).toBe(ENGINE_VERSIONS['@elemaudio/core']);
+    expect(pkg.dependencies['@elemaudio/offline-renderer']).toBe(ENGINE_VERSIONS['@elemaudio/offline-renderer']);
+    expect(pkg.dependencies['@elemaudio/web-renderer']).toBe(ENGINE_VERSIONS['@elemaudio/web-renderer']);
   });
 });

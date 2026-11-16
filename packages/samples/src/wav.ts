@@ -49,13 +49,17 @@ export function decodeWav(bytes: Uint8Array): WavPcm {
     offset = start + size + (size % 2);
   }
 
-  if (format !== 1 && format !== 3) throw new SampleError('wav', `unsupported WAV format ${format}`);
+  if (format !== 1 && format !== 3) {
+    throw new SampleError('WAV_UNSUPPORTED_FORMAT', `WAV_UNSUPPORTED_FORMAT: format ${format}`);
+  }
   if (channels < 1 || channels > 2) throw new SampleError('wav', 'WAV must be mono or stereo');
   if (sampleRate < 8_000 || sampleRate > 96_000) throw new SampleError('wav', 'WAV sample rate is out of range');
   if (!data) throw new SampleError('wav', 'WAV is missing a data chunk');
 
   const bytesPerSample = bits / 8;
-  if (![2, 3, 4].includes(bytesPerSample)) throw new SampleError('wav', `unsupported bit depth ${bits}`);
+  if (![2, 3, 4].includes(bytesPerSample)) {
+    throw new SampleError('WAV_UNSUPPORTED_FORMAT', `WAV_UNSUPPORTED_FORMAT: ${bits}-bit PCM`);
+  }
   const block = bytesPerSample * channels;
   const frames = Math.floor(data.byteLength / block);
   const pcm = new Float32Array(frames);

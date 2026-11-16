@@ -48,6 +48,19 @@ describe('tone effect', () => {
     expect(countNodes(buildSine({ type: 'sine', frequencyHz: 440 }), 'svf')).toBe(0);
   });
 
+  it('holds a 220 Hz sine within 5 cents', async () => {
+    const sampleRate = 48000;
+    const frames = sampleRate;
+    const pcm = await renderNode(buildSine({ type: 'sine', frequencyHz: 220 }), { sampleRate, frames });
+    let crossings = 0;
+    for (let i = 1; i < pcm.length; i += 1) {
+      if ((pcm[i - 1] ?? 0) <= 0 && (pcm[i] ?? 0) > 0) crossings += 1;
+    }
+    const hz = crossings / (frames / sampleRate);
+    const cents = Math.abs(1200 * Math.log2(hz / 220));
+    expect(cents).toBeLessThan(5);
+  });
+
   it('puts at least 24 dB less energy above 3.2 kHz than in the passband', async () => {
     const sampleRate = 48000;
     const frames = 8192;

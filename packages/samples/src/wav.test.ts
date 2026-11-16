@@ -67,5 +67,9 @@ describe('WAV samples', () => {
     expect(decoded.pcm[0]).toBeCloseTo(0, 4);
     expect(decoded.pcm[1]).toBeCloseTo(0, 4);
     await expect(decodeWavSample(stereo.subarray(0, 20))).rejects.toBeInstanceOf(SampleError);
+    const eightBit = encodePcm16Wav(new Float32Array([0.1, -0.1]), 44100);
+    const view = new DataView(eightBit.buffer);
+    view.setUint16(34, 8, true);
+    await expect(decodeWavSample(eightBit)).rejects.toThrow(/WAV_UNSUPPORTED_FORMAT/);
   });
 });

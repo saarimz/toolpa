@@ -1,25 +1,25 @@
-# Toolpa v2 slice 1
+# Toolpa v2, slice 1
 
-One flat chain, no voices. A source (sine, seeded noise, or a WAV/MP3 buffer keyed by SHA-256) goes through one audio-to-audio effect named Tone (lowpass, then gain), then a meter, then the output. The graph is Elementary Audio. The same document plays live and renders offline to WAV. It saves and loads as a content-addressed `.toolpa` artifact (`kind: "chain"`) in OPFS, with parent pointers.
+Source, then one audio effect, then the output. The same graph plays live, renders to WAV, and saves as a content-addressed `.toolpa`.
 
-The uploaded step plan and design-doc tarball were not on disk when this repo was built. These fifteen steps are the slice that was implemented from that brief. Each step is one commit, `S<n>: <title>`, and is green before the next one starts.
+This is the step list from `slice-1-plan.md`. The original `S1`–`S15` commits used different titles. [SLICE-RECONCILE.md](SLICE-RECONCILE.md) maps those commits, and the later `R*` commits, onto this list.
 
-| Step | Title | What lands |
+| Step | Title | Goal |
 | --- | --- | --- |
-| S1 | Local-only trace logger | `@toolpa/trace`: NDJSON, in-memory ring, network guard |
-| S2 | Chain document and content hash | `@toolpa/graph`: `kind: "chain"`, canonical JSON, SHA-256 |
-| S3 | WAV decode and sample identity | `@toolpa/samples`: PCM decode, hash of the file bytes |
-| S4 | MP3 decode | Same identity for MP3. Native WebKit decode is recorded, not gating |
-| S5 | Sine and seeded noise | Elementary sources, offline, deterministic |
-| S6 | Tone effect | Lowpass then gain, with a spectrum check |
-| S7 | Output meter | Peak and RMS on the rendered buffer |
-| S8 | Sample source | Buffer keyed by SHA-256 inside the graph |
-| S9 | Offline WAV | Shared render path, speed metric, goldens |
-| S10 | Live playback | Web renderer, latency and underrun counters, three browsers |
-| S11 | Playground | The only React UI: source, tone, meter, render |
-| S12 | `.toolpa` artifact | Content-addressed chain document with parents |
-| S13 | OPFS save and load | Browser store, parent walk, three browsers |
-| S14 | One hash, two renders | Live session and offline WAV share the chain hash |
-| S15 | Slice gate | `pnpm slice:gate`, HARDENING entry, telemetry report |
+| S1 | Skeleton: workspace, three-tier harness, `@toolpa/trace` | A local trace with a sequence number, spans, a closed event registry, and no network calls. |
+| S2 | Seams and the Elementary pin | Elementary stays behind the audio package. Versions are pinned. Licenses are GPL-compatible. |
+| S3 | Slice IR: schema, validation, hash | One chain. Voices and subpatches are rejected. The hash ignores key order. |
+| S4 | Lowering for the slice kinds | Sine, seeded noise, sample, lowpass, gain, and meter. The lowpass is one `svf`. |
+| S5 | Offline driver and determinism | Two renders of the same graph are byte-identical. A non-finite buffer is an error. |
+| S6 | Goldens and the lowpass response | Committed WAV goldens. A 220 Hz sine stays in tune. Noise above 3.2 kHz is at least 24 dB down. |
+| S7 | WAV I/O | PCM WAV in, PCM-16 WAV out. 8-bit and ADPCM are rejected. |
+| S8 | Content-addressed sample path | The key is the SHA-256 of the file. A missing sample is an error, and the identity copy is sample-exact. |
+| S9 | Live driver | Playback on Chromium, Firefox, and WebKit, with latency and a clock-stall detector. |
+| S10 | Browser loader | WAV and MP3 decode in the browser. Native WebKit MP3 is recorded, not required. |
+| S11 | Playground | Pick a source, set Tone, play, watch the meter, download the trace. |
+| S12 | Worker WAV and live == offline | A module worker renders the golden sine. On Chromium the WAV bytes match Node. |
+| S13 | `.toolpa` pack, unpack, verify | A zip with a `tpa1:sha256:` content id. Tamper, zip-slip, duplicates, unknown files, a 2 GB entry, and floats are rejected. |
+| S14 | OPFS versions and parents | Save v1, save v2 pointing at v1, reload v1, and the WAV matches. WebKit OPFS is recorded when the browser refuses it. |
+| S15 | Slice gate and the ledger | `pnpm slice:gate` runs the unit tests, the three browsers, and prints the local telemetry. |
 
-License is GPL-3.0-or-later on the repo and every package. Telemetry stays in-process. There is no third-party analytics.
+License is GPL-3.0-or-later. Telemetry stays in-process.

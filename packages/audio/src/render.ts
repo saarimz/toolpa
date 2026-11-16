@@ -8,6 +8,12 @@ import { buildSample } from './sample.ts';
 import { applyTone, countNodes } from './tone.ts';
 import { encodeWavPcm16, resampleLinear } from './wav.ts';
 
+export const ENGINE_VERSIONS = {
+  '@elemaudio/core': '4.0.1',
+  '@elemaudio/offline-renderer': '4.0.3',
+  '@elemaudio/web-renderer': '4.0.3',
+} as const;
+
 export interface SampleBuffer {
   sampleRate: number;
   pcm: Float32Array;
@@ -100,6 +106,8 @@ export async function renderChain(
   traceMeter(meter, trace);
   const wav = encodeWavPcm16(pcm, chain.sampleRate);
   const wavSha256 = await sha256Hex(wav);
+  trace?.event('engine.versions', ENGINE_VERSIONS);
+  trace?.event('wav.encode', { hash, frames, sampleRate: chain.sampleRate, wavSha256 });
   trace?.event('render.offline', {
     hash,
     frames,

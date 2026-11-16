@@ -15,8 +15,12 @@ export async function identifyBytes(bytes: Uint8Array): Promise<string> {
 
 export async function decodeWavSample(bytes: Uint8Array, trace?: Trace): Promise<DecodedSample> {
   const started = performance.now();
+  trace?.event('source.load', { format: 'wav', bytes: bytes.byteLength });
+  const span = trace?.span('wav.decode', { format: 'wav' });
   const sha256 = await sha256Hex(bytes);
   const decoded = decodeWav(bytes);
+  span?.end({ frames: decoded.frames, sampleRate: decoded.sampleRate });
+  trace?.event('source.decode', { format: 'wav', sha256, frames: decoded.frames });
   const decodeMs = performance.now() - started;
   trace?.event('sample.decoded', {
     format: 'wav',
@@ -50,8 +54,11 @@ export async function decodeSample(bytes: Uint8Array, trace?: Trace): Promise<De
 
 export async function decodeMp3Sample(bytes: Uint8Array, trace?: Trace): Promise<DecodedSample> {
   const started = performance.now();
+  trace?.event('source.load', { format: 'mp3', bytes: bytes.byteLength });
+  const span = trace?.span('source.decode', { format: 'mp3' });
   const sha256 = await sha256Hex(bytes);
   const decoded = await decodeMp3(bytes);
+  span?.end({ frames: decoded.frames, sampleRate: decoded.sampleRate });
   const decodeMs = performance.now() - started;
   trace?.event('sample.decoded', {
     format: 'mp3',
