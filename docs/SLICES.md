@@ -14,7 +14,7 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 | 4 | done | 6.3, prompt generators | Step and euclidean patterns, and a prompt that becomes MIDI. |
 | 5 | done | 7.1, 7.3 | Device registry and a rack that composes those roles. |
 | 6 | done | 8.1–8.4 | Agent loop that builds a device from a prompt, with a local model. |
-| 7 | planned | 6.6, 10 packaging, 9.2 | Stems, SMF, SFZ, a sample pack, and a render command. |
+| 7 | done | 6.6, 10 packaging, 9.2 | Stems, SMF, SFZ, a sample pack, and a render command. |
 | 8 | planned | 3.2, 7.5, 9.1 | Transport, a launched clip, and a live meter on three browsers. |
 
 ## Slice 2 — Voices

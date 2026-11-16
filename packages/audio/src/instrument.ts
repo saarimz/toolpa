@@ -63,6 +63,23 @@ export function lowerInstrument(instrument: Instrument, trace?: Trace) {
   return lowered;
 }
 
+export async function renderVoiceSum(
+  input: { instrument: unknown; durationSeconds: number; format?: WavFormat },
+  trace?: Trace,
+) {
+  if (!(input.durationSeconds > 0) || input.durationSeconds > 30) {
+    throw new Error('durationSeconds must be greater than 0 and at most 30');
+  }
+  const { instrument, hash } = await hashInstrument(input.instrument, trace);
+  const voices = sumVoices(instrument, trace);
+  const frames = Math.round(input.durationSeconds * instrument.sampleRate);
+  const pcm = await renderNode(voices.sum, { sampleRate: instrument.sampleRate, frames, trace });
+  const format = input.format ?? 'float32';
+  const wav = encodeWav(pcm, instrument.sampleRate, { format, documentHash: hash });
+  trace?.event('export.stem', { hash, stem: 'dry', frames });
+  return { instrument, hash, pcm, wav, wavSha256: await sha256Hex(wav) };
+}
+
 export async function renderInstrument(
   input: { instrument: unknown; durationSeconds: number; format?: WavFormat },
   trace?: Trace,

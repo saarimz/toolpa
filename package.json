@@ -12,7 +12,9 @@
     "test": "vitest run",
     "test:browser": "playwright test",
     "dev": "pnpm --filter @toolpa/playground dev",
-    "slice:gate": "node --experimental-strip-types scripts/slice-gate.ts"
+    "slice:gate": "node --experimental-strip-types scripts/slice-gate.ts",
+    "gate": "pnpm slice:gate",
+    "toolpa": "node --experimental-transform-types scripts/toolpa.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.65.1",

@@ -6,6 +6,7 @@
   "type": "module",
   "dependencies": {
     "@toolpa/agent": "workspace:*",
+    "@toolpa/pack": "workspace:*",
     "@toolpa/devices": "workspace:*",
     "@toolpa/generate": "workspace:*",
     "@toolpa/midi": "workspace:*"

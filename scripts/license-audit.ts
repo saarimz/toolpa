@@ -51,10 +51,8 @@ function readPackage(path: string): { name?: string; license?: unknown; dependen
 function dependencyLicense(root: string, name: string): string {
   const candidates = [
     `${root}/node_modules/${name}/package.json`,
-    `${root}/packages/audio/node_modules/${name}/package.json`,
-    `${root}/packages/artifact/node_modules/${name}/package.json`,
-    `${root}/packages/samples/node_modules/${name}/package.json`,
-    `${root}/apps/playground/node_modules/${name}/package.json`,
+    ...readdirSync(`${root}/packages`).map((pkg) => `${root}/packages/${pkg}/node_modules/${name}/package.json`),
+    ...readdirSync(`${root}/apps`).map((app) => `${root}/apps/${app}/node_modules/${name}/package.json`),
   ];
   for (const path of candidates) {
     try {

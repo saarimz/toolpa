@@ -18,6 +18,14 @@ test('a rack rejects an effect placed before the instrument', async ({ page }) =
   expect(result.hash).toMatch(/^[a-f0-9]{64}$/);
 });
 
+test('an SMF export starts with the MIDI header', async ({ page }) => {
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await page.waitForFunction(() => window.__toolpaSuite !== undefined);
+  const result = await page.evaluate(() => window.__toolpaSuite.smf());
+  expect(result.header).toBe('MThd');
+  expect(result.bytes).toBe(42);
+});
+
 test('the agent builds a rack from a prompt', async ({ page }) => {
   await page.goto(`http://127.0.0.1:${port}/`);
   await page.waitForFunction(() => window.__toolpaSuite !== undefined);
@@ -44,6 +52,7 @@ declare global {
       generate: () => { pulses: number; first: number; same: boolean; remote: string };
       rack: () => Promise<{ effects: number; illegal: string; hash: string }>;
       agent: () => Promise<{ hash: string; budget: string; provider: string }>;
+      smf: () => { bytes: number; header: string };
     };
   }
 }

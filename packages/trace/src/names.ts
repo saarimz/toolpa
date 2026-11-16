@@ -68,6 +68,8 @@ export const TRACE_NAMES: ReadonlySet<string> = new Set([
   'rack.compose',
   'agent.turn',
   'agent.audition',
+  'export.stem',
+  'export.smf',
 ]);
 
 export function assertTraceName(name: string): void {
