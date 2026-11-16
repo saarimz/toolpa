@@ -129,6 +129,9 @@ importers:
       '@toolpa/graph':
         specifier: workspace:*
         version: link:../graph
+      '@toolpa/ir':
+        specifier: workspace:*
+        version: link:../ir
       '@toolpa/samples':
         specifier: workspace:*
         version: link:../samples

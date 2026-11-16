@@ -24,6 +24,7 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 | 14 | done | 3.3 | Live audio input with latency compensation and a monitor toggle. The silent bus stays. |
 | 15 | done | 8.2 | OpenAI-compatible, Anthropic, and Ollama providers. Mock stays the default. |
 | 16 | done | 4 | JSX, DSL, and JSON author the same canonical IR document. |
+| 17 | done | 1.5, 7.2 | Forty loadable patches, each rendered and pinned by one digest. |
 
 ## Slice 2 — Voices
 
@@ -145,8 +146,16 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 
 **Exit.** The tone patch (a 440 const into a cycle) has one document id and one graph hash from all three forms, and from the stamped round trip. Browsers report `same` and two nodes.
 
+## Slice 17 — Cookbook
+
+**Goal.** Forty named patches load through the IR and render to a pinned digest.
+
+**Scope.** The docs bundle did not include the upstream `dsp-patches` JSON files. These forty are canonical IR graphs: sines, band-limited saws and squares, triangles, seeded noise, lowpass tones, and two-note intervals. Each one parses, lowers to Elementary, and renders 128 frames at 44.1 kHz. The golden is the SHA-256 of the forty buffer hashes joined in order.
+
+**Exit.** The count is 40, the names are unique, the buffer hashes are unique, the quietest peak is above 0.01, and the digest is `c75d8acc8171858d0373456c916877e4c1d3bd20758951c6dcc60dd2e3f0d1f0`. A second render matches. Browsers report the same digest.
+
 ## Follow-ups that are not slices
 
-- The 40-patch cookbook. Slice 1 kept SHA-256 of the canonical chain document on purpose; the IR adds FNV beside it. JSX, DSL, and JSON parity is slice 16.
+- Slice 1 kept SHA-256 of the canonical chain document on purpose; the IR adds FNV beside it. The upstream cookbook JSON was not in the docs bundle, so slice 17 ships forty canonical patches instead of byte copies.
 - Tone remains the slice 1 chain effect. The new effects are a separate document.
 - A physical MIDI port on the CI machine, and a package registry publish. Hosted models are slice 15 and stay off unless `TOOLPA_ALLOW_NETWORK=1`. Microphone capture is slice 14. `openMicrophone()` with no arguments still refuses so older tests do not prompt.

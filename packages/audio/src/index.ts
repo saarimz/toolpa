@@ -19,6 +19,7 @@ export {
   reverbNode,
   samplesForBeats,
 } from './effects.ts';
+export { COOKBOOK, cookbookSelfCheck, lowerGraph, renderCookbook } from './cookbook.ts';
 export { SamplerError, parseSfz, pickZone, renderZone, samplerSelfCheck } from './sampler.ts';
 export type { SampleZone } from './sampler.ts';
 export type { FilterMode, Oscillator, Polysynth, SynthVoice } from './synth.ts';

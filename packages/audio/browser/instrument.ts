@@ -1,4 +1,5 @@
 import { renderInstrument } from '../src/instrument.ts';
+import { cookbookSelfCheck } from '../src/cookbook.ts';
 import { inputSelfCheck } from '../src/input.ts';
 import { samplerSelfCheck } from '../src/sampler.ts';
 import { effectSelfCheck } from '../src/effects.ts';
@@ -30,6 +31,7 @@ const api = {
   effects: () => effectSelfCheck(),
   sampler: () => samplerSelfCheck(),
   input: () => inputSelfCheck(),
+  cookbook: () => cookbookSelfCheck(),
   async run() {
     const first = await renderInstrument({ instrument, durationSeconds: 0.4 }, trace);
     const second = await renderInstrument({ instrument, durationSeconds: 0.4 });
