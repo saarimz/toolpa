@@ -36,6 +36,16 @@ test('delay and reverb differ from the dry signal', async ({ page }) => {
   expect(result.delay).toMatch(/^[a-f0-9]{64}$/);
 });
 
+test('a stubbed microphone delays the bus and keeps the monitor off', async ({ page }) => {
+  await page.goto(`http://127.0.0.1:${port}/instrument`);
+  await page.waitForFunction(() => window.__toolpaInstrument !== undefined);
+  const result = await page.evaluate(() => window.__toolpaInstrument.input());
+  expect(result.silent).toBe(0);
+  expect(result.delay).toBe(10);
+  expect(result.monitor).toBe(0);
+  expect(result.bus).toBeGreaterThan(0.2);
+});
+
 test('an SFZ zone loops in the browser', async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto(`http://127.0.0.1:${port}/instrument`);
@@ -53,6 +63,7 @@ declare global {
       synth: () => Promise<{ hash: string; svf: number; peak: number; rms: number }>;
       effects: () => Promise<{ delay: string; different: boolean; beats: number }>;
       sampler: () => Promise<{ zones: number; peak: number; midi: number }>;
+      input: () => Promise<{ silent: number; delay: number; monitor: number; bus: number }>;
     };
   }
 }

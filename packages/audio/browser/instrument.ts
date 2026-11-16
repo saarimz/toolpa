@@ -1,4 +1,5 @@
 import { renderInstrument } from '../src/instrument.ts';
+import { inputSelfCheck } from '../src/input.ts';
 import { samplerSelfCheck } from '../src/sampler.ts';
 import { effectSelfCheck } from '../src/effects.ts';
 import { synthSelfCheck } from '../src/synth.ts';
@@ -28,6 +29,7 @@ const api = {
   synth: () => synthSelfCheck(),
   effects: () => effectSelfCheck(),
   sampler: () => samplerSelfCheck(),
+  input: () => inputSelfCheck(),
   async run() {
     const first = await renderInstrument({ instrument, durationSeconds: 0.4 }, trace);
     const second = await renderInstrument({ instrument, durationSeconds: 0.4 });

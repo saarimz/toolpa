@@ -21,6 +21,7 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 | 11 | done | 5.4 | Tempo delay, convolution reverb, compressor, limiter, EQ, distortion, chorus. |
 | 12 | done | 5.5, 6.6 | Multi-sample zones, velocity layers, loop points, and SFZ import. |
 | 13 | done | 6.2 | Web MIDI access, a device list, hot-plug, and clock in/out. The fake port stays. |
+| 14 | done | 3.3 | Live audio input with latency compensation and a monitor toggle. The silent bus stays. |
 
 ## Slice 2 — Voices
 
@@ -118,9 +119,17 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 
 **Exit.** A fake keyboard is listed. One quarter is 24 ticks. A note-on arrives through the port. Browsers report the same list and tick count without a permission prompt.
 
+## Slice 14 — Audio input
+
+**Goal.** A microphone can fill the input bus, delayed so it lines up with the output, and the monitor can be muted.
+
+**Scope.** `captureMicrophone({ live: false })` registers a silent `mic` bus. `live: true` calls an injected `getUserMedia`, or `navigator.mediaDevices.getUserMedia` when the page has one. Delay frames are `max(0, outputLatency - inputLatency) * sampleRate`. Monitoring off reports a monitor peak of 0 while the bus keeps the signal. `openMicrophone()` with no arguments still throws `MIC_FOLLOWUP`. A missing media device throws `MIC_UNAVAILABLE`. Non-finite samples throw `INPUT_NAN`.
+
+**Exit.** Ten frames of output latency at 44.1 kHz delay the bus by 10 samples. The first sample is 0 and sample 10 is the capture. The silent bus peaks at 0. Browsers report delay 10, monitor 0, and a bus peak above 0.2 without prompting.
+
 ## Follow-ups that are not slices
 
 - The 40-patch cookbook. Slice 1 kept SHA-256 of the canonical chain document on purpose; the IR adds FNV beside it.
 - JSX, DSL, and JSON authoring parity. Agents and the playground emit data.
 - Tone remains the slice 1 chain effect. The new effects are a separate document.
-- A hosted chat model, a physical MIDI port, microphone capture, and a package registry publish.
+- A hosted chat model, a physical MIDI port, and a package registry publish. Microphone capture is slice 14. `openMicrophone()` with no arguments still refuses so older tests do not prompt.

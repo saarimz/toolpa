@@ -78,6 +78,7 @@ export const TRACE_NAMES: ReadonlySet<string> = new Set([
   'sampler.zone',
   'midi.access',
   'midi.hotplug',
+  'input.open',
 ]);
 
 export function assertTraceName(name: string): void {

@@ -22,7 +22,7 @@ export {
 export { SamplerError, parseSfz, pickZone, renderZone, samplerSelfCheck } from './sampler.ts';
 export type { SampleZone } from './sampler.ts';
 export type { FilterMode, Oscillator, Polysynth, SynthVoice } from './synth.ts';
-export { InputBus, InputError, openMicrophone } from './input.ts';
+export { InputBus, InputError, captureMicrophone, inputSelfCheck, latencyFrames, openMicrophone } from './input.ts';
 export { TransportError, beatToSeconds, secondsPerBeat } from './transport.ts';
 export type { RenderResult, SampleBuffer } from './render.ts';
 export { ITOK_VERSION, encodeWav, encodeWavPcm16, readItok, resampleLinear } from './wav.ts';
