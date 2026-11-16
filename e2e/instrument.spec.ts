@@ -36,12 +36,23 @@ test('delay and reverb differ from the dry signal', async ({ page }) => {
   expect(result.delay).toMatch(/^[a-f0-9]{64}$/);
 });
 
+test('an SFZ zone loops in the browser', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.goto(`http://127.0.0.1:${port}/instrument`);
+  await page.waitForFunction(() => window.__toolpaInstrument !== undefined);
+  const result = await page.evaluate(() => window.__toolpaInstrument.sampler());
+  expect(result.zones).toBe(1);
+  expect(result.midi).toBe(60);
+  expect(result.peak).toBeGreaterThan(0.05);
+});
+
 declare global {
   interface Window {
     __toolpaInstrument: {
       run: () => Promise<{ hash: string; identical: boolean; svf: number; peak: number; names: string[] }>;
       synth: () => Promise<{ hash: string; svf: number; peak: number; rms: number }>;
       effects: () => Promise<{ delay: string; different: boolean; beats: number }>;
+      sampler: () => Promise<{ zones: number; peak: number; midi: number }>;
     };
   }
 }

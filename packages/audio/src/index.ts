@@ -19,6 +19,8 @@ export {
   reverbNode,
   samplesForBeats,
 } from './effects.ts';
+export { SamplerError, parseSfz, pickZone, renderZone, samplerSelfCheck } from './sampler.ts';
+export type { SampleZone } from './sampler.ts';
 export type { FilterMode, Oscillator, Polysynth, SynthVoice } from './synth.ts';
 export { InputBus, InputError, openMicrophone } from './input.ts';
 export { TransportError, beatToSeconds, secondsPerBeat } from './transport.ts';

@@ -19,6 +19,7 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 | 9 | done | 1.1, 1.2, 1.3 | Full IR, Elementary FNV-1a node hashes, and SHA-256 document identity. |
 | 10 | done | 5.1 | Oscillators, ADSR, SVF, a 4-pole ladder, an LFO, and a polysynth. |
 | 11 | done | 5.4 | Tempo delay, convolution reverb, compressor, limiter, EQ, distortion, chorus. |
+| 12 | done | 5.5, 6.6 | Multi-sample zones, velocity layers, loop points, and SFZ import. |
 
 ## Slice 2 — Voices
 
@@ -99,6 +100,14 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 **Scope.** Delay length is `(60 / bpm) * beats * sampleRate`. Feedback must be finite and below 0.95. Reverb convolves a 256-frame exponential impulse. Compressor and limiter use Elementary's `compress`. EQ is a low shelf, a peak, and a high shelf. Distortion is `tanh`. Chorus is a short modulated delay. Non-finite parameters throw before render.
 
 **Exit.** A quarter-note at 120 bpm is 22050 samples at 44.1 kHz. Delay WAV `4b4e02729a27b608110b1567e57caf9b672ebdc3d264c8f245f4e12cd35d7842`. Reverb WAV `46b1bb39bfc2a6993cd7ed1a22d9752d4f946f885ac1410cc85fae7030d89c9d`. Every wet hash differs from dry. Peaks and RMS are finite and above the silence floor. Browsers report the delay hash and 22050.
+
+## Slice 12 — Sampler
+
+**Goal.** A note picks a sample zone by key and velocity, and the zone loops.
+
+**Scope.** SFZ import reads `sample=samples/<sha256>.wav`, key and velocity ranges, and `loop_start` / `loop_end`. Overlapping zones pick the lowest key, then the lowest velocity. Playback is a wrapping `el.table` read of the loop. A sample path that is not a sha256 is rejected.
+
+**Exit.** A quiet layer and a loud layer select different buffers. Two loop renders match and the peak is above 0.05. Browsers import one region and report the same peak floor.
 
 ## Follow-ups that are not slices
 

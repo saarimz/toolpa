@@ -75,6 +75,7 @@ export const TRACE_NAMES: ReadonlySet<string> = new Set([
   'synth.osc',
   'synth.render',
   'effect.apply',
+  'sampler.zone',
 ]);
 
 export function assertTraceName(name: string): void {
