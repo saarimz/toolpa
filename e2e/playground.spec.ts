@@ -20,31 +20,8 @@ declare global {
 const port = process.env.PLAYGROUND_PORT ?? '47291';
 const sine = JSON.parse(readFileSync('packages/audio/goldens/sine.json', 'utf8')) as { hash: string };
 
-async function opfsReady(page: Page, browserName: string): Promise<boolean> {
-  const save = page.getByRole('button', { name: 'Save artifact' });
-  try {
-    await expect
-      .poll(async () => {
-        if (await save.isEnabled()) return 'ready';
-        return (await page.getByTestId('error').count()) > 0 ? 'error' : 'pending';
-      }, { timeout: 8_000 })
-      .not.toBe('pending');
-  } catch (error) {
-    if (browserName !== 'webkit') throw error;
-  }
-  if (await save.isEnabled()) return true;
-  if (browserName !== 'webkit') {
-    await expect(save).toBeEnabled();
-    return true;
-  }
-  const message =
-    (await page.getByTestId('error').count()) > 0 ? await page.getByTestId('error').innerText() : 'OPFS did not open';
-  mkdirSync('tmp', { recursive: true });
-  writeFileSync(
-    'tmp/non-gating.json',
-    `${JSON.stringify({ check: 'opfs', browser: 'webkit', gating: false, message }, null, 2)}\n`,
-  );
-  return false;
+async function storeReady(page: Page): Promise<void> {
+  await expect(page.getByRole('button', { name: 'Save artifact' })).toBeEnabled({ timeout: 8_000 });
 }
 
 test('the playground plays the default sine chain and renders it', async ({ page }) => {
@@ -101,7 +78,7 @@ test('one chain hash renders the same WAV after a reload', async ({ page, browse
   const checksum = (await page.getByTestId('wav-sha').innerText()).trim();
   expect(checksum).toMatch(/^[a-f0-9]{64}$/);
 
-  if (!(await opfsReady(page, browserName))) return;
+  await storeReady(page);
   const save = page.getByRole('button', { name: 'Save artifact' });
   await save.click();
   await expect(page.getByTestId('status')).toContainText('Saved');
@@ -119,7 +96,7 @@ test('a saved chain reloads from OPFS with the same hash', async ({ page, browse
   test.setTimeout(60_000);
   await page.goto(`http://127.0.0.1:${port}/`);
   await expect(page.getByTestId('hash')).toHaveText(sine.hash);
-  if (!(await opfsReady(page, browserName))) return;
+  await storeReady(page);
   const save = page.getByRole('button', { name: 'Save artifact' });
   await save.click();
   await expect(page.getByTestId('status')).toContainText('Saved');
@@ -135,7 +112,7 @@ test('saving a second version keeps the first cutoff and the same WAV', async ({
   test.setTimeout(90_000);
   await page.goto(`http://127.0.0.1:${port}/`);
   await expect(page.getByTestId('hash')).toHaveText(sine.hash);
-  if (!(await opfsReady(page, browserName))) return;
+  await storeReady(page);
 
   await page.getByLabel('Cutoff Hz').fill('600');
   await expect(page.getByTestId('hash')).not.toHaveText(sine.hash);
@@ -164,7 +141,7 @@ test('saving a second version keeps the first cutoff and the same WAV', async ({
   if (!v2) throw new Error('v2 has no id');
 
   await page.reload();
-  if (!(await opfsReady(page, browserName))) return;
+  await storeReady(page);
   await page.getByRole('button', { name: v1 }).click();
   await expect(page.getByTestId('status')).toContainText('Loaded');
   await expect(page.getByLabel('Cutoff Hz')).toHaveValue('600');

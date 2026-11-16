@@ -1,4 +1,4 @@
-import { ArtifactError, OpfsStore, packToolpa, sealArtifact, unpackToolpa } from '@toolpa/artifact';
+import { ArtifactError, DurableStore, packToolpa, sealArtifact, unpackToolpa, type ArtifactStore } from '@toolpa/artifact';
 import { hashChain, type Chain } from '@toolpa/graph';
 import { LiveSession } from '@toolpa/audio/live';
 import { renderChain, type SampleBuffer, type WavFormat } from '@toolpa/audio';
@@ -54,7 +54,7 @@ export default function App() {
   const [dropping, setDropping] = useState(false);
   const sessionRef = useRef<LiveSession | null>(null);
   const contextRef = useRef<AudioContext | null>(null);
-  const storeRef = useRef<OpfsStore | null>(null);
+  const storeRef = useRef<ArtifactStore | null>(null);
   const toolpaFileRef = useRef<HTMLInputElement | null>(null);
 
   const draft = useMemo(
@@ -78,7 +78,7 @@ export default function App() {
   useEffect(() => {
     trace.event('playground.ready', { sampleRate: SAMPLE_RATE });
     let cancelled = false;
-    void OpfsStore.open(trace)
+    void DurableStore.open(trace)
       .then(async (store) => {
         if (cancelled) return;
         storeRef.current = store;
@@ -433,7 +433,7 @@ export default function App() {
     try {
       const sealed = await store.load(id);
       if (!sealed) {
-        setError('That artifact is not in OPFS.');
+        setError('That artifact is not in the library.');
         return;
       }
       const next = sealed.artifact.chain;
@@ -441,7 +441,7 @@ export default function App() {
       if (next.source.type === 'sample') {
         const bytes = await store.loadSample(next.source.sha256);
         if (!bytes) {
-          setError('The sample blob for this chain is not in OPFS.');
+          setError('The sample blob for this chain is not in the library.');
         } else {
           const decoded = await decodeSample(bytes, trace);
           sample = {

@@ -86,6 +86,7 @@ export const TRACE_NAMES: ReadonlySet<string> = new Set([
   'performance.learn',
   'performance.launch',
   'performance.xrun',
+  'storage.backend',
 ]);
 
 export function assertTraceName(name: string): void {

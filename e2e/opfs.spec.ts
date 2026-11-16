@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test';
-import { mkdirSync, writeFileSync } from 'node:fs';
 
 declare global {
   interface Window {
@@ -15,6 +14,7 @@ declare global {
             sampleBytes: number[] | null;
             missing: number[] | null;
             listed: boolean;
+            backend: string;
           }
         | { ok: false; steps: string[]; message: string }
       >;
@@ -24,7 +24,7 @@ declare global {
 
 const port = process.env.OPFS_PROBE_PORT ?? '43116';
 
-test('OPFS keeps an artifact, its parent, and its sample bytes', async ({ page, browserName }) => {
+test('storage keeps an artifact, its parent, and its sample bytes', async ({ page }) => {
   const external: string[] = [];
   page.on('request', (request) => {
     const url = request.url();
@@ -36,24 +36,6 @@ test('OPFS keeps an artifact, its parent, and its sample bytes', async ({ page, 
   await page.goto(`http://127.0.0.1:${port}/`);
   await page.waitForFunction(() => window.__toolpaOpfs !== undefined);
   const result = await page.evaluate(() => window.__toolpaOpfs.roundTrip());
-  if (!result.ok && browserName === 'webkit') {
-    mkdirSync('tmp', { recursive: true });
-    writeFileSync(
-      'tmp/non-gating.json',
-      `${JSON.stringify(
-        {
-          check: 'opfs',
-          browser: 'webkit',
-          gating: false,
-          message: result.message,
-          steps: result.steps,
-        },
-        null,
-        2,
-      )}\n`,
-    );
-    return;
-  }
   expect(result.ok, JSON.stringify(result)).toBe(true);
   if (!result.ok) return;
   expect(result.loadedParents).toEqual([result.parentId]);
@@ -61,6 +43,7 @@ test('OPFS keeps an artifact, its parent, and its sample bytes', async ({ page, 
   expect(result.sampleBytes).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
   expect(result.missing).toBeNull();
   expect(result.listed).toBe(true);
+  expect(result.backend === 'opfs' || result.backend === 'idb').toBe(true);
 
   const names = await page.evaluate(() => window.__toolpaOpfs.snapshot().map((record) => record.name));
   expect(names).toContain('artifact.saved');

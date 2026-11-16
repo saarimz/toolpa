@@ -23,13 +23,13 @@ export class OpfsStore implements ArtifactStore {
     const bytes = isZipToolpa(sealed.bytes) ? sealed.bytes : await zipForEnvelope(sealed, this.trace);
     const checked = await openStoredArtifact(bytes, this.trace);
     if (checked.id !== sealed.id) throw new ArtifactError('id', 'stored bytes do not match the artifact id');
-    await this.write('artifacts', `${sealed.id}.toolpa`, bytes);
+    await this.writeFile('artifacts', `${sealed.id}.toolpa`, bytes);
     this.trace?.event('artifact.saved', { id: sealed.id, bytes: bytes.byteLength, store: 'opfs' });
     this.trace?.event('artifact.save', { id: sealed.id, bytes: bytes.byteLength, store: 'opfs' });
   }
 
   async load(id: string): Promise<SealedArtifact | null> {
-    const bytes = await this.read('artifacts', `${id}.toolpa`);
+    const bytes = await this.readFile('artifacts', `${id}.toolpa`);
     if (!bytes) return null;
     const opened = await openStoredArtifact(bytes, this.trace);
     if (opened.id !== id) throw new ArtifactError('id', 'stored bytes do not match the artifact id');
@@ -42,11 +42,11 @@ export class OpfsStore implements ArtifactStore {
     if (!/^[a-f0-9]{64}$/.test(sha256)) throw new ArtifactError('sample', 'sample id must be 64 lowercase hex characters');
     const actual = await sha256Hex(bytes);
     if (actual !== sha256) throw new ArtifactError('sample', 'sample bytes do not match their sha256');
-    await this.write('samples', sha256, bytes);
+    await this.writeFile('samples', sha256, bytes);
   }
 
   async loadSample(sha256: string): Promise<Uint8Array | null> {
-    return this.read('samples', sha256);
+    return this.readFile('samples', sha256);
   }
 
   async list(): Promise<string[]> {
@@ -63,7 +63,7 @@ export class OpfsStore implements ArtifactStore {
     }
   }
 
-  private async write(dirName: string, fileName: string, bytes: Uint8Array): Promise<void> {
+  async writeFile(dirName: string, fileName: string, bytes: Uint8Array): Promise<void> {
     const dir = await this.root.getDirectoryHandle(dirName, { create: true });
     const handle = await dir.getFileHandle(fileName, { create: true });
     const writable = await handle.createWritable();
@@ -73,7 +73,7 @@ export class OpfsStore implements ArtifactStore {
     await writable.close();
   }
 
-  private async read(dirName: string, fileName: string): Promise<Uint8Array | null> {
+  async readFile(dirName: string, fileName: string): Promise<Uint8Array | null> {
     try {
       const dir = await this.root.getDirectoryHandle(dirName);
       const handle = await dir.getFileHandle(fileName);

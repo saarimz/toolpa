@@ -26,6 +26,7 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 | 16 | done | 4 | JSX, DSL, and JSON author the same canonical IR document. |
 | 17 | done | 1.5, 7.2 | Forty loadable patches, each rendered and pinned by one digest. |
 | 18 | done | 3.2, 6.5, 9.1 | Scenes, MIDI learn, quantized launch, and xrun telemetry. |
+| 19 | done | 9.3 | IndexedDB index, OPFS blobs, and an IndexedDB blob fallback. |
 
 ## Slice 2 — Voices
 
@@ -162,6 +163,14 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 **Scope.** `quantizeLaunch(1.2, 1)` is beat 2. An exact bar stays on that bar. Learn arms one parameter and the next CC binds it. Launch requires a selected scene. `performance.xrun` records underruns and output latency. The performance page has scene, learn, CC, launch, and xrun buttons.
 
 **Exit.** The unit test records scene, learn, launch, and xrun. Browsers click the buttons and the status line reads `launch scene-a 2` and `xrun 1`. The existing clip playback test still hears a peak.
+
+## Slice 19 — Storage
+
+**Goal.** An index lives in IndexedDB. Blobs live in OPFS, or in IndexedDB when OPFS does not open.
+
+**Scope.** `DurableStore` tries OPFS for two seconds. If that throws or times out, blobs go to IndexedDB. The index records the backend with the id. Save, load, samples, and parent walks use that record. The playground and the storage probe both open `DurableStore`. WebKit storage is gating.
+
+**Exit.** A memory stand-in for IndexedDB saves and loads one artifact and one sample. Chromium, Firefox, and WebKit each keep a parent pointer and the sample bytes. The playground Save button enables on WebKit.
 
 ## Follow-ups that are not slices
 

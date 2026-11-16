@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -32,6 +32,7 @@ function run(args: string[], env: Record<string, string> = {}): number {
 }
 
 mkdirSync('tmp', { recursive: true });
+rmSync('tmp/non-gating.json', { force: true });
 const reportOnly = process.argv.includes('--report-only');
 const unitStatus = reportOnly
   ? 0

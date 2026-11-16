@@ -1,5 +1,5 @@
 import { MemoryRing, createTrace, installNetworkGuard } from '@toolpa/trace';
-import { OpfsStore, lineage, sealArtifact } from '../src/index.ts';
+import { DurableStore, lineage, sealArtifact } from '../src/index.ts';
 
 const ring = new MemoryRing(128);
 const { trace } = createTrace({ ring });
@@ -19,7 +19,7 @@ const api = {
     const steps: string[] = [];
     try {
     steps.push('open');
-    const store = await OpfsStore.open(trace);
+    const store = await DurableStore.open(trace);
     const parent = await sealArtifact({ chain }, trace);
     steps.push('save-parent');
     await store.save(parent);
@@ -33,7 +33,7 @@ const api = {
     const sampleId = await crypto.subtle.digest('SHA-256', sample);
     const sha256 = [...new Uint8Array(sampleId)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
     await store.saveSample(sha256, sample);
-    const again = await OpfsStore.open(trace);
+    const again = await DurableStore.open(trace);
     const loaded = await again.load(child.id);
     const walked = await lineage(again, child.id);
     const sampleBytes = await again.loadSample(sha256);
@@ -48,6 +48,7 @@ const api = {
       sampleBytes: sampleBytes ? [...sampleBytes] : null,
       missing,
       listed: (await again.list()).includes(child.id) && (await again.list()).includes(parent.id),
+      backend: again.backend,
     };
     } catch (error) {
       return {
