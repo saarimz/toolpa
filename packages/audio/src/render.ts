@@ -5,7 +5,7 @@ import { measure, traceMeter, type MeterSummary } from './meter.ts';
 import { renderNode } from './offline.ts';
 import { buildNoise, buildSine } from './offline.ts';
 import { buildSample } from './sample.ts';
-import { applyTone } from './tone.ts';
+import { applyTone, countNodes } from './tone.ts';
 import { encodeWavPcm16, resampleLinear } from './wav.ts';
 
 export interface SampleBuffer {
@@ -55,7 +55,23 @@ export async function prepareChain(
       playbackRate: chain.source.playbackRate,
     });
   }
-  return { chain, hash, node: applyTone(sourceNode(chain), chain.effect, trace), vfs };
+  const node = applyTone(sourceNode(chain), chain.effect, trace);
+  trace?.event('engine.lower', { hash, source: chain.source.type, svf: countNodes(node, 'svf') });
+  return { chain, hash, node, vfs };
+}
+
+export function compareRenders(first: Uint8Array, second: Uint8Array, hash: string, trace?: Trace): void {
+  let identical = first.byteLength === second.byteLength;
+  let firstDiffIndex = identical ? -1 : Math.min(first.byteLength, second.byteLength);
+  const length = Math.min(first.byteLength, second.byteLength);
+  for (let i = 0; i < length && identical; i += 1) {
+    if (first[i] !== second[i]) {
+      identical = false;
+      firstDiffIndex = i;
+    }
+  }
+  trace?.event('render.twice', { hash, identical, firstDiffIndex });
+  if (!identical) throw new Error(`render is not byte-identical at ${firstDiffIndex}`);
 }
 
 export async function renderChain(

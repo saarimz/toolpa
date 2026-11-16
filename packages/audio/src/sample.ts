@@ -1,5 +1,5 @@
 import { el } from '@elemaudio/core';
-import type { SampleSource, ToneEffect } from '@toolpa/graph';
+import { sha256Hex, type SampleSource, type ToneEffect } from '@toolpa/graph';
 import { SampleError } from '@toolpa/samples';
 import type { Trace } from '@toolpa/trace';
 import { renderNode } from './offline.ts';
@@ -11,6 +11,34 @@ export function buildSample(source: SampleSource) {
     el.train(0),
     source.playbackRate,
   );
+}
+
+export class SampleVfs {
+  private readonly buffers = new Map<string, Float32Array>();
+
+  async register(
+    bytes: Uint8Array,
+    pcm: Float32Array,
+    claimed?: string,
+    trace?: Trace,
+  ): Promise<{ key: string; inserted: boolean }> {
+    const key = await sha256Hex(bytes);
+    if (claimed && claimed !== key) {
+      throw new SampleError('VFS_KEY_MISMATCH', `VFS_KEY_MISMATCH: claimed key ${claimed} does not match the file bytes`);
+    }
+    const inserted = !this.buffers.has(key);
+    if (inserted) this.buffers.set(key, pcm);
+    trace?.event('vfs.register', { sha256: key, bytes: bytes.byteLength, inserted });
+    return { key, inserted };
+  }
+
+  copy(key: string): Float32Array {
+    const pcm = this.buffers.get(key);
+    if (!pcm) throw new SampleError('missing', `no sample buffer for ${key}`);
+    const out = new Float32Array(pcm.length);
+    out.set(pcm);
+    return out;
+  }
 }
 
 export function bufferFor(sha256: string, samples: ReadonlyMap<string, Float32Array>): Float32Array {

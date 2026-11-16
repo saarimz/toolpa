@@ -1,8 +1,9 @@
+import { el } from '@elemaudio/core';
 import { decodeWavSample } from '@toolpa/samples';
 import { createTrace } from '@toolpa/trace';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { renderChain, type SampleBuffer } from './index.ts';
+import { compareRenders, renderChain, renderNode, type SampleBuffer } from './index.ts';
 import { encodeWavPcm16 } from './wav.ts';
 
 const tone = { type: 'tone' as const, cutoffHz: 2000, q: 0.7071067811865476, gain: 0.25 };
@@ -66,6 +67,7 @@ describe('offline render', () => {
     const sine = await renderChain({ chain: sineChain, durationSeconds: 0.25 }, trace);
     const sineAgain = await renderChain({ chain: sineChain, durationSeconds: 0.25 });
     expect(sineAgain.wav).toEqual(sine.wav);
+    compareRenders(sine.wav, sineAgain.wav, sine.hash, trace);
     expect(sine.realtime).toBeGreaterThan(0.5);
     expect(sine.meter.peak).toBeGreaterThan(0.1);
     checkGolden('sine', {
@@ -106,7 +108,21 @@ describe('offline render', () => {
 
     const records = lines.map((line) => JSON.parse(line.trim()));
     expect(records.filter((record) => record.name === 'render.offline')).toHaveLength(3);
+    expect(records.some((record) => record.name === 'render.twice' && record.fields.identical === true)).toBe(true);
+    expect(records.some((record) => record.name === 'engine.lower' && record.fields.svf === 1)).toBe(true);
+    expect(records.some((record) => record.name === 'ir.validate')).toBe(true);
+    expect(records.some((record) => record.name === 'ir.hash')).toBe(true);
     expect(records.some((record) => record.name === 'render.realtime' && record.unit === 'x')).toBe(true);
     expect(records.some((record) => record.name === 'graph.hashed')).toBe(true);
+  });
+
+  it('rejects a non-finite render and records render.nan', async () => {
+    const lines: string[] = [];
+    const { trace } = createTrace({ ndjson: (line) => lines.push(line) });
+    await expect(
+      renderNode(el.const({ value: Number.POSITIVE_INFINITY }), { sampleRate: 48000, frames: 32, trace }),
+    ).rejects.toThrow(/ENGINE_NAN/);
+    const records = lines.map((line) => JSON.parse(line.trim()));
+    expect(records.some((record) => record.name === 'render.nan')).toBe(true);
   });
 });

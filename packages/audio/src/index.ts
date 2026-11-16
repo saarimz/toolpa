@@ -1,8 +1,8 @@
-export { buildNoise, buildSine, renderNode, renderSource } from './offline.ts';
-export { applyTone } from './tone.ts';
+export { EngineError, assertFinitePcm, buildNoise, buildSine, renderNode, renderSource } from './offline.ts';
+export { applyTone, countNodes } from './tone.ts';
 export { measure, traceMeter } from './meter.ts';
-export { bufferFor, buildSample, renderKeyedSample } from './sample.ts';
-export { renderChain } from './render.ts';
+export { SampleVfs, bufferFor, buildSample, renderKeyedSample } from './sample.ts';
+export { compareRenders, renderChain } from './render.ts';
 export type { RenderResult, SampleBuffer } from './render.ts';
 export { encodeWavPcm16, resampleLinear } from './wav.ts';
 export type { MeterSummary } from './meter.ts';

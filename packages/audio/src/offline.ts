@@ -11,9 +11,28 @@ export function buildNoise(source: NoiseSource) {
   return el.noise({ seed: source.seed, key: 'noise' });
 }
 
+export class EngineError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'EngineError';
+  }
+}
+
+export function assertFinitePcm(pcm: Float32Array, trace?: Trace): void {
+  for (let i = 0; i < pcm.length; i += 1) {
+    if (!Number.isFinite(pcm[i] ?? Number.NaN)) {
+      trace?.event('render.nan', { index: i });
+      throw new EngineError('ENGINE_NAN', `ENGINE_NAN: non-finite sample at frame ${i}`);
+    }
+  }
+}
+
 export async function renderNode(
   node: unknown,
-  options: { sampleRate: number; frames: number; vfs?: Record<string, Float32Array> },
+  options: { sampleRate: number; frames: number; vfs?: Record<string, Float32Array>; trace?: Trace },
 ): Promise<Float32Array> {
   const core = new OfflineRenderer();
   await core.initialize({
@@ -25,6 +44,7 @@ export async function renderNode(
   core.render(node);
   const pcm = new Float32Array(options.frames);
   core.process([], [pcm]);
+  assertFinitePcm(pcm, options.trace);
   return pcm;
 }
 
