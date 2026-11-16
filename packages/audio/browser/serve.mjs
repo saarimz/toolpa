@@ -32,8 +32,18 @@ const instrumentBuilt = await esbuild.build({
 const js = built.outputFiles[0].text;
 const workerJs = worker.outputFiles[0].text;
 const instrumentJs = instrumentBuilt.outputFiles[0].text;
+const performanceBuilt = await esbuild.build({
+  entryPoints: [path.join(dir, 'performance.ts')],
+  bundle: true,
+  format: 'iife',
+  platform: 'browser',
+  target: 'es2022',
+  write: false,
+});
+const performanceJs = performanceBuilt.outputFiles[0].text;
 const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
 const instrumentHtml = fs.readFileSync(path.join(dir, 'instrument.html'), 'utf8');
+const performanceHtml = fs.readFileSync(path.join(dir, 'performance.html'), 'utf8');
 const port = Number(process.env.LIVE_PROBE_PORT ?? 43117);
 
 http
@@ -49,9 +59,19 @@ http
       res.end(workerJs);
       return;
     }
+    if (url.startsWith('/performance.js')) {
+      res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' });
+      res.end(performanceJs);
+      return;
+    }
     if (url.startsWith('/instrument.js')) {
       res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' });
       res.end(instrumentJs);
+      return;
+    }
+    if (url.startsWith('/performance')) {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(performanceHtml);
       return;
     }
     if (url.startsWith('/instrument')) {

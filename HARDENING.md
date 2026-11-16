@@ -21,4 +21,5 @@ One chain. A sine, seeded noise, or a sample identified by the SHA-256 of its fi
 - The gate report prints nearest-rank p50 and p95 for a 0.25 s sine render and for WAV and MP3 decode, from 20 runs.
 - `.github/workflows/slice.yml` runs `pnpm slice:gate` after starting a null PulseAudio sink. Firefox on the GitHub runner does not open an audio device without that sink.
 - `pnpm toolpa render` writes a WAV for a chain file. Publishing packages to a registry needs credentials and is a follow-up.
+- Slice 8 maps beats to seconds and launches a clip into the existing live renderer. The plan's lookahead scheduler, swing, and the three playground demos stay follow-ups with the deferred engine. `openMicrophone` throws `MIC_FOLLOWUP`. `InputBus` is a silent local bus because the gate has no microphone.
 - A non-48 kHz sample is still resampled into the chain. The plan's Node path would have rejected it.

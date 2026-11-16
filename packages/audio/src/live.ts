@@ -50,40 +50,57 @@ export class LiveSession {
     samples?: ReadonlyMap<string, SampleBuffer>;
   }): Promise<LiveSnapshot> {
     const prepared = await prepareChain(input, this.trace);
-    this.hash = prepared.hash;
+    return this.begin(input.context, prepared.node, prepared.hash, prepared.vfs);
+  }
+
+  async startNode(input: {
+    context: AudioContext;
+    node: Awaited<ReturnType<typeof prepareChain>>['node'];
+    hash: string;
+  }): Promise<LiveSnapshot> {
+    return this.begin(input.context, input.node, input.hash);
+  }
+
+  private async begin(
+    context: AudioContext,
+    node: Awaited<ReturnType<typeof prepareChain>>['node'],
+    hash: string,
+    vfs?: Record<string, Float32Array>,
+  ): Promise<LiveSnapshot> {
+    this.hash = hash;
     const renderer = new WebRenderer();
-    const worklet = await renderer.initialize(input.context, {
+    const worklet = await renderer.initialize(context, {
       numberOfInputs: 0,
       numberOfOutputs: 1,
       outputChannelCount: [1],
     });
-    const analyser = input.context.createAnalyser();
+    const analyser = context.createAnalyser();
     analyser.fftSize = 2048;
     worklet.connect(analyser);
-    analyser.connect(input.context.destination);
-    if (prepared.vfs) await renderer.updateVirtualFileSystem(prepared.vfs);
-    await renderer.render(prepared.node);
-    if (input.context.state !== 'running') await input.context.resume();
+    analyser.connect(context.destination);
+    if (vfs) await renderer.updateVirtualFileSystem(vfs);
+    await renderer.render(node);
+    if (context.state !== 'running') await context.resume();
     this.renderer = renderer;
-    this.context = input.context;
+    this.context = context;
     this.analyser = analyser;
-    this.lastAudio = input.context.currentTime;
+    this.lastAudio = context.currentTime;
     this.lastWall = performance.now();
     this.watch = setInterval(() => this.poll(), 100);
     const snapshot = this.snapshot();
-    this.trace?.event('engine.init', { sampleRate: input.context.sampleRate, hash: this.hash });
-    this.trace?.event('ctx.state', { state: input.context.state });
+    this.trace?.event('engine.init', { sampleRate: context.sampleRate, hash: this.hash });
+    this.trace?.event('ctx.state', { state: context.state });
     this.trace?.event('ctx.latency', {
       baseLatencyMs: snapshot.baseLatencyMs,
       outputLatencyMs: snapshot.outputLatencyMs,
-      sampleRate: input.context.sampleRate,
+      sampleRate: context.sampleRate,
     });
     this.trace?.event('live.load', { hash: this.hash });
     this.trace?.event('playback.started', {
       hash: this.hash,
       baseLatencyMs: snapshot.baseLatencyMs,
       outputLatencyMs: snapshot.outputLatencyMs,
-      sampleRate: input.context.sampleRate,
+      sampleRate: context.sampleRate,
     });
     return snapshot;
   }
