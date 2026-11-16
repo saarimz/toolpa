@@ -11,7 +11,7 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 | 1 | done | 0, 1 (flat chain), 2, 5 (six kinds), 9 playground, registry pack | Source, Tone, meter, WAV, `.toolpa`. |
 | 2 | done | 3.1 | MIDI-to-audio instrument. Voices sum first. Tone is mounted once after the sum. |
 | 3 | done | 6.1, 6.2, 6.4 | MIDI bytes, a keyboard source, and MIDI-to-MIDI devices. |
-| 4 | planned | 6.3, prompt generators | Step and euclidean patterns, and a prompt that becomes MIDI. |
+| 4 | done | 6.3, prompt generators | Step and euclidean patterns, and a prompt that becomes MIDI. |
 | 5 | planned | 7.1, 7.3 | Device registry and a rack that composes those roles. |
 | 6 | planned | 8.1–8.4 | Agent loop that builds a device from a prompt, with a local model. |
 | 7 | planned | 6.6, 10 packaging, 9.2 | Stems, SMF, SFZ, a sample pack, and a render command. |

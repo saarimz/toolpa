@@ -62,6 +62,8 @@ export const TRACE_NAMES: ReadonlySet<string> = new Set([
   'instrument.render',
   'midi.parse',
   'midi.effect',
+  'generate.pattern',
+  'generate.prompt',
 ]);
 
 export function assertTraceName(name: string): void {

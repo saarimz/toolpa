@@ -1,7 +1,9 @@
+import { generateSelfCheck } from '@toolpa/generate';
 import { midiSelfCheck } from '@toolpa/midi';
 
 const api = {
   midi: () => midiSelfCheck(),
+  generate: () => generateSelfCheck(),
 };
 
 declare global {

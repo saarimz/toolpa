@@ -1,0 +1,15 @@
+{
+  "name": "@toolpa/generate",
+  "version": "0.0.0",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@toolpa/audio": "workspace:*",
+    "@toolpa/graph": "workspace:*",
+    "@toolpa/trace": "workspace:*"
+  }
+}

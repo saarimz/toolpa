@@ -127,6 +127,18 @@ importers:
         specifier: workspace:*
         version: link:../trace
 
+  packages/generate:
+    dependencies:
+      '@toolpa/audio':
+        specifier: workspace:*
+        version: link:../audio
+      '@toolpa/graph':
+        specifier: workspace:*
+        version: link:../graph
+      '@toolpa/trace':
+        specifier: workspace:*
+        version: link:../trace
+
   packages/graph:
     dependencies:
       '@toolpa/trace':
@@ -153,6 +165,9 @@ importers:
 
   packages/suite:
     dependencies:
+      '@toolpa/generate':
+        specifier: workspace:*
+        version: link:../generate
       '@toolpa/midi':
         specifier: workspace:*
         version: link:../midi
