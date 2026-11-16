@@ -22,6 +22,7 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 | 12 | done | 5.5, 6.6 | Multi-sample zones, velocity layers, loop points, and SFZ import. |
 | 13 | done | 6.2 | Web MIDI access, a device list, hot-plug, and clock in/out. The fake port stays. |
 | 14 | done | 3.3 | Live audio input with latency compensation and a monitor toggle. The silent bus stays. |
+| 15 | done | 8.2 | OpenAI-compatible, Anthropic, and Ollama providers. Mock stays the default. |
 
 ## Slice 2 — Voices
 
@@ -127,9 +128,17 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 
 **Exit.** Ten frames of output latency at 44.1 kHz delay the bus by 10 samples. The first sample is 0 and sample 10 is the capture. The silent bus peaks at 0. Browsers report delay 10, monitor 0, and a bus peak above 0.2 without prompting.
 
+## Slice 15 — Hosted models
+
+**Goal.** A configured provider can complete a prompt. Tests and the default agent never open a socket.
+
+**Scope.** `createHostedModel` speaks OpenAI chat completions, Anthropic messages, and Ollama chat. Keys come from `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or the Ollama base URL. A call happens only when `allowNetwork` is true, which `TOOLPA_ALLOW_NETWORK=1` sets. Tests pass a transport and do not use `fetch`. `MockModel` remains the default. `RemoteModel` and `RemotePromptProvider` with no settings still throw `NOT_CONFIGURED`. The prompt path reads `midi:step:velocity` tokens. The agent path reads device ids from the same completion. The key stays in a header and out of the body, the trace, and the provenance.
+
+**Exit.** The same rack hash comes back from all three response shapes. A blocked provider does not call its transport. Two note tokens become two notes. Browsers run the injected provider and still report `NOT_CONFIGURED` for the unwired classes.
+
 ## Follow-ups that are not slices
 
 - The 40-patch cookbook. Slice 1 kept SHA-256 of the canonical chain document on purpose; the IR adds FNV beside it.
 - JSX, DSL, and JSON authoring parity. Agents and the playground emit data.
 - Tone remains the slice 1 chain effect. The new effects are a separate document.
-- A hosted chat model, a physical MIDI port, and a package registry publish. Microphone capture is slice 14. `openMicrophone()` with no arguments still refuses so older tests do not prompt.
+- A physical MIDI port on the CI machine, and a package registry publish. Hosted models are slice 15 and stay off unless `TOOLPA_ALLOW_NETWORK=1`. Microphone capture is slice 14. `openMicrophone()` with no arguments still refuses so older tests do not prompt.

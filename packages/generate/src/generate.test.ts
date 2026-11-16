@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderInstrument } from '@toolpa/audio';
 import { createTrace } from '@toolpa/trace';
-import { GenerateError, LocalPromptProvider, RemotePromptProvider, euclidean, generateSelfCheck, notesFromPulses, schedulePattern } from './generate.ts';
+import { GenerateError, LocalPromptProvider, RemotePromptProvider, euclidean, generateSelfCheck, hostedPromptSelfCheck, notesFromHosted, notesFromPulses, schedulePattern } from './generate.ts';
 
 describe('pattern and prompt generators', () => {
   it('rotates a 3-pulse bar onto the downbeat', () => {
@@ -36,6 +36,28 @@ describe('pattern and prompt generators', () => {
     const second = await renderInstrument({ instrument, durationSeconds: 1.2 });
     expect(first.wav).toEqual(second.wav);
     expect(Math.max(...first.pcm)).toBeGreaterThan(0.01);
+  });
+
+  it('turns hosted tokens into notes without calling the network', async () => {
+    const lines: string[] = [];
+    const { trace } = createTrace({ ndjson: (line) => lines.push(line) });
+    let calls = 0;
+    const notes = await notesFromHosted('bass line', async () => {
+      calls += 1;
+      return ['60:0:90', '64:2:80'];
+    }, trace);
+    expect(calls).toBe(1);
+    expect(notes).toEqual([
+      { midi: 60, step: 0, velocity: 90 },
+      { midi: 64, step: 2, velocity: 80 },
+    ]);
+    await expect(notesFromHosted('bass', async () => ['nope'])).rejects.toThrow(/PROMPT_EMPTY/);
+    const check = await hostedPromptSelfCheck();
+    expect(check.notes).toBe(2);
+    expect(check.midi).toBe(60);
+    expect(check.remote).toBe('NOT_CONFIGURED');
+    const names = lines.map((line) => JSON.parse(line.trim()) as { name: string }).map((record) => record.name);
+    expect(names).toContain('generate.prompt');
   });
 
   it('matches the browser self-check', () => {

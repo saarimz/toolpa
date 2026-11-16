@@ -81,6 +81,44 @@ export class RemotePromptProvider implements PromptGenerator {
   }
 }
 
+export function notesFromTokens(tokens: readonly string[]): PatternNote[] {
+  const notes: PatternNote[] = [];
+  for (const token of tokens) {
+    const match = /^(\d+):(\d+):(\d+)$/.exec(token);
+    if (!match) continue;
+    const midi = Number(match[1]);
+    const step = Number(match[2]);
+    const velocity = Number(match[3]);
+    if (!Number.isInteger(midi) || midi > 127 || step > 31 || velocity > 127) continue;
+    notes.push({ midi, step, velocity });
+  }
+  if (notes.length === 0) throw new GenerateError('PROMPT_EMPTY', 'PROMPT_EMPTY: the model returned no notes');
+  return notes;
+}
+
+export async function notesFromHosted(
+  prompt: string,
+  complete: (prompt: string) => string[] | Promise<string[]>,
+  trace?: Trace,
+): Promise<PatternNote[]> {
+  const text = prompt.trim();
+  if (!text) throw new GenerateError('PROMPT_EMPTY', 'PROMPT_EMPTY: the prompt is empty');
+  const notes = notesFromTokens(await complete(text));
+  trace?.event('generate.prompt', { provider: 'remote', notes: notes.length, pulses: notes.length, root: notes[0]?.midi ?? 0 });
+  return notes;
+}
+
+export async function hostedPromptSelfCheck(): Promise<{ notes: number; midi: number; remote: string }> {
+  const notes = await notesFromHosted('bass', async () => ['60:0:90', '64:2:80']);
+  let remote = '';
+  try {
+    new RemotePromptProvider().generate('bass');
+  } catch (error) {
+    remote = error instanceof GenerateError ? error.code : 'error';
+  }
+  return { notes: notes.length, midi: notes[0]?.midi ?? -1, remote };
+}
+
 export function schedulePattern(notes: readonly PatternNote[], secondsPerStep: number): NoteEvent[] {
   if (!(secondsPerStep > 0) || secondsPerStep > 2) {
     throw new GenerateError('PATTERN_RANGE', 'PATTERN_RANGE: seconds per step must be greater than 0 and at most 2');

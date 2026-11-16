@@ -54,6 +54,20 @@ test('the agent builds a rack from a prompt', async ({ page }) => {
   expect(result.hash).toMatch(/^[a-f0-9]{64}$/);
 });
 
+test('a configured model builds a rack and notes stay local', async ({ page }) => {
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await page.waitForFunction(() => window.__toolpaSuite !== undefined);
+  const hosted = await page.evaluate(() => window.__toolpaSuite.hosted());
+  const prompt = await page.evaluate(() => window.__toolpaSuite.prompt());
+  expect(hosted.provider).toBe('remote');
+  expect(hosted.called).toBe(true);
+  expect(hosted.blocked).toBe('NOT_CONFIGURED');
+  expect(hosted.hash).toMatch(/^[a-f0-9]{64}$/);
+  expect(prompt.notes).toBe(2);
+  expect(prompt.midi).toBe(60);
+  expect(prompt.remote).toBe('NOT_CONFIGURED');
+});
+
 test('a prompt generator agrees in the browser', async ({ page }) => {
   await page.goto(`http://127.0.0.1:${port}/`);
   await page.waitForFunction(() => window.__toolpaSuite !== undefined);
@@ -69,6 +83,8 @@ declare global {
     __toolpaSuite: {
       midi: () => { events: number; transposed: number; key: number; channel: number };
       generate: () => { pulses: number; first: number; same: boolean; remote: string };
+      hosted: () => Promise<{ provider: string; hash: string; called: boolean; blocked: string }>;
+      prompt: () => Promise<{ notes: number; midi: number; remote: string }>;
       rack: () => Promise<{ effects: number; illegal: string; hash: string }>;
       agent: () => Promise<{ hash: string; budget: string; provider: string }>;
       smf: () => { bytes: number; header: string };

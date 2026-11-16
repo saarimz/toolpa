@@ -20,7 +20,7 @@ export class AgentError extends Error {
 
 export interface ModelProvider {
   readonly provider: 'mock' | 'remote';
-  complete(prompt: string): string[];
+  complete(prompt: string): string[] | Promise<string[]>;
 }
 
 const TONE = { type: 'tone' as const, cutoffHz: 2000, q: 0.7071067811865476, gain: 0.3 };
@@ -57,7 +57,7 @@ export async function runAgent(
   let lastError = 'AGENT_EMPTY';
   for (let attempt = 1; attempt <= options.maxAttempts; attempt += 1) {
     try {
-      const words = model.complete(prompt);
+      const words = await model.complete(prompt);
       const registry = new DeviceRegistry();
       const ids: string[] = [];
       for (const word of words) {
