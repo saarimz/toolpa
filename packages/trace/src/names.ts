@@ -57,6 +57,9 @@ export const TRACE_NAMES: ReadonlySet<string> = new Set([
   'artifact.save',
   'artifact.load',
   'error',
+  'voice.allocate',
+  'voice.steal',
+  'instrument.render',
 ]);
 
 export function assertTraceName(name: string): void {

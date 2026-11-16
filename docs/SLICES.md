@@ -9,7 +9,7 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 | Slice | Status | Plan phases | Goal |
 | --- | --- | --- | --- |
 | 1 | done | 0, 1 (flat chain), 2, 5 (six kinds), 9 playground, registry pack | Source, Tone, meter, WAV, `.toolpa`. |
-| 2 | planned | 3.1 | MIDI-to-audio instrument. Voices sum first. Tone is mounted once after the sum. |
+| 2 | done | 3.1 | MIDI-to-audio instrument. Voices sum first. Tone is mounted once after the sum. |
 | 3 | planned | 6.1, 6.2, 6.4 | MIDI bytes, a keyboard source, and MIDI-to-MIDI devices. |
 | 4 | planned | 6.3, prompt generators | Step and euclidean patterns, and a prompt that becomes MIDI. |
 | 5 | planned | 7.1, 7.3 | Device registry and a rack that composes those roles. |

@@ -21,9 +21,19 @@ const worker = await esbuild.build({
   target: 'es2022',
   write: false,
 });
+const instrumentBuilt = await esbuild.build({
+  entryPoints: [path.join(dir, 'instrument.ts')],
+  bundle: true,
+  format: 'iife',
+  platform: 'browser',
+  target: 'es2022',
+  write: false,
+});
 const js = built.outputFiles[0].text;
 const workerJs = worker.outputFiles[0].text;
+const instrumentJs = instrumentBuilt.outputFiles[0].text;
 const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
+const instrumentHtml = fs.readFileSync(path.join(dir, 'instrument.html'), 'utf8');
 const port = Number(process.env.LIVE_PROBE_PORT ?? 43117);
 
 http
@@ -37,6 +47,16 @@ http
     if (url.startsWith('/worker.js')) {
       res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' });
       res.end(workerJs);
+      return;
+    }
+    if (url.startsWith('/instrument.js')) {
+      res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' });
+      res.end(instrumentJs);
+      return;
+    }
+    if (url.startsWith('/instrument')) {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(instrumentHtml);
       return;
     }
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
