@@ -17,16 +17,23 @@ const js = built.outputFiles[0].text;
 const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
 const port = Number(process.env.SAMPLE_PROBE_PORT ?? 43118);
 
-http
-  .createServer((req, res) => {
-    if ((req.url ?? '/').startsWith('/probe.js')) {
-      res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' });
-      res.end(js);
-      return;
-    }
-    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    res.end(html);
-  })
-  .listen(port, '127.0.0.1', () => {
-    process.stdout.write(`sample probe http://127.0.0.1:${port}/\n`);
-  });
+const server = http.createServer((req, res) => {
+  if ((req.url ?? '/').startsWith('/probe.js')) {
+    res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' });
+    res.end(js);
+    return;
+  }
+  res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+  res.end(html);
+});
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    process.stdout.write(`sample probe already bound on 127.0.0.1:${port}\n`);
+    setInterval(() => {}, 60_000);
+    return;
+  }
+  throw error;
+});
+server.listen(port, '127.0.0.1', () => {
+  process.stdout.write(`sample probe http://127.0.0.1:${port}/\n`);
+});

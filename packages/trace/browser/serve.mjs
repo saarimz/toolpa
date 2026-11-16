@@ -28,6 +28,14 @@ const server = http.createServer((req, res) => {
   res.end(html);
 });
 
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    process.stdout.write(`trace probe already bound on 127.0.0.1:${port}\n`);
+    setInterval(() => {}, 60_000);
+    return;
+  }
+  throw error;
+});
 server.listen(port, '127.0.0.1', () => {
   process.stdout.write(`trace probe http://127.0.0.1:${port}/\n`);
 });

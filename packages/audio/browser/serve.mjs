@@ -46,8 +46,7 @@ const instrumentHtml = fs.readFileSync(path.join(dir, 'instrument.html'), 'utf8'
 const performanceHtml = fs.readFileSync(path.join(dir, 'performance.html'), 'utf8');
 const port = Number(process.env.LIVE_PROBE_PORT ?? 43117);
 
-http
-  .createServer((req, res) => {
+const server = http.createServer((req, res) => {
     const url = req.url ?? '/';
     if (url.startsWith('/probe.js')) {
       res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' });
@@ -81,7 +80,15 @@ http
     }
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     res.end(html);
-  })
-  .listen(port, '127.0.0.1', () => {
-    process.stdout.write(`live probe http://127.0.0.1:${port}/\n`);
-  });
+});
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    process.stdout.write(`live probe already bound on 127.0.0.1:${port}\n`);
+    setInterval(() => {}, 60_000);
+    return;
+  }
+  throw error;
+});
+server.listen(port, '127.0.0.1', () => {
+  process.stdout.write(`live probe http://127.0.0.1:${port}/\n`);
+});

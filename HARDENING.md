@@ -22,4 +22,5 @@ One chain. A sine, seeded noise, or a sample identified by the SHA-256 of its fi
 - `.github/workflows/slice.yml` runs `pnpm slice:gate` after starting a null PulseAudio sink. Firefox on the GitHub runner does not open an audio device without that sink.
 - `pnpm toolpa render` writes a WAV for a chain file. Publishing packages to a registry needs credentials and is a follow-up.
 - Slice 8 maps beats to seconds and launches a clip into the existing live renderer. The plan's lookahead scheduler, swing, and the three playground demos stay follow-ups with the deferred engine. `openMicrophone` throws `MIC_FOLLOWUP`. `InputBus` is a silent local bus because the gate has no microphone.
+- The slice 5 push on `175b180` failed because the suite probe exited on `EADDRINUSE` for port 43120. The same commit's pull-request run passed. Probe servers now stay up when the port is already bound, so Playwright can reuse the listener.
 - A non-48 kHz sample is still resampled into the chain. The plan's Node path would have rejected it.
