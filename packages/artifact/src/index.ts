@@ -8,3 +8,4 @@ export {
   sealArtifact,
 } from './artifact.ts';
 export type { ArtifactStore, SealedArtifact, ToolpaArtifact } from './artifact.ts';
+export { OpfsStore } from './opfs.ts';

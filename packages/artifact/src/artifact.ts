@@ -87,6 +87,7 @@ export interface ArtifactStore {
   load(id: string): Promise<SealedArtifact | null>;
   saveSample(sha256: string, bytes: Uint8Array): Promise<void>;
   loadSample(sha256: string): Promise<Uint8Array | null>;
+  list(): Promise<string[]>;
 }
 
 export class MemoryStore implements ArtifactStore {
@@ -118,6 +119,10 @@ export class MemoryStore implements ArtifactStore {
 
   async loadSample(sha256: string): Promise<Uint8Array | null> {
     return this.samples.get(sha256) ?? null;
+  }
+
+  async list(): Promise<string[]> {
+    return [...this.artifacts.keys()].sort();
   }
 }
 

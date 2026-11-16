@@ -1,3 +1,4 @@
+import { OpfsStore, sealArtifact } from '@toolpa/artifact';
 import { hashChain, type Chain } from '@toolpa/graph';
 import { LiveSession } from '@toolpa/audio/live';
 import { renderChain, type SampleBuffer } from '@toolpa/audio';
@@ -17,6 +18,7 @@ interface LoadedSample extends SampleBuffer {
   name: string;
   sha256: string;
   frames: number;
+  bytes: Uint8Array;
 }
 
 function readNumber(value: string): number | null {
@@ -42,8 +44,12 @@ export default function App() {
   const [level, setLevel] = useState(0);
   const [peak, setPeak] = useState(0);
   const [wavSha, setWavSha] = useState('');
+  const [library, setLibrary] = useState<string[]>([]);
+  const [storeReady, setStoreReady] = useState(false);
+  const [loadedId, setLoadedId] = useState<string | null>(null);
   const sessionRef = useRef<LiveSession | null>(null);
   const contextRef = useRef<AudioContext | null>(null);
+  const storeRef = useRef<OpfsStore | null>(null);
 
   const draft = useMemo(
     () =>
@@ -65,6 +71,20 @@ export default function App() {
 
   useEffect(() => {
     trace.event('playground.ready', { sampleRate: SAMPLE_RATE });
+    let cancelled = false;
+    void OpfsStore.open(trace)
+      .then(async (store) => {
+        if (cancelled) return;
+        storeRef.current = store;
+        setLibrary(await store.list());
+        setStoreReady(true);
+      })
+      .catch((caught: unknown) => {
+        if (!cancelled) setError(caught instanceof Error ? caught.message : String(caught));
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -186,19 +206,81 @@ export default function App() {
     setError('');
     setStatus(`Decoding ${file.name}…`);
     try {
-      const decoded = await decodeSample(new Uint8Array(await file.arrayBuffer()), trace);
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const decoded = await decodeSample(bytes, trace);
       setLoaded({
         name: file.name,
         sha256: decoded.sha256,
         sampleRate: decoded.sampleRate,
         pcm: decoded.pcm,
         frames: decoded.frames,
+        bytes,
       });
       setSource('sample');
       setStatus(`${file.name} · ${decoded.frames} frames at ${decoded.sampleRate} Hz.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
       setStatus('Could not decode that file.');
+    }
+  }
+
+  async function saveArtifact() {
+    const store = storeRef.current;
+    if (!store || !chain) return;
+    setError('');
+    try {
+      const sealed = await sealArtifact({ chain, parents: loadedId ? [loadedId] : [] }, trace);
+      await store.save(sealed);
+      if (source === 'sample' && loaded) await store.saveSample(loaded.sha256, loaded.bytes);
+      setLoadedId(sealed.id);
+      setLibrary(await store.list());
+      setStatus(`Saved ${sealed.id.slice(0, 12)}…`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+      setStatus('Save failed.');
+    }
+  }
+
+  async function loadArtifact(id: string) {
+    const store = storeRef.current;
+    if (!store) return;
+    setError('');
+    try {
+      const sealed = await store.load(id);
+      if (!sealed) {
+        setError('That artifact is not in OPFS.');
+        return;
+      }
+      const next = sealed.artifact.chain;
+      setSource(next.source.type);
+      if (next.source.type === 'sine') setFrequency(String(next.source.frequencyHz));
+      if (next.source.type === 'noise') setSeed(String(next.source.seed));
+      if (next.source.type === 'sample') {
+        setPlaybackRate(String(next.source.playbackRate));
+        const bytes = await store.loadSample(next.source.sha256);
+        if (!bytes) {
+          setLoaded(null);
+          setError('The sample blob for this chain is not in OPFS.');
+        } else {
+          const decoded = await decodeSample(bytes, trace);
+          setLoaded({
+            name: 'Saved sample',
+            sha256: decoded.sha256,
+            sampleRate: decoded.sampleRate,
+            pcm: decoded.pcm,
+            frames: decoded.frames,
+            bytes,
+          });
+        }
+      }
+      setCutoff(next.effect.cutoffHz);
+      setQ(next.effect.q);
+      setGain(next.effect.gain);
+      setLoadedId(id);
+      setStatus(`Loaded ${id.slice(0, 12)}…`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+      setStatus('Load failed.');
     }
   }
 
@@ -314,6 +396,24 @@ export default function App() {
             <Button type="button" variant="secondary" onClick={() => void renderOffline()} disabled={!chain || rendering}>
               {rendering ? 'Rendering…' : 'Render 1s WAV'}
             </Button>
+            <Button type="button" variant="outline" onClick={() => void saveArtifact()} disabled={!chain || !storeReady}>
+              Save artifact
+            </Button>
+          </div>
+
+          <div className="flex flex-col gap-2" data-testid="library">
+            <Label>Saved in this browser</Label>
+            {library.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nothing saved yet. The chain file stays in OPFS on this origin.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {library.map((id) => (
+                  <Button key={id} type="button" variant="outline" aria-label={id} onClick={() => void loadArtifact(id)}>
+                    {id.slice(0, 8)}
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-2">

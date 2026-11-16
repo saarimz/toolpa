@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
 declare global {
   interface Window {
@@ -50,4 +50,41 @@ test('the playground plays the default sine chain and renders it', async ({ page
   expect(names).toContain('render.offline');
   expect(names).toContain('playground.render');
   expect(external).toEqual([]);
+});
+
+test('a saved chain reloads from OPFS with the same hash', async ({ page, browserName }) => {
+  test.setTimeout(60_000);
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await expect(page.getByTestId('hash')).toHaveText(sine.hash);
+  const save = page.getByRole('button', { name: 'Save artifact' });
+  await expect.poll(async () => {
+    if (await save.isEnabled()) return 'ready';
+    return (await page.getByTestId('error').count()) > 0 ? 'error' : 'pending';
+  }).not.toBe('pending');
+  if (!(await save.isEnabled()) && browserName === 'webkit') {
+    mkdirSync('tmp', { recursive: true });
+    writeFileSync(
+      'tmp/non-gating.json',
+      `${JSON.stringify(
+        {
+          check: 'opfs',
+          browser: 'webkit',
+          gating: false,
+          message: (await page.getByTestId('error').textContent()) ?? 'OPFS did not open',
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    return;
+  }
+  await expect(save).toBeEnabled();
+  await save.click();
+  await expect(page.getByTestId('status')).toContainText('Saved');
+  const artifactId = await page.getByTestId('library').getByRole('button').getAttribute('aria-label');
+  if (!artifactId) throw new Error('saved artifact has no id');
+  await page.reload();
+  await page.getByRole('button', { name: artifactId }).click();
+  await expect(page.getByTestId('hash')).toHaveText(sine.hash);
+  await expect(page.getByTestId('status')).toContainText('Loaded');
 });
