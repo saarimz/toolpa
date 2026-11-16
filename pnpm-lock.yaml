@@ -21,6 +21,21 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7
 
+  packages/audio:
+    dependencies:
+      '@elemaudio/core':
+        specifier: 4.0.1
+        version: 4.0.1
+      '@elemaudio/offline-renderer':
+        specifier: 4.0.3
+        version: 4.0.3
+      '@toolpa/graph':
+        specifier: workspace:*
+        version: link:../graph
+      '@toolpa/trace':
+        specifier: workspace:*
+        version: link:../trace
+
   packages/graph:
     dependencies:
       '@toolpa/trace':
@@ -42,6 +57,13 @@ importers:
   packages/trace: {}
 
 packages:
+
+  '@elemaudio/core@4.0.1':
+    resolution: {integrity: sha512-O58CaR5ttxzPt1LwkJoXVipPLlZ8lZmOIHhJFiih3rWkfCZ3/H1X2XTG0HM2jAn3BokoP5jYSbnbEiQybyvRGw==}
+
+  '@elemaudio/offline-renderer@4.0.3':
+    resolution: {integrity: sha512-yuyBOKsglMQYxcKEdYx13w8VFIKHnxvhaoQd5Nu1t6qM30VCAMr3reiN/frr9XiY8XRgjRH1b2rrC/SPB74jXg==}
+    engines: {node: '>=18'}
 
   '@esbuild/aix-ppc64@0.25.12':
     resolution: {integrity: sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA==}
@@ -595,6 +617,9 @@ packages:
   estree-walker@3.0.3:
     resolution: {integrity: sha512-7RUKfXgSMMkzt6ZuXmqapOurLGPPfgj6l9uRZ7lRGolvk0y2yocc35LdcxKC5PQZdn2DMqioAQ2NoWcrTKmm6g==}
 
+  eventemitter3@5.0.4:
+    resolution: {integrity: sha512-mlsTRyGaPBjPedk6Bvw+aqbsXDtoAyAzm5MO7JgU+yVRyMQ5O8bD4Kcci7BS85f93veegeCPkL8R4GLClnjLFw==}
+
   expect-type@1.4.0:
     resolution: {integrity: sha512-KfYbmpRm0VbLjEvVa9yGwCi9GI34xvi7A/HXYWQO65CSD2u3MczUJSuwXKFIxlGsgBQizV9q5J9NHj4VG0n+pA==}
     engines: {node: '>=12.0.0'}
@@ -613,8 +638,18 @@ packages:
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
 
+  invariant@2.2.4:
+    resolution: {integrity: sha512-phJfQVBuaJM5raOpJjSfkiD6BpbCE4Ns//LaXl6wGYtUBY83nWS6Rf9tXm2e8VaK60JEjYldbPif/A2B1C2gNA==}
+
+  js-tokens@4.0.0:
+    resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
+
   js-tokens@9.0.1:
     resolution: {integrity: sha512-mxa9E9ITFOt0ban3j6L5MpjwegGz6lBQmM1IJkWeBZGcMxto50+eWdjC/52xDbS2vy0k7vIMK0Fe2wfL9OQSpQ==}
+
+  loose-envify@1.4.0:
+    resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
+    hasBin: true
 
   loupe@3.2.1:
     resolution: {integrity: sha512-CdzqowRJCeLU72bHvWqwRBBlLcMEtIvGrlvef74kMnV2AolS9Y8xUv1I0U/MNAWMhBlKIoyuEgoJ0t/bbwHbLQ==}
@@ -665,6 +700,9 @@ packages:
     resolution: {integrity: sha512-wd2gavj7CEQv52rdcVqfUupO/KPIKcoJKxyFWl4cOqYZGMQEOSijJRkliz0dRa7gpkj/h4TRqyWa+dJJi6T0OA==}
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
     hasBin: true
+
+  shallowequal@1.1.0:
+    resolution: {integrity: sha512-y0m1JoUZSlPAjXVtPPW70aZWfIL/dSP7AFkRnniLCrK/8MDKog3TySTBmckD+RObVxH0v4Tox67+F14PdED2oQ==}
 
   siginfo@2.0.0:
     resolution: {integrity: sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==}
@@ -791,6 +829,17 @@ packages:
     hasBin: true
 
 snapshots:
+
+  '@elemaudio/core@4.0.1':
+    dependencies:
+      eventemitter3: 5.0.4
+      invariant: 2.2.4
+      shallowequal: 1.1.0
+
+  '@elemaudio/offline-renderer@4.0.3':
+    dependencies:
+      '@elemaudio/core': 4.0.1
+      invariant: 2.2.4
 
   '@esbuild/aix-ppc64@0.25.12':
     optional: true
@@ -1174,6 +1223,8 @@ snapshots:
     dependencies:
       '@types/estree': 1.0.10
 
+  eventemitter3@5.0.4: {}
+
   expect-type@1.4.0: {}
 
   fdir@6.5.0(picomatch@4.0.7):
@@ -1183,7 +1234,17 @@ snapshots:
   fsevents@2.3.3:
     optional: true
 
+  invariant@2.2.4:
+    dependencies:
+      loose-envify: 1.4.0
+
+  js-tokens@4.0.0: {}
+
   js-tokens@9.0.1: {}
+
+  loose-envify@1.4.0:
+    dependencies:
+      js-tokens: 4.0.0
 
   loupe@3.2.1: {}
 
@@ -1250,6 +1311,8 @@ snapshots:
       '@rollup/rollup-win32-x64-gnu': 4.68.3
       '@rollup/rollup-win32-x64-msvc': 4.68.3
       fsevents: 2.3.3
+
+  shallowequal@1.1.0: {}
 
   siginfo@2.0.0: {}
 
