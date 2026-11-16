@@ -45,6 +45,32 @@ const api = {
     const rendered = await renderChain({ chain, durationSeconds: 0.1 });
     return { hash: rendered.hash, wavSha256: rendered.wavSha256 };
   },
+  forceStall() {
+    const first = session.noteClock(300, 0);
+    const second = session.noteClock(300, 0);
+    const stalls = ring.snapshot().filter((record) => record.name === 'live.stall').length;
+    return { first, second, stalls };
+  },
+  renderInWorker(next: unknown, durationSeconds: number) {
+    return new Promise<{ hash?: string; wavSha256?: string; frames?: number; error?: string }>((resolve) => {
+      const worker = new Worker(new URL('/worker.js', location.href), { type: 'module' });
+      const timer = setTimeout(() => {
+        worker.terminate();
+        resolve({ error: 'worker timed out' });
+      }, 20_000);
+      worker.onmessage = (event: MessageEvent<{ hash?: string; wavSha256?: string; frames?: number; error?: string }>) => {
+        clearTimeout(timer);
+        worker.terminate();
+        resolve(event.data);
+      };
+      worker.onerror = (error) => {
+        clearTimeout(timer);
+        worker.terminate();
+        resolve({ error: error.message });
+      };
+      worker.postMessage({ id: 1, chain: next, durationSeconds });
+    });
+  },
   started: () => started,
   startError: () => startError,
 };

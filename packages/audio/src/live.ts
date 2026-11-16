@@ -1,10 +1,20 @@
 import WebRenderer from '@elemaudio/web-renderer';
+import { hashChain } from '@toolpa/graph';
 import type { Trace } from '@toolpa/trace';
 import { measure } from './meter.ts';
 import { prepareChain, type SampleBuffer } from './render.ts';
 
 export function stalled(state: string, wallSeconds: number, audioSeconds: number): boolean {
   return state === 'running' && wallSeconds > 0.25 && audioSeconds < wallSeconds * 0.25;
+}
+
+export function clockBudgetMs(sampleRate: number): number {
+  return (128 / sampleRate) * 1000 + 20;
+}
+
+export function clockDriftStalled(sampleRate: number, wallMs: number, audioMs: number): boolean {
+  const budget = clockBudgetMs(sampleRate);
+  return wallMs > budget && wallMs - audioMs > budget;
 }
 
 export interface LiveSnapshot {
@@ -29,6 +39,7 @@ export class LiveSession {
   private rms = 0;
   private lastAudio = 0;
   private lastWall = 0;
+  private stallEmitted = false;
   hash = '';
 
   constructor(private readonly trace?: Trace) {}
@@ -60,6 +71,14 @@ export class LiveSession {
     this.lastWall = performance.now();
     this.watch = setInterval(() => this.poll(), 100);
     const snapshot = this.snapshot();
+    this.trace?.event('engine.init', { sampleRate: input.context.sampleRate, hash: this.hash });
+    this.trace?.event('ctx.state', { state: input.context.state });
+    this.trace?.event('ctx.latency', {
+      baseLatencyMs: snapshot.baseLatencyMs,
+      outputLatencyMs: snapshot.outputLatencyMs,
+      sampleRate: input.context.sampleRate,
+    });
+    this.trace?.event('live.load', { hash: this.hash });
     this.trace?.event('playback.started', {
       hash: this.hash,
       baseLatencyMs: snapshot.baseLatencyMs,
@@ -83,8 +102,27 @@ export class LiveSession {
     const wallSeconds = (now - this.lastWall) / 1000;
     const audioSeconds = context.currentTime - this.lastAudio;
     if (stalled(context.state, wallSeconds, audioSeconds)) this.underruns += 1;
+    if (wallSeconds * 1000 >= 250) this.noteClock(wallSeconds * 1000, audioSeconds * 1000, context.sampleRate);
     this.lastWall = now;
     this.lastAudio = context.currentTime;
+  }
+
+  noteClock(wallMs: number, audioMs: number, sampleRate = this.context?.sampleRate ?? 48_000): boolean {
+    if (this.stallEmitted || !clockDriftStalled(sampleRate, wallMs, audioMs)) return false;
+    this.stallEmitted = true;
+    this.trace?.event('live.stall', {
+      expectedMs: wallMs,
+      observedMs: audioMs,
+      driftMs: wallMs - audioMs,
+    });
+    return true;
+  }
+
+  async considerSwap(chain: unknown): Promise<boolean> {
+    const next = await hashChain(chain);
+    if (!this.hash || next.hash !== this.hash) return false;
+    this.trace?.event('live.swap', { hash: this.hash, noop: true });
+    return true;
   }
 
   snapshot(): LiveSnapshot {
@@ -119,6 +157,12 @@ export class LiveSession {
     this.trace?.metric('playback.outputLatency', snapshot.outputLatencyMs, 'ms', { hash: snapshot.hash });
     this.trace?.metric('playback.underruns', snapshot.underruns, 'count', { hash: snapshot.hash });
     this.trace?.event('playback.stopped', { hash: snapshot.hash, underruns: snapshot.underruns });
+    this.trace?.event('live.playbackStats', {
+      hash: snapshot.hash,
+      underruns: snapshot.underruns,
+      baseLatencyMs: snapshot.baseLatencyMs,
+      outputLatencyMs: snapshot.outputLatencyMs,
+    });
     this.analyser?.disconnect();
     void this.renderer;
     this.renderer = null;

@@ -13,15 +13,30 @@ const built = await esbuild.build({
   target: 'es2022',
   write: false,
 });
+const worker = await esbuild.build({
+  entryPoints: [path.join(dir, 'worker.ts')],
+  bundle: true,
+  format: 'esm',
+  platform: 'browser',
+  target: 'es2022',
+  write: false,
+});
 const js = built.outputFiles[0].text;
+const workerJs = worker.outputFiles[0].text;
 const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
 const port = Number(process.env.LIVE_PROBE_PORT ?? 43117);
 
 http
   .createServer((req, res) => {
-    if ((req.url ?? '/').startsWith('/probe.js')) {
+    const url = req.url ?? '/';
+    if (url.startsWith('/probe.js')) {
       res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' });
       res.end(js);
+      return;
+    }
+    if (url.startsWith('/worker.js')) {
+      res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8' });
+      res.end(workerJs);
       return;
     }
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });

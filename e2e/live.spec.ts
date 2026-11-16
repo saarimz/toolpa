@@ -11,6 +11,7 @@ declare global {
       waitForPeak: () => Promise<{ peak: number; running: boolean; underruns: number; baseLatencyMs: number; outputLatencyMs: number; hash: string }>;
       stop: () => Promise<{ underruns: number; peak: number; hash: string }>;
       offlineHash: () => Promise<{ hash: string; wavSha256: string }>;
+      forceStall: () => Promise<{ first: boolean; second: boolean; stalls: number }> | { first: boolean; second: boolean; stalls: number };
     };
   }
 }
@@ -43,6 +44,8 @@ test('a sine chain plays live and hashes the same as offline', async ({ page, br
   expect(heard.running).toBe(true);
   expect(heard.peak).toBeGreaterThan(0.05);
   expect(heard.underruns).toBe(0);
+  const stall = await page.evaluate(() => window.__toolpaLive.forceStall());
+  expect(stall).toEqual({ first: true, second: false, stalls: 1 });
   mkdirSync('tmp', { recursive: true });
   writeFileSync(
     `tmp/live-${browserName}.json`,
