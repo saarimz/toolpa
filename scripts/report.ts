@@ -3,6 +3,7 @@ import { renderChain } from '../packages/audio/src/index.ts';
 import { encodeWavPcm16 } from '../packages/audio/src/wav.ts';
 import { decodeSample, decodeWavSample } from '../packages/samples/src/index.ts';
 import { createTrace } from '../packages/trace/src/index.ts';
+import { percentile } from './percentiles.ts';
 
 const tone = { type: 'tone' as const, cutoffHz: 2000, q: 0.7071067811865476, gain: 0.25 };
 const sineChain = {
@@ -93,6 +94,17 @@ const live = readdirSync('tmp')
     }),
   }));
 
+const runs = 20;
+const renderMs: number[] = [];
+const wavDecodeMs: number[] = [];
+const mp3DecodeMs: number[] = [];
+const mp3Bytes = readFileSync('packages/samples/fixtures/tone.mp3');
+for (let i = 0; i < runs; i += 1) {
+  renderMs.push((await renderChain({ chain: sineChain, durationSeconds: 0.25 })).renderMs);
+  wavDecodeMs.push((await decodeWavSample(sampleWav())).decodeMs);
+  mp3DecodeMs.push((await decodeSample(mp3Bytes)).decodeMs);
+}
+
 const records = lines.map(
   (line) => JSON.parse(line.trim()) as { name: string; value?: number; fields?: { format?: string } },
 );
@@ -115,6 +127,15 @@ for (const metric of records.filter((record) => record.name === 'decode.ms')) {
   console.log(`decode ${metric.fields?.format ?? 'audio'}: ${(metric.value ?? 0).toFixed(2)} ms`);
 }
 console.log(`decode mp3 fixture: ${mp3.decodeMs.toFixed(2)} ms, ${mp3.frames} frames`);
+console.log(
+  `render sine over ${runs}: p50 ${percentile(renderMs, 50).toFixed(2)} ms, p95 ${percentile(renderMs, 95).toFixed(2)} ms`,
+);
+console.log(
+  `decode wav over ${runs}: p50 ${percentile(wavDecodeMs, 50).toFixed(2)} ms, p95 ${percentile(wavDecodeMs, 95).toFixed(2)} ms`,
+);
+console.log(
+  `decode mp3 over ${runs}: p50 ${percentile(mp3DecodeMs, 50).toFixed(2)} ms, p95 ${percentile(mp3DecodeMs, 95).toFixed(2)} ms`,
+);
 for (const row of live) {
   console.log(
     `playback ${row.browser}: base ${row.baseLatencyMs.toFixed(2)} ms, output ${row.outputLatencyMs.toFixed(2)} ms, underruns ${row.underruns}, peak ${row.peak.toFixed(3)}`,
