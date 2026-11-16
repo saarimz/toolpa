@@ -31,19 +31,18 @@ function sourceNode(chain: Chain) {
   return buildSample(chain.source);
 }
 
-export async function renderChain(
-  input: {
-    chain: unknown;
-    durationSeconds: number;
-    samples?: ReadonlyMap<string, SampleBuffer>;
-  },
+export interface PreparedChain {
+  chain: Chain;
+  hash: string;
+  node: ReturnType<typeof applyTone>;
+  vfs?: Record<string, Float32Array>;
+}
+
+export async function prepareChain(
+  input: { chain: unknown; samples?: ReadonlyMap<string, SampleBuffer> },
   trace?: Trace,
-): Promise<RenderResult> {
-  if (!(input.durationSeconds > 0) || input.durationSeconds > 30) {
-    throw new Error('durationSeconds must be greater than 0 and at most 30');
-  }
+): Promise<PreparedChain> {
   const { chain, hash } = await hashChain(input.chain, trace);
-  const frames = Math.round(input.durationSeconds * chain.sampleRate);
   let vfs: Record<string, Float32Array> | undefined;
   if (chain.source.type === 'sample') {
     const buffer = input.samples?.get(chain.source.sha256);
@@ -56,8 +55,25 @@ export async function renderChain(
       playbackRate: chain.source.playbackRate,
     });
   }
+  return { chain, hash, node: applyTone(sourceNode(chain), chain.effect, trace), vfs };
+}
+
+export async function renderChain(
+  input: {
+    chain: unknown;
+    durationSeconds: number;
+    samples?: ReadonlyMap<string, SampleBuffer>;
+  },
+  trace?: Trace,
+): Promise<RenderResult> {
+  if (!(input.durationSeconds > 0) || input.durationSeconds > 30) {
+    throw new Error('durationSeconds must be greater than 0 and at most 30');
+  }
+  const prepared = await prepareChain(input, trace);
+  const { chain, hash, vfs } = prepared;
+  const frames = Math.round(input.durationSeconds * chain.sampleRate);
   const started = performance.now();
-  const pcm = await renderNode(applyTone(sourceNode(chain), chain.effect, trace), {
+  const pcm = await renderNode(prepared.node, {
     sampleRate: chain.sampleRate,
     frames,
     vfs,
