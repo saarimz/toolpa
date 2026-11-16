@@ -2,7 +2,7 @@ import { OpfsStore, sealArtifact } from '@toolpa/artifact';
 import { hashChain, type Chain } from '@toolpa/graph';
 import { LiveSession } from '@toolpa/audio/live';
 import { renderChain, type SampleBuffer, type WavFormat } from '@toolpa/audio';
-import { decodeSample } from '@toolpa/samples';
+import { MAX_SAMPLE_BYTES, decodeSample } from '@toolpa/samples';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -226,6 +226,14 @@ export default function App() {
   async function onFile(file: File | undefined) {
     if (!file) return;
     setError('');
+    if (file.size > MAX_SAMPLE_BYTES) {
+      trace.event('source.load', { bytes: file.size, rejected: true, code: 'LOADER_TOO_LARGE' });
+      trace.event('error', { code: 'LOADER_TOO_LARGE', where: 'source.load', message: 'file is larger than 50 MB' });
+      setError('LOADER_TOO_LARGE: file is larger than 50 MB');
+      setStatus('That file is larger than 50 MB.');
+      remember();
+      return;
+    }
     setStatus(`Decoding ${file.name}…`);
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());

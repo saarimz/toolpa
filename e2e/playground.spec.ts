@@ -166,3 +166,18 @@ test('saving a second version keeps the first cutoff and the same WAV', async ({
   await expect(page.getByTestId('parents')).toHaveText(v1);
   await expect(page.getByLabel('Gain amount')).toHaveValue('0.5');
 });
+
+test('a file over 50 MB is rejected before decode', async ({ page, browserName }) => {
+  test.setTimeout(60_000);
+  mkdirSync('tmp', { recursive: true });
+  const path = `tmp/oversize-${browserName}.wav`;
+  writeFileSync(path, Buffer.alloc(50 * 1024 * 1024 + 1));
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await page.getByRole('button', { name: 'Sample' }).click();
+  await page.getByLabel('Audio file').setInputFiles(path);
+  await expect(page.getByTestId('error')).toContainText('LOADER_TOO_LARGE');
+  await expect(page.getByTestId('status')).toContainText('larger than 50 MB');
+  const names = await page.evaluate(() => window.__toolpaPlayground.snapshot().map((record) => record.name));
+  expect(names).toContain('source.load');
+  expect(names).toContain('error');
+});

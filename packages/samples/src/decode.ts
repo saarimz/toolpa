@@ -3,6 +3,19 @@ import type { Trace } from '@toolpa/trace';
 import { decodeMp3 } from './mp3.ts';
 import { SampleError, decodeWav, type WavPcm } from './wav.ts';
 
+export const MAX_SAMPLE_BYTES = 50 * 1024 * 1024;
+
+export function assertSampleSize(byteLength: number, trace?: Trace): void {
+  if (byteLength <= MAX_SAMPLE_BYTES) return;
+  trace?.event('source.load', { bytes: byteLength, rejected: true, code: 'LOADER_TOO_LARGE' });
+  trace?.event('error', {
+    code: 'LOADER_TOO_LARGE',
+    where: 'source.load',
+    message: 'file is larger than 50 MB',
+  });
+  throw new SampleError('LOADER_TOO_LARGE', 'LOADER_TOO_LARGE: file is larger than 50 MB');
+}
+
 export interface DecodedSample extends WavPcm {
   sha256: string;
   format: 'wav' | 'mp3';
@@ -14,6 +27,7 @@ export async function identifyBytes(bytes: Uint8Array): Promise<string> {
 }
 
 export async function decodeWavSample(bytes: Uint8Array, trace?: Trace): Promise<DecodedSample> {
+  assertSampleSize(bytes.byteLength, trace);
   const started = performance.now();
   trace?.event('source.load', { format: 'wav', bytes: bytes.byteLength });
   const span = trace?.span('wav.decode', { format: 'wav' });
@@ -47,12 +61,14 @@ export function looksLikeMp3(bytes: Uint8Array): boolean {
 }
 
 export async function decodeSample(bytes: Uint8Array, trace?: Trace): Promise<DecodedSample> {
+  assertSampleSize(bytes.byteLength, trace);
   if (looksLikeWav(bytes)) return decodeWavSample(bytes, trace);
   if (looksLikeMp3(bytes)) return decodeMp3Sample(bytes, trace);
   throw new SampleError('format', 'sample must be WAV or MP3');
 }
 
 export async function decodeMp3Sample(bytes: Uint8Array, trace?: Trace): Promise<DecodedSample> {
+  assertSampleSize(bytes.byteLength, trace);
   const started = performance.now();
   trace?.event('source.load', { format: 'mp3', bytes: bytes.byteLength });
   const span = trace?.span('source.decode', { format: 'mp3' });
