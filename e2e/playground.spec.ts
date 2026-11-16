@@ -345,3 +345,110 @@ test('the studio composes a rack, edits the roll, and exports', async ({ page })
   expect(names).toContain('export.stem');
   expect(names).toContain('export.pack');
 });
+
+test('a prompt generates a playable instrument', async ({ page }) => {
+  test.setTimeout(60_000);
+  const external: string[] = [];
+  page.on('request', (request) => {
+    const url = request.url();
+    if (url.startsWith('blob:') || url.startsWith('data:')) return;
+    const host = new URL(url).hostname;
+    if (host !== '127.0.0.1' && host !== 'localhost') external.push(url);
+  });
+  const document = {
+    kind: 'prompt-instrument',
+    version: 1,
+    name: 'bright-lead',
+    oscillator: 'cycle',
+    voice: { attackSeconds: 0.01, decaySeconds: 0.1, sustain: 0.7, releaseSeconds: 0.08 },
+    filter: { mode: 'lowpass', cutoffHz: 4000, q: 0.8 },
+    lfoHz: 0,
+    lfoDepthHz: 0,
+    effect: 'dry',
+    sampler: false,
+    notes: [
+      { midi: 60, step: 0, velocity: 110 },
+      { midi: 64, step: 2, velocity: 90 },
+    ],
+  };
+  const chain = {
+    kind: 'chain',
+    version: 1,
+    sampleRate: 44100,
+    source: { type: 'sine', frequencyHz: 262 },
+    effect: { type: 'tone', cutoffHz: 4000, q: 0.8, gain: 0.35 },
+  };
+  await page.route('**/api/agent', async (route) => {
+    const body = route.request().postDataJSON() as { prompt?: string };
+    expect(body.prompt).toBe('bright lead');
+    const lines = [
+      { stage: 'plan', attempt: 1, detail: 'Reading the prompt against the cookbook' },
+      { stage: 'build', attempt: 1, detail: 'cycle dry' },
+      { stage: 'validate', attempt: 1, ok: true, detail: 'rack' },
+      { stage: 'render', attempt: 1, ok: true, detail: 'audible', peak: 0.4 },
+      {
+        stage: 'done',
+        provider: 'mock',
+        label: 'mock',
+        notice: 'No gateway key is configured. Using the mock model.',
+        hash: 'ab'.repeat(32),
+        rack: 'cd'.repeat(32),
+        document,
+        dsl: 'prompt-instrument bright-lead\nosc cycle\nnote 60 0 110',
+        chain,
+      },
+    ];
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/x-ndjson',
+      body: lines.map((line) => JSON.stringify(line)).join('\n') + '\n',
+    });
+  });
+
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await expect(page.getByTestId('midi-input')).toHaveText('Computer keyboard');
+  await page.getByLabel('Describe an instrument or effect…').fill('bright lead');
+  await page.getByRole('button', { name: 'Generate', exact: true }).click();
+  await expect(page.getByTestId('agent-stages')).toContainText('plan:');
+  await expect(page.getByTestId('agent-stages')).toContainText('build:');
+  await expect(page.getByTestId('agent-stages')).toContainText('validate:');
+  await expect(page.getByTestId('agent-stages')).toContainText('render:');
+  await expect(page.getByTestId('agent-provider')).toContainText('mock');
+  await expect(page.getByTestId('agent-provider')).toContainText('Using the mock model');
+  await expect(page.getByTestId('agent-json')).toContainText('prompt-instrument');
+  await expect(page.getByTestId('agent-dsl')).toContainText('osc cycle');
+  await expect(page.getByTestId('roll-count')).toHaveText('2 notes');
+
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.keyboard.press('a');
+  await expect(page.getByTestId('keyboard-note')).toHaveText('60');
+  await page.getByRole('button', { name: 'bright lead', exact: true }).click();
+  await expect(page.getByTestId('agent-json')).toContainText('bright-lead');
+
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect.poll(async () => Number((await page.getByTestId('level').innerText()).split(' ')[0])).toBeGreaterThan(0.05);
+  await page.getByRole('button', { name: 'Stop', exact: true }).click();
+
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Save generation' }).click();
+  expect((await download).suggestedFilename()).toMatch(/\.toolpa$/);
+  await expect(page.getByTestId('status')).toContainText('Saved');
+  expect(external).toEqual([]);
+});
+
+test('a rejected Workers AI model is shown in the prompt panel', async ({ page }) => {
+  await page.route('**/api/agent', async (route) => {
+    const detail = 'MODEL_HTTP: 403 this Workers AI model is not on the current plan. @cf/moonshotai/kimi-k2.6 is paid-plan only. The default is workers-ai/@cf/openai/gpt-oss-120b.';
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/x-ndjson',
+      body: `${JSON.stringify({ stage: 'error', code: 'MODEL_HTTP', detail })}\n`,
+    });
+  });
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await page.getByLabel('Describe an instrument or effect…').fill('paid model');
+  await page.getByRole('button', { name: 'Generate', exact: true }).click();
+  await expect(page.getByTestId('agent-error')).toContainText('403');
+  await expect(page.getByTestId('agent-error')).toContainText('kimi-k2.6');
+  await expect(page.getByTestId('agent-error')).toContainText('workers-ai/@cf/openai/gpt-oss-120b');
+});

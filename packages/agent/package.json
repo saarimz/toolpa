@@ -8,7 +8,9 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@toolpa/audio": "workspace:*",
     "@toolpa/devices": "workspace:*",
+    "@toolpa/graph": "workspace:*",
     "@toolpa/trace": "workspace:*"
   }
 }

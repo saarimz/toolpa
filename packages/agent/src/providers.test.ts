@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createTrace } from '@toolpa/trace';
 import { RemotePromptProvider } from '../../generate/src/generate.ts';
 import { RemoteModel, runAgent } from './agent.ts';
-import { GatewayProvider, createHostedModel, gatewaySelfCheck, hostedAgentSelfCheck, hostedFromEnv, providerFromEnv, textFromProvider } from './providers.ts';
+import { WORKERS_AI_MODEL, explainModelHttp, GatewayProvider, createHostedModel, gatewaySelfCheck, hostedAgentSelfCheck, hostedFromEnv, providerFromEnv, requestFor, textFromProvider } from './providers.ts';
 
 const reply = (content: string, kind: 'openai' | 'anthropic' | 'ollama') => {
   if (kind === 'openai') return JSON.stringify({ choices: [{ message: { content } }] });
@@ -149,6 +149,19 @@ describe('hosted model providers', () => {
       expect(check.cloudflare).toBe('https://gateway.ai.cloudflare.com/v1/acct1/gw1/compat/chat/completions');
       expect(check.model).toBe('anthropic/claude-haiku');
       expect(check.notes).toBe(2);
+      const workers = requestFor(
+        { kind: 'cloudflare-gateway', apiKey: 'cf-token', accountId: 'acct1', gatewayId: 'gw1' },
+        'bass',
+      );
+      expect(workers.url).toBe('https://gateway.ai.cloudflare.com/v1/acct1/gw1/compat/chat/completions');
+      expect(workers.headers.authorization).toBe('Bearer cf-token');
+      expect(workers.headers['cf-aig-authorization']).toBe('Bearer cf-token');
+      expect(JSON.parse(workers.body).model).toBe(WORKERS_AI_MODEL);
+      expect(workers.body.includes('cf-token')).toBe(false);
+      expect(textFromProvider('cloudflare-gateway', JSON.stringify({ choices: [{ message: { reasoning: 'think', content: '{"ok":true}' } }] }))).toBe('{"ok":true}');
+      expect(() => textFromProvider('cloudflare-gateway', JSON.stringify({ choices: [{ message: { reasoning: 'only thoughts' } }] }))).toThrow(/reasoning without message content/);
+      expect(explainModelHttp(403)).toMatch(/kimi-k2.6/);
+      expect(explainModelHttp(410)).toMatch(/llama-3.1-8b-instruct/);
     } finally {
       globalThis.fetch = original;
       if (previous === undefined) delete process.env.TOOLPA_MODEL_PROVIDER;

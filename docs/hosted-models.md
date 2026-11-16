@@ -8,7 +8,7 @@ Set the provider with `TOOLPA_MODEL_PROVIDER`:
 | --- | --- | --- |
 | `mock` | Default. No network. | None. |
 | `vercel-gateway` | Primary. Vercel AI Gateway, OpenAI-compatible. | `AI_GATEWAY_API_KEY`. Optional `AI_GATEWAY_MODEL` (default `openai/gpt-4o-mini`) and `AI_GATEWAY_BASE_URL`. |
-| `cloudflare-gateway` | Primary. Cloudflare AI Gateway universal endpoint. | `CF_AIG_TOKEN`, `CF_ACCOUNT_ID`, `CF_GATEWAY_ID`. Optional `CF_AIG_MODEL` and `CF_AIG_BASE_URL`. |
+| `cloudflare-gateway` | Primary. Cloudflare AI Gateway universal endpoint. | `CF_AIG_TOKEN`, `CF_ACCOUNT_ID`, `CF_GATEWAY_ID`, and `TOOLPA_ALLOW_NETWORK=1`. Optional `TOOLPA_MODEL` (default `workers-ai/@cf/openai/gpt-oss-120b`), `CF_AIG_MODEL`, and `CF_AIG_BASE_URL`. |
 | `openai-compatible` | Secondary direct chat completions. | `OPENAI_API_KEY`. Optional `OPENAI_BASE_URL` and `OPENAI_MODEL`. |
 | `ollama` | Secondary local server. | Optional `OLLAMA_BASE_URL` (default `http://127.0.0.1:11434`) and `OLLAMA_MODEL`. |
 
@@ -28,6 +28,12 @@ Cloudflare AI Gateway:
 
 `cf-aig-authorization: Bearer $CF_AIG_TOKEN`
 
-Both bodies are OpenAI chat completions: `{ "model", "messages": [{ "role": "user", "content" }] }`. The key stays in the header. It is not written into the body, the URL, the trace, or the agent provenance.
+`Authorization: Bearer $CF_AIG_TOKEN`
+
+Workers AI uses the same token on both headers. The default model is `workers-ai/@cf/openai/gpt-oss-120b`, which answers 200 on the Workers Free plan. `TOOLPA_MODEL` overrides it, then `CF_AIG_MODEL`. `@cf/meta/llama-3.1-8b-instruct` is deprecated and returns 410. `@cf/moonshotai/kimi-k2.6` is paid-plan only and returns 403. Those statuses are shown in the playground. A model id that starts with `anthropic/` uses `ANTHROPIC_API_KEY` on `Authorization` when that key is set. A model id that starts with `openai/` (not `workers-ai/`) uses `OPENAI_API_KEY` the same way.
+
+Both bodies are OpenAI chat completions: `{ "model", "messages": [{ "role": "user", "content" }] }`. The reply uses `choices[0].message.content` only. A separate `reasoning` field is ignored. The instrument parser accepts JSON wrapped in prose or a code fence. The key stays in the header. It is not written into the body, the URL, the trace, or the agent provenance.
+
+The playground proxy is `POST /api/agent`. Put the variables in `apps/playground/.env.local`. The browser never sees them.
 
 `GatewayProvider` implements `ModelProvider`. `RemotePromptProvider` takes that provider's `complete` function when a prompt should become `midi:step:velocity` notes. With no function, it still throws `NOT_CONFIGURED`.

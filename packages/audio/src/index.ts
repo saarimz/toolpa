@@ -20,6 +20,8 @@ export {
   samplesForBeats,
 } from './effects.ts';
 export { COOKBOOK, cookbookSelfCheck, lowerGraph, renderCookbook } from './cookbook.ts';
+export { PROMPT_EFFECTS, lowerPromptGraph, promptHoldNotes, renderPromptGraph } from './prompt.ts';
+export type { PromptEffect, PromptGraph, PromptGraphNote } from './prompt.ts';
 export { SamplerError, parseSfz, pickZone, renderZone, samplerSelfCheck } from './sampler.ts';
 export type { SampleZone } from './sampler.ts';
 export type { FilterMode, Oscillator, Polysynth, SynthVoice } from './synth.ts';

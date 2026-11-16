@@ -28,6 +28,7 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 | 18 | done | 3.2, 6.5, 9.1 | Scenes, MIDI learn, quantized launch, and xrun telemetry. |
 | 19 | done | 9.3 | IndexedDB index, OPFS blobs, and an IndexedDB blob fallback. |
 | 20 | done | 9 playground | Device browser, rack editor, piano roll, and an export dialog. |
+| 21 | done | 8.2, 9 playground | A prompt generates a playable instrument through the same-origin agent proxy. |
 
 ## Slice 2 — Voices
 
@@ -180,6 +181,14 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 **Scope.** The catalog is keys, a sine instrument, and a lowpass. Compose uses the slice 5 rack rules, so an effect before the instrument is rejected. The roll is eight steps by eight notes. Export calls `writeSmf`, `writeSfz`, `renderStems`, and `writeSamplePack`. WAV 16-bit, 24-bit, and float stay on the existing render buttons.
 
 **Exit.** A legal rack returns a 64-character hash and an illegal order returns `RACK_ORDER`. MIDI bytes start with `MThd`. The sample pack lists `instrument.sfz`. Chromium, Firefox, and WebKit click through the browser, the roll, and each export.
+
+## Slice 21 — Prompt to instrument
+
+**Goal.** Typing a prompt in the playground generates a playable instrument.
+
+**Scope.** The browser posts only to `/api/agent` on its own origin. The Vite middleware and `apps/playground/api/agent.ts` read the gateway env and call `GatewayProvider`. Cloudflare sends `CF_AIG_TOKEN` on both `cf-aig-authorization` and `Authorization`. The default model is `workers-ai/@cf/openai/gpt-oss-120b`, overridable with `TOOLPA_MODEL`. Reply text uses `message.content` and ignores `reasoning`. JSON may be wrapped in prose or a code fence. A 403 or 410 from the model is shown on the page. With no gateway env, the proxy says so and uses `MockModel`. The agent builds a canonical prompt-instrument from oscillators, envelopes, filters, LFOs, effects, and the sampler, with the 40 cookbook names as few-shot examples. Validation or a silent, clipping, or NaN render repairs the document within `maxAttempts`. The result loads into the piano roll, plays from the computer keyboard or Web MIDI, and can be saved as `.toolpa`. Earlier generations stay in the page history.
+
+**Exit.** Repair tests cover silence, clipping, NaN, the attempt budget, and 403. The proxy test checks both Cloudflare headers and the default model id without a socket. Chromium, Firefox, and WebKit type a prompt against a stubbed proxy, hear the rack, and show a 403.
 
 ## Follow-ups that are not slices
 

@@ -1,7 +1,9 @@
+import type { PromptInstrument } from '@toolpa/agent';
 import { ArtifactError, DurableStore, packToolpa, sealArtifact, unpackToolpa, type ArtifactStore } from '@toolpa/artifact';
 import { hashChain, type Chain } from '@toolpa/graph';
 import { LiveSession } from '@toolpa/audio/live';
-import { renderChain, type SampleBuffer, type WavFormat } from '@toolpa/audio';
+import { lowerPromptGraph, renderChain, type SampleBuffer, type WavFormat } from '@toolpa/audio';
+import { attachInput, keyboardNote, requestMidiAccess } from '@toolpa/midi';
 import { MAX_SAMPLE_BYTES, decodeSample } from '@toolpa/samples';
 import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
@@ -9,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { cutoffFromSlider, cutoffToSlider, playgroundChain } from './model.ts';
+import { PromptBar, type LoadedGeneration } from './PromptBar.tsx';
 import { ROLL_MIDIS, ROLL_STEPS, STUDIO_DEVICES, cellKey, composeStudio, describeExport, notesFromRoll } from './studio.ts';
 import { ring, trace } from './telemetry.ts';
 
@@ -58,6 +61,10 @@ export default function App() {
   const [roll, setRoll] = useState<string[]>(['0:60']);
   const [exportStatus, setExportStatus] = useState('Exports stay in this browser.');
   const [exporting, setExporting] = useState(false);
+  const [promptDoc, setPromptDoc] = useState<PromptInstrument | null>(null);
+  const [promptHash, setPromptHash] = useState('');
+  const [keyboardMidi, setKeyboardMidi] = useState('');
+  const [midiLabel, setMidiLabel] = useState('Computer keyboard');
   const sessionRef = useRef<LiveSession | null>(null);
   const contextRef = useRef<AudioContext | null>(null);
   const storeRef = useRef<ArtifactStore | null>(null);
@@ -137,6 +144,21 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+      if (!promptDoc) return;
+      const midi = keyboardNote(event.key);
+      if (midi === null) return;
+      event.preventDefault();
+      setKeyboardMidi(String(midi));
+      setRoll((current) => (current.some((item) => item.endsWith(`:${midi}`)) ? current : [...current, cellKey(Math.min(7, current.length), midi)]));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [promptDoc]);
+
   function remember() {
     setTraceText(
       ring
@@ -167,16 +189,67 @@ export default function App() {
       remember();
     }
 
+  function voiced(doc: PromptInstrument): PromptInstrument {
+    const notes = notesFromRoll(roll).slice(0, 8).map((note) => ({ midi: note.midi, step: note.startTick / 480, velocity: note.velocity }));
+    return notes.length > 0 ? { ...doc, notes } : doc;
+  }
+
+  function loadGeneration(item: LoadedGeneration) {
+    setPromptDoc(item.document);
+    setPromptHash(item.hash);
+    setRoll(item.document.notes.map((note) => cellKey(note.step, note.midi)));
+    applyChain(item.chain, null);
+    setStatus(`${item.label}. ${item.hash.slice(0, 12)}`);
+  }
+
+  async function saveGeneration(item: LoadedGeneration) {
+    trace.event('ui.action', { action: 'save-generation' });
+    const packed = await packToolpa({ chain: item.chain, title: item.document.name, name: item.document.name, parents: [], seq: 1, samples: [] }, trace);
+    const filename = `${packed.name}-${packed.graphHash.slice(0, 12)}.toolpa`;
+    const copy = new Uint8Array(packed.bytes.byteLength);
+    copy.set(packed.bytes);
+    const blob = new Blob([copy], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setStatus(`Saved ${packed.graphHash.slice(0, 12)}`);
+  }
+
+  async function connectMidi() {
+    try {
+      const access = await requestMidiAccess(undefined, trace);
+      const input = [...access.inputs.values()].find((port) => port.state === 'connected');
+      if (!input) {
+        setMidiLabel('Computer keyboard');
+        setStatus('Web MIDI has no input. Play from the computer keyboard.');
+        return;
+      }
+      attachInput(access, input.id, (event) => {
+        if (event.type !== 'note-on' || !promptDoc) return;
+        setKeyboardMidi(String(event.midi));
+        setRoll((current) => (current.some((item) => item.endsWith(`:${event.midi}`)) ? current : [...current, cellKey(Math.min(7, current.length), event.midi)]));
+      }, trace);
+      setMidiLabel('Web MIDI');
+    } catch (caught) {
+      setMidiLabel('Computer keyboard');
+      setStatus(caught instanceof Error ? caught.message : String(caught));
+    }
+  }
+
   async function play() {
-    if (!chain || playing) return;
+    if (playing || (!chain && !promptDoc)) return;
     trace.event('ui.action', { action: 'play' });
     setError('');
     setStatus('Opening the audio device…');
     try {
-      const context = new AudioContext({ sampleRate: chain.sampleRate });
+      const context = new AudioContext({ sampleRate: chain?.sampleRate ?? 44100 });
       const session = new LiveSession(trace);
-      const samples = loaded ? new Map<string, SampleBuffer>([[loaded.sha256, loaded]]) : undefined;
-      const started = await session.start({ context, chain, samples });
+      const started = promptDoc
+        ? await session.startNode({ context, ...lowerPromptGraph(voiced(promptDoc), 1), hash: promptHash || 'prompt' })
+        : await session.start({ context, chain: chain as Chain, samples: loaded ? new Map<string, SampleBuffer>([[loaded.sha256, loaded]]) : undefined });
       sessionRef.current = session;
       contextRef.current = context;
       setPlaying(true);
@@ -192,6 +265,13 @@ export default function App() {
       setStatus('Playback failed.');
     }
   }
+
+  useEffect(() => {
+    if (!playing || !promptDoc) return;
+    const notes = notesFromRoll(roll).slice(0, 8).map((note) => ({ midi: note.midi, step: note.startTick / 480, velocity: note.velocity }));
+    const graph = lowerPromptGraph(notes.length > 0 ? { ...promptDoc, notes } : promptDoc, 1);
+    void sessionRef.current?.update(graph.node, promptHash || 'prompt', graph.vfs);
+  }, [playing, promptDoc, roll, promptHash]);
 
   async function renderOffline() {
     if (!chain || rendering) return;
@@ -503,6 +583,14 @@ export default function App() {
 
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-5xl flex-col gap-8 px-4 py-8 md:px-8 md:py-12">
+      <PromptBar onLoad={loadGeneration} onSave={(item) => void saveGeneration(item)} />
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <Button type="button" variant="outline" onClick={() => void connectMidi()}>
+          Use Web MIDI
+        </Button>
+        <p data-testid="midi-input">{midiLabel}</p>
+        <p data-testid="keyboard-note">{keyboardMidi}</p>
+      </div>
       <header className="flex flex-col gap-3">
         <p className="text-sm tracking-wide text-muted-foreground uppercase">Toolpa</p>
         <h1 className="text-3xl font-medium tracking-tight md:text-5xl">One chain, heard two ways.</h1>
@@ -626,7 +714,7 @@ export default function App() {
 
         <section className="flex flex-col gap-5 rounded-2xl border bg-card p-4 md:p-6">
           <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={() => void play()} disabled={!chain || playing}>
+            <Button type="button" onClick={() => void play()} disabled={(!chain && !promptDoc) || playing}>
               Play
             </Button>
             <Button type="button" variant="outline" onClick={() => void stop()} disabled={!playing}>

@@ -3,17 +3,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import { allowPlaygroundTarget } from './network.ts';
 import { ring, trace } from './telemetry.ts';
 
 installNetworkGuard({
-  allow: (target) => {
-    if (target.startsWith('blob:') || target.startsWith('data:')) return true;
-    try {
-      return new URL(target, location.href).origin === location.origin;
-    } catch {
-      return false;
-    }
-  },
+  allow: (target) => allowPlaygroundTarget(target, location.href),
   trace,
 });
 

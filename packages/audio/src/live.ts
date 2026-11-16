@@ -57,8 +57,17 @@ export class LiveSession {
     context: AudioContext;
     node: Awaited<ReturnType<typeof prepareChain>>['node'];
     hash: string;
+    vfs?: Record<string, Float32Array>;
   }): Promise<LiveSnapshot> {
-    return this.begin(input.context, input.node, input.hash);
+    return this.begin(input.context, input.node, input.hash, input.vfs);
+  }
+
+  async update(node: Awaited<ReturnType<typeof prepareChain>>['node'], hash: string, vfs?: Record<string, Float32Array>): Promise<void> {
+    if (!this.renderer) return;
+    if (vfs) await this.renderer.updateVirtualFileSystem(vfs);
+    await this.renderer.render(node);
+    this.hash = hash;
+    this.trace?.event('live.swap', { hash, noop: false });
   }
 
   private async begin(

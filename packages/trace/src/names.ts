@@ -68,6 +68,7 @@ export const TRACE_NAMES: ReadonlySet<string> = new Set([
   'rack.compose',
   'agent.turn',
   'agent.audition',
+  'agent.stage',
   'export.stem',
   'export.smf',
   'export.sfz',
