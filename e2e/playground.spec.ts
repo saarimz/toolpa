@@ -154,9 +154,12 @@ test('saving a second version keeps the first cutoff and the same WAV', async ({
 
   await page.getByLabel('Gain amount').fill('0.5');
   await expect(page.getByTestId('hash')).not.toHaveText(hash);
+  const savedStatus = await page.getByTestId('status').innerText();
   await page.getByRole('button', { name: 'Save artifact' }).click();
+  await expect(page.getByTestId('status')).not.toHaveText(savedStatus);
   await expect(page.getByTestId('status')).toContainText('Saved');
   await expect(page.getByTestId('parents')).toHaveText(v1);
+  await expect.poll(async () => (await labels()).find((id) => id !== v1 && !before.includes(id)) ?? '').not.toBe('');
   const v2 = (await labels()).find((id) => id !== v1 && !before.includes(id));
   if (!v2) throw new Error('v2 has no id');
 

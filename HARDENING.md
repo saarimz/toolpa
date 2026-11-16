@@ -19,5 +19,5 @@ One chain. A sine, seeded noise, or a sample identified by the SHA-256 of its fi
 - The chain identity is SHA-256 of the canonical document. That is the registry design, kept on purpose.
 - Loaded WAV and MP3 files may be at most 50 MB. One byte over that throws `LOADER_TOO_LARGE` before decode. The MP3 decoder remains mpg123 WASM: one implementation in Node and in every browser, instead of each browser's `decodeAudioData`.
 - The gate report prints nearest-rank p50 and p95 for a 0.25 s sine render and for WAV and MP3 decode, from 20 runs.
-- `.github/workflows/slice.yml` runs `pnpm slice:gate`. Nothing in this environment executes that workflow.
+- `.github/workflows/slice.yml` runs `pnpm slice:gate` after starting a null PulseAudio sink. Firefox on the GitHub runner does not open an audio device without that sink.
 - A non-48 kHz sample is still resampled into the chain. The plan's Node path would have rejected it.
