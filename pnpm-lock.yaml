@@ -32,9 +32,15 @@ importers:
       '@toolpa/audio':
         specifier: workspace:*
         version: link:../../packages/audio
+      '@toolpa/devices':
+        specifier: workspace:*
+        version: link:../../packages/devices
       '@toolpa/graph':
         specifier: workspace:*
         version: link:../../packages/graph
+      '@toolpa/pack':
+        specifier: workspace:*
+        version: link:../../packages/pack
       '@toolpa/samples':
         specifier: workspace:*
         version: link:../../packages/samples

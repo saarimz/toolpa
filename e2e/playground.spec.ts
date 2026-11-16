@@ -304,3 +304,44 @@ test('a file over 50 MB is rejected before decode', async ({ page, browserName }
   expect(names).toContain('source.load');
   expect(names).toContain('error');
 });
+
+test('the studio composes a rack, edits the roll, and exports', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await expect(page.getByRole('heading', { name: 'Devices, rack, and piano roll' })).toBeVisible();
+  await expect(page.getByTestId('hash')).toHaveText(sine.hash);
+
+  await page.getByRole('button', { name: 'Add lowpass' }).click();
+  await page.getByRole('button', { name: 'Add voice' }).click();
+  await page.getByRole('button', { name: 'Compose rack' }).click();
+  await expect(page.getByTestId('rack-status')).toHaveText('RACK_ORDER');
+
+  await page.getByRole('button', { name: 'Clear rack' }).click();
+  await page.getByRole('button', { name: 'Add keys' }).click();
+  await page.getByRole('button', { name: 'Add voice' }).click();
+  await page.getByRole('button', { name: 'Add lowpass' }).click();
+  await expect(page.getByTestId('rack-order')).toHaveText('keys sine lowpass');
+  await page.getByRole('button', { name: 'Compose rack' }).click();
+  await expect(page.getByTestId('rack-status')).toHaveText(/^[a-f0-9]{64}$/);
+
+  await expect(page.getByTestId('roll-count')).toHaveText('1 notes');
+  await page.getByRole('button', { name: 'note 2 64' }).click();
+  await expect(page.getByTestId('roll-count')).toHaveText('2 notes');
+  await expect(page.getByRole('button', { name: 'note 2 64' })).toHaveAttribute('aria-pressed', 'true');
+
+  await page.getByRole('button', { name: 'Export MIDI' }).click();
+  await expect(page.getByTestId('export-status')).toContainText('MIDI MThd');
+  await page.getByRole('button', { name: 'Export SFZ' }).click();
+  await expect(page.getByTestId('export-status')).toContainText(`sample=samples/${sine.hash}.wav`);
+  await page.getByRole('button', { name: 'Export stems' }).click();
+  await expect(page.getByTestId('export-status')).toHaveText(/^stems [a-f0-9]{64}$/);
+  await page.getByRole('button', { name: 'Export pack' }).click();
+  await expect(page.getByTestId('export-status')).toContainText('instrument.sfz');
+
+  const names = await page.evaluate(() => window.__toolpaPlayground.snapshot().map((record) => record.name));
+  expect(names).toContain('rack.compose');
+  expect(names).toContain('export.smf');
+  expect(names).toContain('export.sfz');
+  expect(names).toContain('export.stem');
+  expect(names).toContain('export.pack');
+});

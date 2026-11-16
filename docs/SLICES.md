@@ -27,6 +27,7 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 | 17 | done | 1.5, 7.2 | Forty loadable patches, each rendered and pinned by one digest. |
 | 18 | done | 3.2, 6.5, 9.1 | Scenes, MIDI learn, quantized launch, and xrun telemetry. |
 | 19 | done | 9.3 | IndexedDB index, OPFS blobs, and an IndexedDB blob fallback. |
+| 20 | done | 9 playground | Device browser, rack editor, piano roll, and an export dialog. |
 
 ## Slice 2 — Voices
 
@@ -171,6 +172,14 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 **Scope.** `DurableStore` tries OPFS for two seconds. If that throws or times out, blobs go to IndexedDB. The index records the backend with the id. Save, load, samples, and parent walks use that record. The playground and the storage probe both open `DurableStore`. WebKit storage is gating.
 
 **Exit.** A memory stand-in for IndexedDB saves and loads one artifact and one sample. Chromium, Firefox, and WebKit each keep a parent pointer and the sample bytes. The playground Save button enables on WebKit.
+
+## Slice 20 — Playground studio
+
+**Goal.** The playground can browse devices, order a rack, edit a clip on a piano roll, and export stems, MIDI, SFZ, and a sample pack.
+
+**Scope.** The catalog is keys, a sine instrument, and a lowpass. Compose uses the slice 5 rack rules, so an effect before the instrument is rejected. The roll is eight steps by eight notes. Export calls `writeSmf`, `writeSfz`, `renderStems`, and `writeSamplePack`. WAV 16-bit, 24-bit, and float stay on the existing render buttons.
+
+**Exit.** A legal rack returns a 64-character hash and an illegal order returns `RACK_ORDER`. MIDI bytes start with `MThd`. The sample pack lists `instrument.sfz`. Chromium, Firefox, and WebKit click through the browser, the roll, and each export.
 
 ## Follow-ups that are not slices
 

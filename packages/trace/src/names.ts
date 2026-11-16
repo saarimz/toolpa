@@ -70,6 +70,8 @@ export const TRACE_NAMES: ReadonlySet<string> = new Set([
   'agent.audition',
   'export.stem',
   'export.smf',
+  'export.sfz',
+  'export.pack',
   'transport.launch',
   'ir.diff',
   'synth.osc',

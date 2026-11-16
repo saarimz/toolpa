@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { cutoffFromSlider, cutoffToSlider, playgroundChain } from './model.ts';
+import { ROLL_MIDIS, ROLL_STEPS, STUDIO_DEVICES, cellKey, composeStudio, describeExport, notesFromRoll } from './studio.ts';
 import { ring, trace } from './telemetry.ts';
 
 const SAMPLE_RATE = 44100;
@@ -52,6 +53,11 @@ export default function App() {
   const [parents, setParents] = useState<string[]>([]);
   const [traceText, setTraceText] = useState('');
   const [dropping, setDropping] = useState(false);
+  const [rack, setRack] = useState<string[]>([]);
+  const [rackStatus, setRackStatus] = useState('Pick devices, then compose.');
+  const [roll, setRoll] = useState<string[]>(['0:60']);
+  const [exportStatus, setExportStatus] = useState('Exports stay in this browser.');
+  const [exporting, setExporting] = useState(false);
   const sessionRef = useRef<LiveSession | null>(null);
   const contextRef = useRef<AudioContext | null>(null);
   const storeRef = useRef<ArtifactStore | null>(null);
@@ -465,6 +471,36 @@ export default function App() {
     }
   }
 
+  async function compose() {
+    trace.event('ui.action', { action: 'compose' });
+    const result = await composeStudio(rack, trace);
+    setRackStatus('hash' in result ? result.hash : result.error);
+    remember();
+  }
+
+  function toggleNote(step: number, midi: number) {
+    const key = cellKey(step, midi);
+    setRoll((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
+  }
+
+  async function exportStudio(kind: 'midi' | 'sfz' | 'stems' | 'pack') {
+    if (exporting) return;
+    trace.event('ui.action', { action: `export-${kind}` });
+    setExporting(true);
+    setError('');
+    try {
+      const notes = notesFromRoll(roll);
+      const text = await describeExport(kind, notes, hash, trace);
+      setExportStatus(text);
+      remember();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+      setExportStatus('Export failed.');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-5xl flex-col gap-8 px-4 py-8 md:px-8 md:py-12">
       <header className="flex flex-col gap-3">
@@ -727,6 +763,68 @@ export default function App() {
           ) : null}
         </section>
       </div>
+
+      <section className="flex flex-col gap-4 rounded-2xl border bg-card p-4 md:p-6" aria-label="Studio">
+        <h2 className="text-xl font-medium tracking-tight">Devices, rack, and piano roll</h2>
+        <div className="flex flex-wrap gap-2" data-testid="device-browser">
+          {STUDIO_DEVICES.map((device) => (
+            <Button key={device.id} type="button" variant="outline" onClick={() => setRack((current) => [...current, device.id])}>
+              {device.role === 'midi' ? 'Add keys' : device.role === 'instrument' ? 'Add voice' : 'Add lowpass'}
+            </Button>
+          ))}
+          <Button type="button" variant="outline" onClick={() => setRack([])}>
+            Clear rack
+          </Button>
+          <Button type="button" onClick={() => void compose()} disabled={rack.length === 0}>
+            Compose rack
+          </Button>
+        </div>
+        <p className="font-mono text-xs text-muted-foreground" data-testid="rack-order">
+          {rack.join(' ') || 'empty'}
+        </p>
+        <p className="font-mono text-xs break-all" data-testid="rack-status">
+          {rackStatus}
+        </p>
+        <div className="flex flex-col gap-1" data-testid="piano-roll">
+          {ROLL_MIDIS.map((midi) => (
+            <div key={midi} className="flex gap-1">
+              {ROLL_STEPS.map((step) => {
+                const on = roll.includes(cellKey(step, midi));
+                return (
+                  <button
+                    key={cellKey(step, midi)}
+                    type="button"
+                    aria-label={`note ${step} ${midi}`}
+                    aria-pressed={on}
+                    className={`h-6 w-6 rounded-sm border ${on ? 'bg-primary' : 'bg-muted'}`}
+                    onClick={() => toggleNote(step, midi)}
+                  />
+                );
+              })}
+            </div>
+          ))}
+        </div>
+        <p className="text-sm" data-testid="roll-count">
+          {notesFromRoll(roll).length} notes
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" onClick={() => void exportStudio('midi')} disabled={exporting || notesFromRoll(roll).length === 0}>
+            Export MIDI
+          </Button>
+          <Button type="button" variant="outline" onClick={() => void exportStudio('sfz')} disabled={exporting || hash.length !== 64}>
+            Export SFZ
+          </Button>
+          <Button type="button" variant="outline" onClick={() => void exportStudio('stems')} disabled={exporting}>
+            Export stems
+          </Button>
+          <Button type="button" variant="outline" onClick={() => void exportStudio('pack')} disabled={exporting}>
+            Export pack
+          </Button>
+        </div>
+        <p className="font-mono text-xs break-all" data-testid="export-status">
+          {exportStatus}
+        </p>
+      </section>
     </main>
   );
 }
