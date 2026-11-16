@@ -49,6 +49,8 @@ export const TRACE_NAMES: ReadonlySet<string> = new Set([
   'source.decode',
   'ui.action',
   'export.wav',
+  'export.toolpa',
+  'import.toolpa',
   'artifact.pack',
   'artifact.verify',
   'artifact.unpack',

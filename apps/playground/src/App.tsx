@@ -1,9 +1,9 @@
-import { OpfsStore, sealArtifact } from '@toolpa/artifact';
+import { ArtifactError, OpfsStore, packToolpa, sealArtifact, unpackToolpa } from '@toolpa/artifact';
 import { hashChain, type Chain } from '@toolpa/graph';
 import { LiveSession } from '@toolpa/audio/live';
 import { renderChain, type SampleBuffer, type WavFormat } from '@toolpa/audio';
 import { MAX_SAMPLE_BYTES, decodeSample } from '@toolpa/samples';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -51,9 +51,11 @@ export default function App() {
   const [loadedId, setLoadedId] = useState<string | null>(null);
   const [parents, setParents] = useState<string[]>([]);
   const [traceText, setTraceText] = useState('');
+  const [dropping, setDropping] = useState(false);
   const sessionRef = useRef<LiveSession | null>(null);
   const contextRef = useRef<AudioContext | null>(null);
   const storeRef = useRef<OpfsStore | null>(null);
+  const toolpaFileRef = useRef<HTMLInputElement | null>(null);
 
   const draft = useMemo(
     () =>
@@ -254,6 +256,156 @@ export default function App() {
     }
   }
 
+  function applyChain(next: Chain, sample: LoadedSample | null) {
+    setSource(next.source.type);
+    if (next.source.type === 'sine') setFrequency(String(next.source.frequencyHz));
+    if (next.source.type === 'noise') setSeed(String(next.source.seed));
+    if (next.source.type === 'sample') {
+      setPlaybackRate(String(next.source.playbackRate));
+      setLoaded(sample);
+    } else {
+      setLoaded(null);
+    }
+    setCutoff(next.effect.cutoffHz);
+    setQ(next.effect.q);
+    setGain(next.effect.gain);
+  }
+
+  async function downloadToolpa() {
+    if (!chain) return;
+    trace.event('ui.action', { action: 'export-toolpa' });
+    setError('');
+    try {
+      const samples =
+        chain.source.type === 'sample' && loaded ? [{ sha256: loaded.sha256, bytes: loaded.bytes }] : [];
+      const packed = await packToolpa(
+        {
+          chain,
+          title: chain.source.type,
+          name: chain.source.type,
+          parents,
+          seq: parents.length + 1,
+          samples,
+        },
+        trace,
+      );
+      const filename = `${packed.name}-${packed.graphHash.slice(0, 12)}.toolpa`;
+      const copy = new Uint8Array(packed.bytes.byteLength);
+      copy.set(packed.bytes);
+      const blob = new Blob([copy], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      trace.event('export.toolpa', {
+        hash: packed.graphHash,
+        contentId: packed.contentId,
+        bytes: packed.bytes.byteLength,
+        name: filename,
+        ok: true,
+      });
+      remember();
+      setStatus(`Downloaded ${filename}`);
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : String(caught);
+      const code = caught instanceof ArtifactError ? caught.code : 'error';
+      trace.event('export.toolpa', { ok: false, code });
+      trace.event('error', { code, where: 'export.toolpa', message });
+      setError(message);
+      setStatus('Download failed.');
+      remember();
+    }
+  }
+
+  async function openToolpa(file: File | undefined) {
+    if (!file) return;
+    trace.event('ui.action', { action: 'import-toolpa' });
+    setError('');
+    if (file.size > MAX_SAMPLE_BYTES) {
+      trace.event('import.toolpa', { bytes: file.size, rejected: true, ok: false, code: 'LOADER_TOO_LARGE' });
+      trace.event('error', { code: 'LOADER_TOO_LARGE', where: 'import.toolpa', message: 'file is larger than 50 MB' });
+      setError('LOADER_TOO_LARGE: file is larger than 50 MB');
+      setStatus('That file is larger than 50 MB.');
+      remember();
+      return;
+    }
+    setStatus(`Opening ${file.name}…`);
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const unpacked = await unpackToolpa(bytes, trace);
+      let sample: LoadedSample | null = null;
+      if (unpacked.chain.source.type === 'sample') {
+        const sourceSha = unpacked.chain.source.sha256;
+        const packedSample = unpacked.samples.find((entry) => entry.sha256 === sourceSha);
+        if (!packedSample) throw new ArtifactError('sample', 'The sample blob for this chain is not in the file.');
+        const decoded = await decodeSample(packedSample.bytes, trace);
+        if (decoded.sha256 !== sourceSha) {
+          throw new ArtifactError('ARTIFACT_HASH_MISMATCH', `ARTIFACT_HASH_MISMATCH: samples/${sourceSha}.wav`);
+        }
+        sample = {
+          name: file.name,
+          sha256: decoded.sha256,
+          sampleRate: decoded.sampleRate,
+          pcm: decoded.pcm,
+          frames: decoded.frames,
+          bytes: packedSample.bytes,
+        };
+      }
+      const sealed = await sealArtifact({ chain: unpacked.chain, parents: unpacked.parents }, trace);
+      applyChain(unpacked.chain, sample);
+      try {
+        const store = storeRef.current;
+        if (store) {
+          await store.save({ ...sealed, bytes });
+          if (sample) await store.saveSample(sample.sha256, sample.bytes);
+          setLoadedId(sealed.id);
+          setLibrary(await store.list());
+        }
+        setParents(sealed.artifact.parents);
+        trace.event('import.toolpa', {
+          hash: unpacked.graphHash,
+          contentId: unpacked.contentId,
+          bytes: bytes.byteLength,
+          ok: true,
+        });
+        remember();
+        setStatus(`Opened ${file.name}`);
+      } catch (saveError) {
+        const message = saveError instanceof Error ? saveError.message : String(saveError);
+        const code = saveError instanceof ArtifactError ? saveError.code : 'error';
+        trace.event('import.toolpa', { hash: unpacked.graphHash, bytes: bytes.byteLength, ok: false, code });
+        trace.event('error', { code, where: 'import.toolpa', message });
+        setParents(sealed.artifact.parents);
+        setError(message);
+        setStatus(`Opened ${file.name}. It was not saved.`);
+        remember();
+      }
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : String(caught);
+      const code = caught instanceof ArtifactError ? caught.code : 'error';
+      trace.event('import.toolpa', { bytes: file.size, ok: false, code });
+      trace.event('error', { code, where: 'import.toolpa', message });
+      setError(message);
+      setStatus('That .toolpa file could not be opened.');
+      remember();
+    }
+  }
+
+  function onToolpaDrop(event: DragEvent<HTMLElement>) {
+    event.preventDefault();
+    setDropping(false);
+    const file = event.dataTransfer.files[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.toolpa')) {
+      setError('Open a .toolpa file.');
+      setStatus('That file is not a .toolpa chain.');
+      return;
+    }
+    void openToolpa(file);
+  }
+
   async function saveArtifact() {
     const store = storeRef.current;
     if (!store || !chain) return;
@@ -285,30 +437,24 @@ export default function App() {
         return;
       }
       const next = sealed.artifact.chain;
-      setSource(next.source.type);
-      if (next.source.type === 'sine') setFrequency(String(next.source.frequencyHz));
-      if (next.source.type === 'noise') setSeed(String(next.source.seed));
+      let sample: LoadedSample | null = null;
       if (next.source.type === 'sample') {
-        setPlaybackRate(String(next.source.playbackRate));
         const bytes = await store.loadSample(next.source.sha256);
         if (!bytes) {
-          setLoaded(null);
           setError('The sample blob for this chain is not in OPFS.');
         } else {
           const decoded = await decodeSample(bytes, trace);
-          setLoaded({
+          sample = {
             name: 'Saved sample',
             sha256: decoded.sha256,
             sampleRate: decoded.sampleRate,
             pcm: decoded.pcm,
             frames: decoded.frames,
             bytes,
-          });
+          };
         }
       }
-      setCutoff(next.effect.cutoffHz);
-      setQ(next.effect.q);
-      setGain(next.effect.gain);
+      applyChain(next, sample);
       setParents(sealed.artifact.parents);
       setLoadedId(id);
       setStatus(`Loaded ${id.slice(0, 12)}…`);
@@ -466,6 +612,12 @@ export default function App() {
             <Button type="button" variant="outline" onClick={() => void saveArtifact()} disabled={!chain || !storeReady}>
               Save artifact
             </Button>
+            <Button type="button" variant="outline" onClick={() => void downloadToolpa()} disabled={!chain}>
+              Download .toolpa
+            </Button>
+            <Button type="button" variant="outline" onClick={() => toolpaFileRef.current?.click()}>
+              Open .toolpa
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -487,19 +639,49 @@ export default function App() {
             </Button>
           </div>
 
-          <div className="flex flex-col gap-2" data-testid="library">
-            <Label>Saved in this browser</Label>
-            {library.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nothing saved yet. The chain file stays in OPFS on this origin.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {library.map((id) => (
-                  <Button key={id} type="button" variant="outline" aria-label={id} onClick={() => void loadArtifact(id)}>
-                    {id.slice(0, 8)}
-                  </Button>
-                ))}
-              </div>
-            )}
+          <div
+            className={`flex flex-col gap-2 rounded-xl border border-dashed p-3 ${dropping ? 'border-primary bg-muted' : 'border-border'}`}
+            data-testid="toolpa-drop"
+            onDragEnter={(event) => {
+              event.preventDefault();
+              setDropping(true);
+            }}
+            onDragOver={(event) => {
+              event.preventDefault();
+              event.dataTransfer.dropEffect = 'copy';
+            }}
+            onDragLeave={(event) => {
+              if (event.currentTarget === event.target) setDropping(false);
+            }}
+            onDrop={onToolpaDrop}
+          >
+            <input
+              ref={toolpaFileRef}
+              className="sr-only"
+              type="file"
+              accept=".toolpa,application/zip"
+              aria-label="Open .toolpa"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = '';
+                void openToolpa(file);
+              }}
+            />
+            <p className="text-sm text-muted-foreground">Drop a .toolpa file here, or use Open .toolpa.</p>
+            <div className="flex flex-col gap-2" data-testid="library">
+              <Label>Saved in this browser</Label>
+              {library.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nothing saved yet. The chain file stays in OPFS on this origin.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {library.map((id) => (
+                    <Button key={id} type="button" variant="outline" aria-label={id} onClick={() => void loadArtifact(id)}>
+                      {id.slice(0, 8)}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-col gap-2">
