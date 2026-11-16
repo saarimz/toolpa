@@ -60,6 +60,10 @@ describe('chain', () => {
     expect(sample.source.type).toBe('sample');
 
     expect(() => parseChain({ ...sineChain(), kind: 'voice' })).toThrow(ChainError);
+    expect(() => parseChain({ ...sineChain(), voices: [] })).not.toThrow();
+    expect(() => parseChain({ ...sineChain(), voices: [{ type: 'sine' }] })).toThrow(/SLICE_UNSUPPORTED/);
+    expect(() => parseChain({ ...sineChain(), subpatch: { type: 'subpatch' } })).toThrow(/SLICE_UNSUPPORTED/);
+    expect(() => parseChain({ ...sineChain(), source: { type: 'subpatch' } })).toThrow(/SLICE_UNSUPPORTED/);
     expect(() => parseChain({ ...sineChain(), source: { type: 'sine', frequencyHz: 0 } })).toThrow(/frequencyHz/);
     await expect(hashChain({ ...sineChain(), source: { type: 'sample', sha256: 'ZZ', playbackRate: 1 } })).rejects.toThrow(
       /sha256/,

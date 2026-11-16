@@ -91,9 +91,24 @@ function parseEffect(effect: unknown): ToneEffect {
   };
 }
 
+function rejectOutsideSlice(record: Record<string, unknown>): void {
+  if (Array.isArray(record.voices) && record.voices.length > 0) {
+    throw new ChainError('SLICE_UNSUPPORTED', 'SLICE_UNSUPPORTED: graphs with voices are outside slice 1');
+  }
+  if ('subpatch' in record || 'subpatches' in record) {
+    throw new ChainError('SLICE_UNSUPPORTED', 'SLICE_UNSUPPORTED: graphs with subpatches are outside slice 1');
+  }
+  for (const node of [record.source, record.effect]) {
+    if (node && typeof node === 'object' && (node as { type?: unknown }).type === 'subpatch') {
+      throw new ChainError('SLICE_UNSUPPORTED', 'SLICE_UNSUPPORTED: graphs with subpatches are outside slice 1');
+    }
+  }
+}
+
 export function parseChain(input: unknown): Chain {
   if (!input || typeof input !== 'object') throw new ChainError('chain', 'chain must be an object');
   const record = input as Record<string, unknown>;
+  rejectOutsideSlice(record);
   if (record.kind !== CHAIN_KIND) throw new ChainError('kind', 'kind must be "chain"');
   if (record.version !== CHAIN_VERSION) throw new ChainError('version', 'version must be 1');
   return {
@@ -109,7 +124,17 @@ export async function hashChain(
   input: unknown,
   trace?: Trace,
 ): Promise<{ chain: Chain; hash: string; canonical: string }> {
-  const chain = parseChain(input);
+  const span = trace?.span('ir.validate', {});
+  let chain: Chain;
+  try {
+    chain = parseChain(input);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const code = error instanceof ChainError ? error.code : 'error';
+    span?.fail({ code, message });
+    throw error;
+  }
+  span?.end({ ok: true, errorCount: 0 });
   const canonical = canonicalize(chain);
   const hash = await sha256Hex(canonical);
   trace?.event('graph.hashed', {
@@ -118,5 +143,6 @@ export async function hashChain(
     source: chain.source.type,
     sampleRate: chain.sampleRate,
   });
+  trace?.event('ir.hash', { hash, kind: chain.kind, source: chain.source.type });
   return { chain, hash, canonical };
 }
