@@ -16,6 +16,7 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 | 6 | done | 8.1–8.4 | Agent loop that builds a device from a prompt, with a local model. |
 | 7 | done | 6.6, 10 packaging, 9.2 | Stems, SMF, SFZ, a sample pack, and a render command. |
 | 8 | done | 3.2, 7.5, 9.1 | Transport, a launched clip, and a live meter on three browsers. |
+| 9 | done | 1.1, 1.2, 1.3 | Full IR, Elementary FNV-1a node hashes, and SHA-256 document identity. |
 
 ## Slice 2 — Voices
 
@@ -73,9 +74,17 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 
 **Exit.** Beat math is exact. A launched clip renders the same hash as the scheduled instrument. Chromium, Firefox, and WebKit show a live peak above 0.05 after a click.
 
+## Slice 9 — IR
+
+**Goal.** Instruments are documents: a graph of nodes with Elementary's per-node FNV-1a hash, plus the existing SHA-256 document id.
+
+**Scope.** `@toolpa/ir` parses a graph (kinds, arity, refs, outputs, delay feedback, illegal cycles). A string `key` keeps the node hash stable when the value changes, so a hot-swap diff keeps that node mounted. Subpatches inline with a `__` prefix. `meta` is outside both hashes. Slice 1 chain hashes do not change.
+
+**Exit.** `hashNode('const', {value:1})` equals `el.const({value:1}).hash`, and the same for `mul`. A keyed const keeps its hash across two values. A cycle reports `V10`. A subpatch inlines to `v__rate` and `v__osc`. The SHA-256 document id ignores `meta`. Browsers report the same keyed-stable result and `V10`.
+
 ## Follow-ups that are not slices
 
-- Full IR, FNV hashes, and the 40-patch cookbook. Slice 1 kept SHA-256 of the canonical document on purpose.
+- The 40-patch cookbook. Slice 1 kept SHA-256 of the canonical chain document on purpose; the IR adds FNV beside it.
 - JSX, DSL, and JSON authoring parity. Agents and the playground emit data.
 - The rest of the primitive catalog (saw, delay, reverb, compressor). Tone remains the one effect until a later effect is added beside it, still after the voice sum.
 - A hosted chat model, a physical MIDI port, microphone capture, and a package registry publish.

@@ -18,6 +18,15 @@ test('a rack rejects an effect placed before the instrument', async ({ page }) =
   expect(result.hash).toMatch(/^[a-f0-9]{64}$/);
 });
 
+test('an IR const hash is stable and a cycle is rejected', async ({ page }) => {
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await page.waitForFunction(() => window.__toolpaSuite !== undefined);
+  const result = await page.evaluate(() => window.__toolpaSuite.ir());
+  expect(result.keyedStable).toBe(true);
+  expect(result.cycle).toBe('V10');
+  expect(result.constHash).toBeGreaterThan(0);
+});
+
 test('an SMF export starts with the MIDI header', async ({ page }) => {
   await page.goto(`http://127.0.0.1:${port}/`);
   await page.waitForFunction(() => window.__toolpaSuite !== undefined);
@@ -53,6 +62,7 @@ declare global {
       rack: () => Promise<{ effects: number; illegal: string; hash: string }>;
       agent: () => Promise<{ hash: string; budget: string; provider: string }>;
       smf: () => { bytes: number; header: string };
+      ir: () => { constHash: number; keyedStable: boolean; cycle: string };
     };
   }
 }

@@ -1,0 +1,15 @@
+{
+  "name": "@toolpa/ir",
+  "version": "0.0.0",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@elemaudio/core": "4.0.1",
+    "@toolpa/graph": "workspace:*",
+    "@toolpa/trace": "workspace:*"
+  }
+}

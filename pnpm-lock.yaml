@@ -166,6 +166,18 @@ importers:
         specifier: workspace:*
         version: link:../trace
 
+  packages/ir:
+    dependencies:
+      '@elemaudio/core':
+        specifier: 4.0.1
+        version: 4.0.1
+      '@toolpa/graph':
+        specifier: workspace:*
+        version: link:../graph
+      '@toolpa/trace':
+        specifier: workspace:*
+        version: link:../trace
+
   packages/midi:
     dependencies:
       '@toolpa/trace':
@@ -210,6 +222,9 @@ importers:
       '@toolpa/generate':
         specifier: workspace:*
         version: link:../generate
+      '@toolpa/ir':
+        specifier: workspace:*
+        version: link:../ir
       '@toolpa/midi':
         specifier: workspace:*
         version: link:../midi

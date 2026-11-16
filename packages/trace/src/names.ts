@@ -71,6 +71,7 @@ export const TRACE_NAMES: ReadonlySet<string> = new Set([
   'export.stem',
   'export.smf',
   'transport.launch',
+  'ir.diff',
 ]);
 
 export function assertTraceName(name: string): void {
