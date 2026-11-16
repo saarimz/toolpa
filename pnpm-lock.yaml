@@ -27,6 +27,15 @@ importers:
         specifier: workspace:*
         version: link:../trace
 
+  packages/samples:
+    dependencies:
+      '@toolpa/graph':
+        specifier: workspace:*
+        version: link:../graph
+      '@toolpa/trace':
+        specifier: workspace:*
+        version: link:../trace
+
   packages/trace: {}
 
 packages:
