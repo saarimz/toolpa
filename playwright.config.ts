@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const tracePort = process.env.TRACE_PROBE_PORT ?? '43119';
+const samplePort = process.env.SAMPLE_PROBE_PORT ?? '43118';
 
 export default defineConfig({
   testDir: './e2e',
@@ -12,12 +13,20 @@ export default defineConfig({
   use: {
     trace: 'off',
   },
-  webServer: {
-    command: 'node packages/trace/browser/serve.mjs',
-    url: `http://127.0.0.1:${tracePort}/`,
-    reuseExistingServer: true,
-    timeout: 30_000,
-  },
+  webServer: [
+    {
+      command: 'node packages/trace/browser/serve.mjs',
+      url: `http://127.0.0.1:${tracePort}/`,
+      reuseExistingServer: true,
+      timeout: 30_000,
+    },
+    {
+      command: 'node packages/samples/browser/serve.mjs',
+      url: `http://127.0.0.1:${samplePort}/`,
+      reuseExistingServer: true,
+      timeout: 30_000,
+    },
+  ],
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'firefox', use: { ...devices['Desktop Firefox'] } },

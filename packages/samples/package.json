@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@toolpa/graph": "workspace:*",
-    "@toolpa/trace": "workspace:*"
+    "@toolpa/trace": "workspace:*",
+    "mpg123-decoder": "1.0.3"
   }
 }
