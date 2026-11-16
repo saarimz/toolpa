@@ -20,6 +20,7 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 | 10 | done | 5.1 | Oscillators, ADSR, SVF, a 4-pole ladder, an LFO, and a polysynth. |
 | 11 | done | 5.4 | Tempo delay, convolution reverb, compressor, limiter, EQ, distortion, chorus. |
 | 12 | done | 5.5, 6.6 | Multi-sample zones, velocity layers, loop points, and SFZ import. |
+| 13 | done | 6.2 | Web MIDI access, a device list, hot-plug, and clock in/out. The fake port stays. |
 
 ## Slice 2 — Voices
 
@@ -108,6 +109,14 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 **Scope.** SFZ import reads `sample=samples/<sha256>.wav`, key and velocity ranges, and `loop_start` / `loop_end`. Overlapping zones pick the lowest key, then the lowest velocity. Playback is a wrapping `el.table` read of the loop. A sample path that is not a sha256 is rejected.
 
 **Exit.** A quiet layer and a loud layer select different buffers. Two loop renders match and the peak is above 0.05. Browsers import one region and report the same peak floor.
+
+## Slice 13 — Web MIDI
+
+**Goal.** A page can list MIDI inputs, hear notes, notice a disconnect, and count MIDI clock.
+
+**Scope.** `requestMidiAccess` calls `navigator.requestMIDIAccess` when the browser has it, or an injected request in tests. Node without Web MIDI throws `MIDI_UNAVAILABLE`. `openHardwarePort` still throws `MIDI_HARDWARE_FOLLOWUP` so unit tests never open a device. Clock out is 24 `0xF8` bytes per quarter. Hot-plug is the access `onstatechange`.
+
+**Exit.** A fake keyboard is listed. One quarter is 24 ticks. A note-on arrives through the port. Browsers report the same list and tick count without a permission prompt.
 
 ## Follow-ups that are not slices
 

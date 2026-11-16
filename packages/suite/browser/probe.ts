@@ -3,10 +3,11 @@ import { irSelfCheck } from '@toolpa/ir';
 import { smfSelfCheck } from '@toolpa/pack';
 import { rackSelfCheck } from '@toolpa/devices';
 import { generateSelfCheck } from '@toolpa/generate';
-import { midiSelfCheck } from '@toolpa/midi';
+import { midiSelfCheck, webMidiSelfCheck } from '@toolpa/midi';
 
 const api = {
   midi: () => midiSelfCheck(),
+  webmidi: () => webMidiSelfCheck(),
   generate: () => generateSelfCheck(),
   rack: () => rackSelfCheck(),
   agent: () => agentSelfCheck(),

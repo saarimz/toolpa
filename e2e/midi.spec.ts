@@ -2,6 +2,16 @@ import { expect, test } from '@playwright/test';
 
 const port = process.env.SUITE_PORT ?? '43120';
 
+test('a fake Web MIDI port lists a device and a 24-tick clock', async ({ page }) => {
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await page.waitForFunction(() => window.__toolpaSuite !== undefined);
+  const result = await page.evaluate(() => window.__toolpaSuite.webmidi());
+  expect(result.names).toEqual(['Fake Keyboard']);
+  expect(result.ticks).toBe(24);
+  expect(result.quarters).toBe(1);
+  expect(result.hotplug).toBe('note');
+});
+
 test('the midi parser agrees in the browser', async ({ page }) => {
   await page.goto(`http://127.0.0.1:${port}/`);
   await page.waitForFunction(() => window.__toolpaSuite !== undefined);
@@ -63,6 +73,7 @@ declare global {
       agent: () => Promise<{ hash: string; budget: string; provider: string }>;
       smf: () => { bytes: number; header: string };
       ir: () => { constHash: number; keyedStable: boolean; cycle: string };
+      webmidi: () => { names: string[]; ticks: number; quarters: number; hotplug: string };
     };
   }
 }
