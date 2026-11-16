@@ -9,3 +9,5 @@ export {
 } from './artifact.ts';
 export type { ArtifactStore, SealedArtifact, ToolpaArtifact } from './artifact.ts';
 export { OpfsStore } from './opfs.ts';
+export { assertZipSafe, packToolpa, unpackToolpa, verifyToolpa } from './zip.ts';
+export type { PackedToolpa } from './zip.ts';

@@ -99,6 +99,7 @@ export class MemoryStore implements ArtifactStore {
   async save(sealed: SealedArtifact): Promise<void> {
     this.artifacts.set(sealed.id, sealed.bytes);
     this.trace?.event('artifact.saved', { id: sealed.id, bytes: sealed.bytes.byteLength, store: 'memory' });
+    this.trace?.event('artifact.save', { id: sealed.id, bytes: sealed.bytes.byteLength, store: 'memory' });
   }
 
   async load(id: string): Promise<SealedArtifact | null> {
@@ -107,6 +108,7 @@ export class MemoryStore implements ArtifactStore {
     const opened = await openArtifact(bytes, this.trace);
     if (opened.id !== id) throw new ArtifactError('id', 'stored bytes do not match the artifact id');
     this.trace?.event('artifact.loaded', { id, store: 'memory' });
+    this.trace?.event('artifact.load', { id, store: 'memory' });
     return opened;
   }
 

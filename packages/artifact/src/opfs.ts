@@ -21,6 +21,7 @@ export class OpfsStore implements ArtifactStore {
   async save(sealed: SealedArtifact): Promise<void> {
     await this.write('artifacts', `${sealed.id}.toolpa`, sealed.bytes);
     this.trace?.event('artifact.saved', { id: sealed.id, bytes: sealed.bytes.byteLength, store: 'opfs' });
+    this.trace?.event('artifact.save', { id: sealed.id, bytes: sealed.bytes.byteLength, store: 'opfs' });
   }
 
   async load(id: string): Promise<SealedArtifact | null> {
@@ -29,6 +30,7 @@ export class OpfsStore implements ArtifactStore {
     const opened = await openArtifact(bytes, this.trace);
     if (opened.id !== id) throw new ArtifactError('id', 'stored bytes do not match the artifact id');
     this.trace?.event('artifact.loaded', { id, store: 'opfs' });
+    this.trace?.event('artifact.load', { id, store: 'opfs' });
     return opened;
   }
 
