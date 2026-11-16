@@ -1,7 +1,7 @@
 import { OpfsStore, sealArtifact } from '@toolpa/artifact';
 import { hashChain, type Chain } from '@toolpa/graph';
 import { LiveSession } from '@toolpa/audio/live';
-import { renderChain, type SampleBuffer } from '@toolpa/audio';
+import { renderChain, type SampleBuffer, type WavFormat } from '@toolpa/audio';
 import { decodeSample } from '@toolpa/samples';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,7 @@ export default function App() {
   const [cutoff, setCutoff] = useState(2000);
   const [q, setQ] = useState(Q);
   const [gain, setGain] = useState(0.25);
+  const [format, setFormat] = useState<WavFormat>('pcm16');
   const [loaded, setLoaded] = useState<LoadedSample | null>(null);
   const [hash, setHash] = useState('');
   const [status, setStatus] = useState('Ready. Press Play to open the audio device.');
@@ -192,7 +193,7 @@ export default function App() {
     setStatus('Rendering 1.0 s offline…');
     try {
       const samples = loaded ? new Map<string, SampleBuffer>([[loaded.sha256, loaded]]) : undefined;
-      const rendered = await renderChain({ chain, durationSeconds: 1, samples }, trace);
+      const rendered = await renderChain({ chain, durationSeconds: 1, samples, format }, trace);
       setWavSha(rendered.wavSha256);
       setRenders((count) => count + 1);
       const wav = new Uint8Array(rendered.wav.byteLength);
@@ -209,10 +210,10 @@ export default function App() {
         wavSha256: rendered.wavSha256,
         realtime: rendered.realtime,
       });
-      trace.event('export.wav', { hash: rendered.hash, wavSha256: rendered.wavSha256 });
+      trace.event('export.wav', { hash: rendered.hash, wavSha256: rendered.wavSha256, format });
       remember();
       setStatus(
-        `Rendered 1.0 s in ${rendered.renderMs.toFixed(0)} ms, ${rendered.realtime.toFixed(1)}× realtime.`,
+        `Rendered 1.0 s ${format} in ${rendered.renderMs.toFixed(0)} ms, ${rendered.realtime.toFixed(1)}× realtime.`,
       );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
@@ -444,6 +445,16 @@ export default function App() {
             <Button type="button" variant="secondary" onClick={() => void renderOffline()} disabled={!chain || rendering}>
               {rendering ? 'Rendering…' : 'Render 1s WAV'}
             </Button>
+            {(['pcm16', 'pcm24', 'float32'] as const).map((choice) => (
+              <Button
+                key={choice}
+                type="button"
+                variant={format === choice ? 'default' : 'outline'}
+                onClick={() => setFormat(choice)}
+              >
+                {choice === 'pcm16' ? '16-bit' : choice === 'pcm24' ? '24-bit' : '32-bit float'}
+              </Button>
+            ))}
             <Button type="button" variant="outline" onClick={() => void saveArtifact()} disabled={!chain || !storeReady}>
               Save artifact
             </Button>

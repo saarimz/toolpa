@@ -1,5 +1,6 @@
 import { LiveSession } from '../src/live.ts';
 import { renderChain } from '../src/render.ts';
+import { readItok } from '../src/wav.ts';
 import { installNetworkGuard, MemoryRing, createTrace } from '@toolpa/trace';
 
 const ring = new MemoryRing(128);
@@ -51,24 +52,59 @@ const api = {
     const stalls = ring.snapshot().filter((record) => record.name === 'live.stall').length;
     return { first, second, stalls };
   },
-  renderInWorker(next: unknown, durationSeconds: number) {
-    return new Promise<{ hash?: string; wavSha256?: string; frames?: number; error?: string }>((resolve) => {
+  renderInWorker(next: unknown, durationSeconds: number, format: 'pcm16' | 'pcm24' | 'float32' = 'pcm16') {
+    return new Promise<{
+      hash?: string;
+      wavSha256?: string;
+      frames?: number;
+      error?: string;
+      format?: string;
+      itok?: { version: number; hash: string } | null;
+      standardDecoder?: boolean;
+    }>((resolve) => {
       const worker = new Worker(new URL('/worker.js', location.href), { type: 'module' });
       const timer = setTimeout(() => {
         worker.terminate();
         resolve({ error: 'worker timed out' });
       }, 20_000);
-      worker.onmessage = (event: MessageEvent<{ hash?: string; wavSha256?: string; frames?: number; error?: string }>) => {
+      worker.onmessage = (event: MessageEvent<{ hash?: string; wavSha256?: string; frames?: number; error?: string; format?: string; wav?: Uint8Array }>) => {
         clearTimeout(timer);
         worker.terminate();
-        resolve(event.data);
+        const wav = event.data.wav;
+        const finish = (standardDecoder: boolean) => {
+          resolve({
+            hash: event.data.hash,
+            wavSha256: event.data.wavSha256,
+            frames: event.data.frames,
+            error: event.data.error,
+            format: event.data.format,
+            itok: wav ? readItok(wav) : null,
+            standardDecoder,
+          });
+        };
+        if (!wav) {
+          finish(false);
+          return;
+        }
+        const context = new AudioContext();
+        const copy = wav.slice();
+        void context
+          .decodeAudioData(copy.buffer)
+          .then(async () => {
+            await context.close();
+            finish(true);
+          })
+          .catch(async () => {
+            await context.close();
+            finish(false);
+          });
       };
       worker.onerror = (error) => {
         clearTimeout(timer);
         worker.terminate();
         resolve({ error: error.message });
       };
-      worker.postMessage({ id: 1, chain: next, durationSeconds });
+      worker.postMessage({ id: 1, chain: next, durationSeconds, format });
     });
   },
   started: () => started,

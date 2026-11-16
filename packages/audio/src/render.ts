@@ -6,7 +6,7 @@ import { renderNode } from './offline.ts';
 import { buildNoise, buildSine } from './offline.ts';
 import { buildSample } from './sample.ts';
 import { applyTone, countNodes } from './tone.ts';
-import { encodeWavPcm16, resampleLinear } from './wav.ts';
+import { encodeWav, resampleLinear, type WavFormat } from './wav.ts';
 
 export const ENGINE_VERSIONS = {
   '@elemaudio/core': '4.0.1',
@@ -25,6 +25,7 @@ export interface RenderResult {
   pcm: Float32Array;
   wav: Uint8Array;
   wavSha256: string;
+  format: WavFormat;
   meter: MeterSummary;
   renderMs: number;
   realtime: number;
@@ -85,6 +86,7 @@ export async function renderChain(
     chain: unknown;
     durationSeconds: number;
     samples?: ReadonlyMap<string, SampleBuffer>;
+    format?: WavFormat;
   },
   trace?: Trace,
 ): Promise<RenderResult> {
@@ -104,10 +106,11 @@ export async function renderChain(
   const realtime = frames / chain.sampleRate / (renderMs / 1000);
   const meter = measure(pcm);
   traceMeter(meter, trace);
-  const wav = encodeWavPcm16(pcm, chain.sampleRate);
+  const format = input.format ?? 'pcm16';
+  const wav = encodeWav(pcm, chain.sampleRate, { format, documentHash: hash });
   const wavSha256 = await sha256Hex(wav);
   trace?.event('engine.versions', ENGINE_VERSIONS);
-  trace?.event('wav.encode', { hash, frames, sampleRate: chain.sampleRate, wavSha256 });
+  trace?.event('wav.encode', { hash, frames, sampleRate: chain.sampleRate, wavSha256, format });
   trace?.event('render.offline', {
     hash,
     frames,
@@ -117,5 +120,5 @@ export async function renderChain(
   });
   trace?.metric('render.ms', renderMs, 'ms', { hash, source: chain.source.type });
   trace?.metric('render.realtime', realtime, 'x', { hash, source: chain.source.type });
-  return { chain, hash, pcm, wav, wavSha256, meter, renderMs, realtime, frames };
+  return { chain, hash, pcm, wav, wavSha256, format, meter, renderMs, realtime, frames };
 }

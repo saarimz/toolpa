@@ -69,6 +69,27 @@ describe('offline render', () => {
     const sineAgain = await renderChain({ chain: sineChain, durationSeconds: 0.25 });
     expect(sineAgain.wav).toEqual(sine.wav);
     compareRenders(sine.wav, sineAgain.wav, sine.hash, trace);
+    expect(sine.format).toBe('pcm16');
+    const pcm24 = await renderChain({ chain: sineChain, durationSeconds: 0.25, format: 'pcm24' });
+    const pcm24Again = await renderChain({ chain: sineChain, durationSeconds: 0.25, format: 'pcm24' });
+    expect(pcm24Again.wav).toEqual(pcm24.wav);
+    const float32 = await renderChain({ chain: sineChain, durationSeconds: 0.25, format: 'float32' });
+    const float32Again = await renderChain({ chain: sineChain, durationSeconds: 0.25, format: 'float32' });
+    expect(float32Again.wav).toEqual(float32.wav);
+    const formats = JSON.parse(readFileSync(new URL('../goldens/formats.json', import.meta.url), 'utf8')) as {
+      pcm16: string;
+      pcm24: string;
+      float32: string;
+    };
+    if (process.env.UPDATE_GOLDENS === '1') {
+      writeFileSync(
+        new URL('../goldens/formats.json', import.meta.url),
+        `${JSON.stringify({ pcm16: sine.wavSha256, pcm24: pcm24.wavSha256, float32: float32.wavSha256 }, null, 2)}\n`,
+      );
+    }
+    expect(sine.wavSha256).toBe(formats.pcm16);
+    expect(pcm24.wavSha256).toBe(formats.pcm24);
+    expect(float32.wavSha256).toBe(formats.float32);
     expect(sine.realtime).toBeGreaterThan(0.5);
     expect(sine.meter.peak).toBeGreaterThan(0.1);
     checkGolden('sine', {
