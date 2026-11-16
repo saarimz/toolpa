@@ -17,6 +17,7 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 | 7 | done | 6.6, 10 packaging, 9.2 | Stems, SMF, SFZ, a sample pack, and a render command. |
 | 8 | done | 3.2, 7.5, 9.1 | Transport, a launched clip, and a live meter on three browsers. |
 | 9 | done | 1.1, 1.2, 1.3 | Full IR, Elementary FNV-1a node hashes, and SHA-256 document identity. |
+| 10 | done | 5.1 | Oscillators, ADSR, SVF, a 4-pole ladder, an LFO, and a polysynth. |
 
 ## Slice 2 — Voices
 
@@ -82,9 +83,17 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 
 **Exit.** `hashNode('const', {value:1})` equals `el.const({value:1}).hash`, and the same for `mul`. A keyed const keeps its hash across two values. A cycle reports `V10`. A subpatch inlines to `v__rate` and `v__osc`. The SHA-256 document id ignores `meta`. Browsers report the same keyed-stable result and `V10`.
 
+## Slice 10 — Polysynth
+
+**Goal.** A note list plays a real oscillator through an ADSR and one filter, with an LFO on the cutoff.
+
+**Scope.** Oscillators: cycle, saw, square, triangle, noise, and band-limited `blepsaw`. Filters: SVF lowpass, highpass, bandpass, and a 4-pole ladder (four lowpass SVFs). `el.dcblock` guards denormals. Non-finite cutoff is rejected before render. Voices sum first. The filter is mounted once, or four times for the ladder.
+
+**Exit.** Every oscillator renders twice to the same WAV. The blepsaw golden hash is `a2ecfe515330215f72716d5dafb12ad8a950075082bd78bcb86131e2e5d8291c`. The ladder mounts 4 SVFs. An LFO changes the WAV. Browsers render the demo polysynth with one SVF and a peak above 0.01.
+
 ## Follow-ups that are not slices
 
 - The 40-patch cookbook. Slice 1 kept SHA-256 of the canonical chain document on purpose; the IR adds FNV beside it.
 - JSX, DSL, and JSON authoring parity. Agents and the playground emit data.
-- The rest of the primitive catalog (saw, delay, reverb, compressor). Tone remains the one effect until a later effect is added beside it, still after the voice sum.
+- Delay, reverb, and compressor land in slice 11. Tone remains the slice 1 effect.
 - A hosted chat model, a physical MIDI port, microphone capture, and a package registry publish.

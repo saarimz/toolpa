@@ -1,4 +1,5 @@
 import { renderInstrument } from '../src/instrument.ts';
+import { synthSelfCheck } from '../src/synth.ts';
 import { installNetworkGuard, MemoryRing, createTrace } from '@toolpa/trace';
 
 const ring = new MemoryRing(64);
@@ -22,6 +23,7 @@ const instrument = {
 };
 
 const api = {
+  synth: () => synthSelfCheck(),
   async run() {
     const first = await renderInstrument({ instrument, durationSeconds: 0.4 }, trace);
     const second = await renderInstrument({ instrument, durationSeconds: 0.4 });
