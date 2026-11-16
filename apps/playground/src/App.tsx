@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { cutoffFromSlider, cutoffToSlider, playgroundChain } from './model.ts';
-import { trace } from './telemetry.ts';
+import { ring, trace } from './telemetry.ts';
 
 const SAMPLE_RATE = 44100;
 const Q = 0.7071067811865476;
@@ -48,6 +48,8 @@ export default function App() {
   const [library, setLibrary] = useState<string[]>([]);
   const [storeReady, setStoreReady] = useState(false);
   const [loadedId, setLoadedId] = useState<string | null>(null);
+  const [parents, setParents] = useState<string[]>([]);
+  const [traceText, setTraceText] = useState('');
   const sessionRef = useRef<LiveSession | null>(null);
   const contextRef = useRef<AudioContext | null>(null);
   const storeRef = useRef<OpfsStore | null>(null);
@@ -126,7 +128,18 @@ export default function App() {
     };
   }, []);
 
+  function remember() {
+    setTraceText(
+      ring
+        .snapshot()
+        .map((record) => record.name)
+        .slice(-40)
+        .join('\n'),
+    );
+  }
+
   async function stop() {
+    trace.event('ui.action', { action: 'stop' });
     const session = sessionRef.current;
     const context = contextRef.current;
     sessionRef.current = null;
@@ -141,11 +154,13 @@ export default function App() {
           : `Stopped. ${stopped.underruns} underruns.`,
       );
     }
-    await context?.close();
-  }
+      await context?.close();
+      remember();
+    }
 
   async function play() {
     if (!chain || playing) return;
+    trace.event('ui.action', { action: 'play' });
     setError('');
     setStatus('Opening the audio device…');
     try {
@@ -161,6 +176,7 @@ export default function App() {
       setStatus(
         `Playing at ${context.sampleRate} Hz. Base latency ${started.baseLatencyMs.toFixed(1)} ms, output ${started.outputLatencyMs.toFixed(1)} ms.`,
       );
+      remember();
     } catch (caught) {
       setPlaying(false);
       setError(caught instanceof Error ? caught.message : String(caught));
@@ -170,6 +186,7 @@ export default function App() {
 
   async function renderOffline() {
     if (!chain || rendering) return;
+    trace.event('ui.action', { action: 'render' });
     setRendering(true);
     setError('');
     setStatus('Rendering 1.0 s offline…');
@@ -192,6 +209,8 @@ export default function App() {
         wavSha256: rendered.wavSha256,
         realtime: rendered.realtime,
       });
+      trace.event('export.wav', { hash: rendered.hash, wavSha256: rendered.wavSha256 });
+      remember();
       setStatus(
         `Rendered 1.0 s in ${rendered.renderMs.toFixed(0)} ms, ${rendered.realtime.toFixed(1)}× realtime.`,
       );
@@ -229,13 +248,16 @@ export default function App() {
   async function saveArtifact() {
     const store = storeRef.current;
     if (!store || !chain) return;
+    trace.event('ui.action', { action: 'save' });
     setError('');
     try {
       const sealed = await sealArtifact({ chain, parents: loadedId ? [loadedId] : [] }, trace);
       await store.save(sealed);
       if (source === 'sample' && loaded) await store.saveSample(loaded.sha256, loaded.bytes);
       setLoadedId(sealed.id);
+      setParents(sealed.artifact.parents);
       setLibrary(await store.list());
+      remember();
       setStatus(`Saved ${sealed.id.slice(0, 12)}…`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
@@ -278,8 +300,10 @@ export default function App() {
       setCutoff(next.effect.cutoffHz);
       setQ(next.effect.q);
       setGain(next.effect.gain);
+      setParents(sealed.artifact.parents);
       setLoadedId(id);
       setStatus(`Loaded ${id.slice(0, 12)}…`);
+      remember();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
       setStatus('Load failed.');
@@ -356,6 +380,28 @@ export default function App() {
 
           <div className="flex flex-col gap-4">
             <Label>Tone</Label>
+            <Field label="Cutoff" hint="Hz, exact">
+              <Input
+                inputMode="decimal"
+                aria-label="Cutoff Hz"
+                value={String(cutoff)}
+                onChange={(event) => {
+                  const next = Number(event.target.value);
+                  if (Number.isFinite(next)) setCutoff(next);
+                }}
+              />
+            </Field>
+            <Field label="Gain amount" hint="0–1">
+              <Input
+                inputMode="decimal"
+                aria-label="Gain amount"
+                value={String(gain)}
+                onChange={(event) => {
+                  const next = Number(event.target.value);
+                  if (Number.isFinite(next)) setGain(next);
+                }}
+              />
+            </Field>
             <ToneSlider
               label="Cutoff"
               valueLabel={`${cutoff} Hz`}
@@ -400,6 +446,25 @@ export default function App() {
             </Button>
             <Button type="button" variant="outline" onClick={() => void saveArtifact()} disabled={!chain || !storeReady}>
               Save artifact
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                trace.event('ui.action', { action: 'trace' });
+                const lines = ring.snapshot().map((record) => JSON.stringify(record)).join('\n');
+                const copy = new TextEncoder().encode(lines);
+                const blob = new Blob([copy], { type: 'application/x-ndjson' });
+                const url = URL.createObjectURL(blob);
+                const anchor = document.createElement('a');
+                anchor.href = url;
+                anchor.download = 'toolpa-trace.ndjson';
+                anchor.click();
+                URL.revokeObjectURL(url);
+                remember();
+              }}
+            >
+              Download trace
             </Button>
           </div>
 
@@ -448,6 +513,12 @@ export default function App() {
               {error}
             </p>
           ) : null}
+          <p className="sr-only" data-testid="parents">
+            {parents.join(' ')}
+          </p>
+          <pre data-testid="trace" className="max-h-24 overflow-auto font-mono text-xs text-muted-foreground">
+            {traceText}
+          </pre>
           {wavSha ? (
             <p className="font-mono text-xs break-all text-muted-foreground" data-testid="wav-sha">
               {wavSha}

@@ -76,6 +76,10 @@ test('the playground plays the default sine chain and renders it', async ({ page
   expect(names).toContain('playback.stopped');
   expect(names).toContain('render.offline');
   expect(names).toContain('playground.render');
+  expect(names).toContain('ui.action');
+  expect(names).toContain('ctx.latency');
+  expect(names).toContain('export.wav');
+  await expect(page.getByTestId('trace')).toContainText('ui.action');
   expect(external).toEqual([]);
 });
 
@@ -117,4 +121,48 @@ test('a saved chain reloads from OPFS with the same hash', async ({ page, browse
   await page.getByRole('button', { name: artifactId }).click();
   await expect(page.getByTestId('hash')).toHaveText(sine.hash);
   await expect(page.getByTestId('status')).toContainText('Loaded');
+});
+
+test('saving a second version keeps the first cutoff and the same WAV', async ({ page, browserName }) => {
+  test.setTimeout(90_000);
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await expect(page.getByTestId('hash')).toHaveText(sine.hash);
+  if (!(await opfsReady(page, browserName))) return;
+
+  await page.getByLabel('Cutoff Hz').fill('600');
+  await expect(page.getByTestId('hash')).not.toHaveText(sine.hash);
+  const hash = (await page.getByTestId('hash').innerText()).trim();
+  await page.getByRole('button', { name: 'Render 1s WAV' }).click();
+  await expect(page.getByTestId('wav-sha')).toHaveText(/^[a-f0-9]{64}$/);
+  const checksum = (await page.getByTestId('wav-sha').innerText()).trim();
+
+  const labels = () =>
+    page.getByTestId('library').getByRole('button').evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label') ?? ''));
+  const before = await labels();
+  await page.getByRole('button', { name: 'Save artifact' }).click();
+  await expect(page.getByTestId('status')).toContainText('Saved');
+  const v1 = (await labels()).find((id) => !before.includes(id));
+  if (!v1) throw new Error('v1 has no id');
+
+  await page.getByLabel('Gain amount').fill('0.5');
+  await expect(page.getByTestId('hash')).not.toHaveText(hash);
+  await page.getByRole('button', { name: 'Save artifact' }).click();
+  await expect(page.getByTestId('status')).toContainText('Saved');
+  await expect(page.getByTestId('parents')).toHaveText(v1);
+  const v2 = (await labels()).find((id) => id !== v1 && !before.includes(id));
+  if (!v2) throw new Error('v2 has no id');
+
+  await page.reload();
+  if (!(await opfsReady(page, browserName))) return;
+  await page.getByRole('button', { name: v1 }).click();
+  await expect(page.getByTestId('status')).toContainText('Loaded');
+  await expect(page.getByLabel('Cutoff Hz')).toHaveValue('600');
+  await expect(page.getByLabel('Gain amount')).toHaveValue('0.25');
+  await expect(page.getByTestId('hash')).toHaveText(hash);
+  await page.getByRole('button', { name: 'Render 1s WAV' }).click();
+  await expect(page.getByTestId('wav-sha')).toHaveText(checksum);
+
+  await page.getByRole('button', { name: v2 }).click();
+  await expect(page.getByTestId('parents')).toHaveText(v1);
+  await expect(page.getByLabel('Gain amount')).toHaveValue('0.5');
 });
