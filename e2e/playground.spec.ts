@@ -1,0 +1,183 @@
+import { expect, test, type Page } from '@playwright/test';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+
+declare global {
+  interface Window {
+    __toolpaPlayground: {
+      snapshot: () => Array<{ name: string }>;
+    };
+  }
+}
+
+const port = process.env.PLAYGROUND_PORT ?? '47291';
+const sine = JSON.parse(readFileSync('packages/audio/goldens/sine.json', 'utf8')) as { hash: string };
+
+async function opfsReady(page: Page, browserName: string): Promise<boolean> {
+  const save = page.getByRole('button', { name: 'Save artifact' });
+  try {
+    await expect
+      .poll(async () => {
+        if (await save.isEnabled()) return 'ready';
+        return (await page.getByTestId('error').count()) > 0 ? 'error' : 'pending';
+      }, { timeout: 8_000 })
+      .not.toBe('pending');
+  } catch (error) {
+    if (browserName !== 'webkit') throw error;
+  }
+  if (await save.isEnabled()) return true;
+  if (browserName !== 'webkit') {
+    await expect(save).toBeEnabled();
+    return true;
+  }
+  const message =
+    (await page.getByTestId('error').count()) > 0 ? await page.getByTestId('error').innerText() : 'OPFS did not open';
+  mkdirSync('tmp', { recursive: true });
+  writeFileSync(
+    'tmp/non-gating.json',
+    `${JSON.stringify({ check: 'opfs', browser: 'webkit', gating: false, message }, null, 2)}\n`,
+  );
+  return false;
+}
+
+test('the playground plays the default sine chain and renders it', async ({ page }) => {
+  test.setTimeout(60_000);
+  const external: string[] = [];
+  page.on('request', (request) => {
+    const url = request.url();
+    if (url.startsWith('blob:') || url.startsWith('data:')) return;
+    const host = new URL(url).hostname;
+    if (host !== '127.0.0.1' && host !== 'localhost') external.push(url);
+  });
+
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await expect(page.getByRole('heading', { name: 'One chain, heard two ways.' })).toBeVisible();
+  await expect(page.getByTestId('hash')).toHaveText(sine.hash);
+
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect.poll(async () => {
+    const text = await page.getByTestId('level').innerText();
+    return Number(text.split(' ')[0]);
+  }).toBeGreaterThan(0.05);
+  await page.getByRole('button', { name: 'Stop', exact: true }).click();
+  await expect(page.getByTestId('status')).toContainText('Stopped');
+
+  await page.getByRole('button', { name: 'Noise' }).click();
+  await expect(page.getByTestId('hash')).not.toHaveText(sine.hash);
+  await page.getByRole('button', { name: 'Sine' }).click();
+  await expect(page.getByTestId('hash')).toHaveText(sine.hash);
+
+  await page.getByRole('button', { name: 'Render 1s WAV' }).click();
+  await expect(page.getByTestId('wav-sha')).toHaveText(/^[a-f0-9]{64}$/);
+  await expect(page.getByTestId('status')).toContainText('realtime');
+
+  const names = await page.evaluate(() => window.__toolpaPlayground.snapshot().map((record) => record.name));
+  expect(names).toContain('playground.ready');
+  expect(names).toContain('playback.started');
+  expect(names).toContain('playback.stopped');
+  expect(names).toContain('render.offline');
+  expect(names).toContain('playground.render');
+  expect(names).toContain('ui.action');
+  expect(names).toContain('ctx.latency');
+  expect(names).toContain('export.wav');
+  await expect(page.getByTestId('trace')).toContainText('ui.action');
+  expect(external).toEqual([]);
+});
+
+test('one chain hash renders the same WAV after a reload', async ({ page, browserName }) => {
+  test.setTimeout(60_000);
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await expect(page.getByTestId('hash')).toHaveText(sine.hash);
+  const render = page.getByRole('button', { name: 'Render 1s WAV' });
+  await render.click();
+  await expect(page.getByTestId('render-count')).toHaveText('1');
+  const checksum = (await page.getByTestId('wav-sha').innerText()).trim();
+  expect(checksum).toMatch(/^[a-f0-9]{64}$/);
+
+  if (!(await opfsReady(page, browserName))) return;
+  const save = page.getByRole('button', { name: 'Save artifact' });
+  await save.click();
+  await expect(page.getByTestId('status')).toContainText('Saved');
+  const artifactId = await page.getByTestId('library').getByRole('button').last().getAttribute('aria-label');
+  if (!artifactId) throw new Error('saved artifact has no id');
+  await page.reload();
+  await page.getByRole('button', { name: artifactId }).click();
+  await expect(page.getByTestId('hash')).toHaveText(sine.hash);
+  await page.getByRole('button', { name: 'Render 1s WAV' }).click();
+  await expect(page.getByTestId('render-count')).toHaveText('1');
+  await expect(page.getByTestId('wav-sha')).toHaveText(checksum);
+});
+
+test('a saved chain reloads from OPFS with the same hash', async ({ page, browserName }) => {
+  test.setTimeout(60_000);
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await expect(page.getByTestId('hash')).toHaveText(sine.hash);
+  if (!(await opfsReady(page, browserName))) return;
+  const save = page.getByRole('button', { name: 'Save artifact' });
+  await save.click();
+  await expect(page.getByTestId('status')).toContainText('Saved');
+  const artifactId = await page.getByTestId('library').getByRole('button').getAttribute('aria-label');
+  if (!artifactId) throw new Error('saved artifact has no id');
+  await page.reload();
+  await page.getByRole('button', { name: artifactId }).click();
+  await expect(page.getByTestId('hash')).toHaveText(sine.hash);
+  await expect(page.getByTestId('status')).toContainText('Loaded');
+});
+
+test('saving a second version keeps the first cutoff and the same WAV', async ({ page, browserName }) => {
+  test.setTimeout(90_000);
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await expect(page.getByTestId('hash')).toHaveText(sine.hash);
+  if (!(await opfsReady(page, browserName))) return;
+
+  await page.getByLabel('Cutoff Hz').fill('600');
+  await expect(page.getByTestId('hash')).not.toHaveText(sine.hash);
+  const hash = (await page.getByTestId('hash').innerText()).trim();
+  await page.getByRole('button', { name: 'Render 1s WAV' }).click();
+  await expect(page.getByTestId('wav-sha')).toHaveText(/^[a-f0-9]{64}$/);
+  const checksum = (await page.getByTestId('wav-sha').innerText()).trim();
+
+  const labels = () =>
+    page.getByTestId('library').getByRole('button').evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label') ?? ''));
+  const before = await labels();
+  await page.getByRole('button', { name: 'Save artifact' }).click();
+  await expect(page.getByTestId('status')).toContainText('Saved');
+  const v1 = (await labels()).find((id) => !before.includes(id));
+  if (!v1) throw new Error('v1 has no id');
+
+  await page.getByLabel('Gain amount').fill('0.5');
+  await expect(page.getByTestId('hash')).not.toHaveText(hash);
+  await page.getByRole('button', { name: 'Save artifact' }).click();
+  await expect(page.getByTestId('status')).toContainText('Saved');
+  await expect(page.getByTestId('parents')).toHaveText(v1);
+  const v2 = (await labels()).find((id) => id !== v1 && !before.includes(id));
+  if (!v2) throw new Error('v2 has no id');
+
+  await page.reload();
+  if (!(await opfsReady(page, browserName))) return;
+  await page.getByRole('button', { name: v1 }).click();
+  await expect(page.getByTestId('status')).toContainText('Loaded');
+  await expect(page.getByLabel('Cutoff Hz')).toHaveValue('600');
+  await expect(page.getByLabel('Gain amount')).toHaveValue('0.25');
+  await expect(page.getByTestId('hash')).toHaveText(hash);
+  await page.getByRole('button', { name: 'Render 1s WAV' }).click();
+  await expect(page.getByTestId('wav-sha')).toHaveText(checksum);
+
+  await page.getByRole('button', { name: v2 }).click();
+  await expect(page.getByTestId('parents')).toHaveText(v1);
+  await expect(page.getByLabel('Gain amount')).toHaveValue('0.5');
+});
+
+test('a file over 50 MB is rejected before decode', async ({ page, browserName }) => {
+  test.setTimeout(60_000);
+  mkdirSync('tmp', { recursive: true });
+  const path = `tmp/oversize-${browserName}.wav`;
+  writeFileSync(path, Buffer.alloc(50 * 1024 * 1024 + 1));
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await page.getByRole('button', { name: 'Sample' }).click();
+  await page.getByLabel('Audio file').setInputFiles(path);
+  await expect(page.getByTestId('error')).toContainText('LOADER_TOO_LARGE');
+  await expect(page.getByTestId('status')).toContainText('larger than 50 MB');
+  const names = await page.evaluate(() => window.__toolpaPlayground.snapshot().map((record) => record.name));
+  expect(names).toContain('source.load');
+  expect(names).toContain('error');
+});
