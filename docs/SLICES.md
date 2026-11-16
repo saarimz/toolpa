@@ -18,6 +18,7 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 | 8 | done | 3.2, 7.5, 9.1 | Transport, a launched clip, and a live meter on three browsers. |
 | 9 | done | 1.1, 1.2, 1.3 | Full IR, Elementary FNV-1a node hashes, and SHA-256 document identity. |
 | 10 | done | 5.1 | Oscillators, ADSR, SVF, a 4-pole ladder, an LFO, and a polysynth. |
+| 11 | done | 5.4 | Tempo delay, convolution reverb, compressor, limiter, EQ, distortion, chorus. |
 
 ## Slice 2 — Voices
 
@@ -91,9 +92,17 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 
 **Exit.** Every oscillator renders twice to the same WAV. The blepsaw golden hash is `a2ecfe515330215f72716d5dafb12ad8a950075082bd78bcb86131e2e5d8291c`. The ladder mounts 4 SVFs. An LFO changes the WAV. Browsers render the demo polysynth with one SVF and a peak above 0.01.
 
+## Slice 11 — Effects
+
+**Goal.** A producer can put a tempo-synced delay, a convolution reverb, dynamics, EQ, distortion, or a chorus after a source.
+
+**Scope.** Delay length is `(60 / bpm) * beats * sampleRate`. Feedback must be finite and below 0.95. Reverb convolves a 256-frame exponential impulse. Compressor and limiter use Elementary's `compress`. EQ is a low shelf, a peak, and a high shelf. Distortion is `tanh`. Chorus is a short modulated delay. Non-finite parameters throw before render.
+
+**Exit.** A quarter-note at 120 bpm is 22050 samples at 44.1 kHz. Delay WAV `4b4e02729a27b608110b1567e57caf9b672ebdc3d264c8f245f4e12cd35d7842`. Reverb WAV `46b1bb39bfc2a6993cd7ed1a22d9752d4f946f885ac1410cc85fae7030d89c9d`. Every wet hash differs from dry. Peaks and RMS are finite and above the silence floor. Browsers report the delay hash and 22050.
+
 ## Follow-ups that are not slices
 
 - The 40-patch cookbook. Slice 1 kept SHA-256 of the canonical chain document on purpose; the IR adds FNV beside it.
 - JSX, DSL, and JSON authoring parity. Agents and the playground emit data.
-- Delay, reverb, and compressor land in slice 11. Tone remains the slice 1 effect.
+- Tone remains the slice 1 chain effect. The new effects are a separate document.
 - A hosted chat model, a physical MIDI port, microphone capture, and a package registry publish.

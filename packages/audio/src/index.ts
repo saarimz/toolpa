@@ -5,6 +5,20 @@ export { SampleVfs, bufferFor, buildSample, renderKeyedSample } from './sample.t
 export { ENGINE_VERSIONS, compareRenders, renderChain } from './render.ts';
 export { lowerEffects, lowerInstrument, renderInstrument, renderVoiceSum, sumVoices } from './instrument.ts';
 export { OSCILLATORS, SynthError, lowerPolysynth, oscillator, renderPolysynth, synthSelfCheck } from './synth.ts';
+export {
+  EffectError,
+  chorusNode,
+  compressorNode,
+  delayNode,
+  distortNode,
+  effectSelfCheck,
+  eqNode,
+  limiterNode,
+  renderEffectSuite,
+  reverbImpulse,
+  reverbNode,
+  samplesForBeats,
+} from './effects.ts';
 export type { FilterMode, Oscillator, Polysynth, SynthVoice } from './synth.ts';
 export { InputBus, InputError, openMicrophone } from './input.ts';
 export { TransportError, beatToSeconds, secondsPerBeat } from './transport.ts';

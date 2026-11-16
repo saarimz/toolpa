@@ -74,6 +74,7 @@ export const TRACE_NAMES: ReadonlySet<string> = new Set([
   'ir.diff',
   'synth.osc',
   'synth.render',
+  'effect.apply',
 ]);
 
 export function assertTraceName(name: string): void {

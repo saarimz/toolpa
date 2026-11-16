@@ -1,4 +1,5 @@
 import { renderInstrument } from '../src/instrument.ts';
+import { effectSelfCheck } from '../src/effects.ts';
 import { synthSelfCheck } from '../src/synth.ts';
 import { installNetworkGuard, MemoryRing, createTrace } from '@toolpa/trace';
 
@@ -24,6 +25,7 @@ const instrument = {
 
 const api = {
   synth: () => synthSelfCheck(),
+  effects: () => effectSelfCheck(),
   async run() {
     const first = await renderInstrument({ instrument, durationSeconds: 0.4 }, trace);
     const second = await renderInstrument({ instrument, durationSeconds: 0.4 });
