@@ -23,6 +23,7 @@ export { COOKBOOK, cookbookSelfCheck, lowerGraph, renderCookbook } from './cookb
 export { SamplerError, parseSfz, pickZone, renderZone, samplerSelfCheck } from './sampler.ts';
 export type { SampleZone } from './sampler.ts';
 export type { FilterMode, Oscillator, Polysynth, SynthVoice } from './synth.ts';
+export { PerformError, PerformanceSet, performanceSelfCheck, quantizeLaunch } from './perform.ts';
 export { InputBus, InputError, captureMicrophone, inputSelfCheck, latencyFrames, openMicrophone } from './input.ts';
 export { TransportError, beatToSeconds, secondsPerBeat } from './transport.ts';
 export type { RenderResult, SampleBuffer } from './render.ts';

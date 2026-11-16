@@ -2,6 +2,7 @@ import { hashInstrument } from '@toolpa/graph';
 import { installNetworkGuard, MemoryRing, createTrace } from '@toolpa/trace';
 import { lowerInstrument } from '../src/instrument.ts';
 import { LiveSession } from '../src/live.ts';
+import { PerformanceSet } from '../src/perform.ts';
 
 const ring = new MemoryRing(64);
 const { trace } = createTrace({ ring });
@@ -21,6 +22,17 @@ const clip = {
 };
 
 const session = new LiveSession(trace);
+const set = new PerformanceSet(
+  [
+    { id: 'scene-a', name: 'Scene A' },
+    { id: 'scene-b', name: 'Scene B' },
+  ],
+  trace,
+);
+const status = document.getElementById('status');
+function show(text: string) {
+  if (status) status.textContent = text;
+}
 let started: { hash: string; state: string; sampleRate: number; running: boolean } | null = null;
 let startError: string | null = null;
 
@@ -44,9 +56,34 @@ const api = {
     }
     return session.snapshot();
   },
+  learnCc: (cc: number) => set.controlChange(cc),
   started: () => started,
   startError: () => startError,
 };
+
+document.getElementById('scene-a')?.addEventListener('click', () => {
+  show(`scene ${set.select('scene-a')}`);
+});
+document.getElementById('scene-b')?.addEventListener('click', () => {
+  show(`scene ${set.select('scene-b')}`);
+});
+document.getElementById('learn')?.addEventListener('click', () => {
+  set.armLearn('cutoff');
+  show('learning cutoff');
+});
+document.getElementById('cc')?.addEventListener('click', () => {
+  const mapped = set.controlChange(74);
+  show(mapped ? `mapped ${mapped.param} ${mapped.cc}` : 'unmapped');
+});
+document.getElementById('launch')?.addEventListener('click', () => {
+  const launched = set.launch(1.2, 1);
+  show(`launch ${launched.scene} ${launched.at}`);
+});
+document.getElementById('xrun')?.addEventListener('click', () => {
+  const snap = session.snapshot();
+  const underruns = set.reportXrun(Math.max(1, snap.underruns), snap.outputLatencyMs);
+  show(`xrun ${underruns}`);
+});
 
 document.getElementById('play')?.addEventListener('click', () => {
   void api.play().then(

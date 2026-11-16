@@ -25,6 +25,7 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 | 15 | done | 8.2 | OpenAI-compatible, Anthropic, and Ollama providers. Mock stays the default. |
 | 16 | done | 4 | JSX, DSL, and JSON author the same canonical IR document. |
 | 17 | done | 1.5, 7.2 | Forty loadable patches, each rendered and pinned by one digest. |
+| 18 | done | 3.2, 6.5, 9.1 | Scenes, MIDI learn, quantized launch, and xrun telemetry. |
 
 ## Slice 2 — Voices
 
@@ -153,6 +154,14 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 **Scope.** The docs bundle did not include the upstream `dsp-patches` JSON files. These forty are canonical IR graphs: sines, band-limited saws and squares, triangles, seeded noise, lowpass tones, and two-note intervals. Each one parses, lowers to Elementary, and renders 128 frames at 44.1 kHz. The golden is the SHA-256 of the forty buffer hashes joined in order.
 
 **Exit.** The count is 40, the names are unique, the buffer hashes are unique, the quietest peak is above 0.01, and the digest is `c75d8acc8171858d0373456c916877e4c1d3bd20758951c6dcc60dd2e3f0d1f0`. A second render matches. Browsers report the same digest.
+
+## Slice 18 — Live performance
+
+**Goal.** A set of scenes can be selected, a macro can learn a control change, and a launch waits for the next quantum. An xrun is recorded.
+
+**Scope.** `quantizeLaunch(1.2, 1)` is beat 2. An exact bar stays on that bar. Learn arms one parameter and the next CC binds it. Launch requires a selected scene. `performance.xrun` records underruns and output latency. The performance page has scene, learn, CC, launch, and xrun buttons.
+
+**Exit.** The unit test records scene, learn, launch, and xrun. Browsers click the buttons and the status line reads `launch scene-a 2` and `xrun 1`. The existing clip playback test still hears a peak.
 
 ## Follow-ups that are not slices
 

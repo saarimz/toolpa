@@ -82,6 +82,10 @@ export const TRACE_NAMES: ReadonlySet<string> = new Set([
   'model.call',
   'ir.author',
   'cookbook.render',
+  'performance.scene',
+  'performance.learn',
+  'performance.launch',
+  'performance.xrun',
 ]);
 
 export function assertTraceName(name: string): void {

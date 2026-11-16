@@ -8,6 +8,7 @@ declare global {
       started: () => { hash: string; state: string; sampleRate: number; running: boolean } | null;
       startError: () => string | null;
       waitForPeak: () => Promise<{ peak: number; running: boolean; underruns: number; hash: string }>;
+      learnCc: (cc: number) => { cc: number; param: string } | null;
     };
   }
 }
@@ -35,4 +36,24 @@ test('a launched clip moves the live meter', async ({ page }) => {
   const names = await page.evaluate(() => window.__toolpaPerformance.snapshot().map((record) => record.name));
   expect(names).toContain('transport.launch');
   expect(names).toContain('playback.started');
+});
+
+test('scenes, MIDI learn, and a quantized launch', async ({ page }) => {
+  await page.goto(`http://127.0.0.1:${port}/performance`);
+  await page.waitForFunction(() => window.__toolpaPerformance !== undefined);
+  await page.click('#scene-a');
+  await expect(page.locator('#status')).toHaveText('scene scene-a');
+  await page.click('#learn');
+  await expect(page.locator('#status')).toHaveText('learning cutoff');
+  await page.click('#cc');
+  await expect(page.locator('#status')).toHaveText('mapped cutoff 74');
+  await page.click('#launch');
+  await expect(page.locator('#status')).toHaveText('launch scene-a 2');
+  await page.click('#xrun');
+  await expect(page.locator('#status')).toHaveText('xrun 1');
+  const names = await page.evaluate(() => window.__toolpaPerformance.snapshot().map((record) => record.name));
+  expect(names).toContain('performance.scene');
+  expect(names).toContain('performance.learn');
+  expect(names).toContain('performance.launch');
+  expect(names).toContain('performance.xrun');
 });
