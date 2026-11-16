@@ -18,6 +18,15 @@ test('a rack rejects an effect placed before the instrument', async ({ page }) =
   expect(result.hash).toMatch(/^[a-f0-9]{64}$/);
 });
 
+test('the agent builds a rack from a prompt', async ({ page }) => {
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await page.waitForFunction(() => window.__toolpaSuite !== undefined);
+  const result = await page.evaluate(() => window.__toolpaSuite.agent());
+  expect(result.provider).toBe('mock');
+  expect(result.budget).toBe('AGENT_BUDGET');
+  expect(result.hash).toMatch(/^[a-f0-9]{64}$/);
+});
+
 test('a prompt generator agrees in the browser', async ({ page }) => {
   await page.goto(`http://127.0.0.1:${port}/`);
   await page.waitForFunction(() => window.__toolpaSuite !== undefined);
@@ -34,6 +43,7 @@ declare global {
       midi: () => { events: number; transposed: number; key: number; channel: number };
       generate: () => { pulses: number; first: number; same: boolean; remote: string };
       rack: () => Promise<{ effects: number; illegal: string; hash: string }>;
+      agent: () => Promise<{ hash: string; budget: string; provider: string }>;
     };
   }
 }

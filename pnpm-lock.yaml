@@ -94,6 +94,15 @@ importers:
         specifier: ^8.3.6
         version: 8.3.8(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)
 
+  packages/agent:
+    dependencies:
+      '@toolpa/devices':
+        specifier: workspace:*
+        version: link:../devices
+      '@toolpa/trace':
+        specifier: workspace:*
+        version: link:../trace
+
   packages/artifact:
     dependencies:
       '@toolpa/graph':
@@ -177,6 +186,9 @@ importers:
 
   packages/suite:
     dependencies:
+      '@toolpa/agent':
+        specifier: workspace:*
+        version: link:../agent
       '@toolpa/devices':
         specifier: workspace:*
         version: link:../devices

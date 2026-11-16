@@ -66,6 +66,8 @@ export const TRACE_NAMES: ReadonlySet<string> = new Set([
   'generate.prompt',
   'device.register',
   'rack.compose',
+  'agent.turn',
+  'agent.audition',
 ]);
 
 export function assertTraceName(name: string): void {

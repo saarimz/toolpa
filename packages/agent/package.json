@@ -1,0 +1,14 @@
+{
+  "name": "@toolpa/agent",
+  "version": "0.0.0",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@toolpa/devices": "workspace:*",
+    "@toolpa/trace": "workspace:*"
+  }
+}
