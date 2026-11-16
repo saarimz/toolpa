@@ -28,6 +28,15 @@ test('a rack rejects an effect placed before the instrument', async ({ page }) =
   expect(result.hash).toMatch(/^[a-f0-9]{64}$/);
 });
 
+test('JSX, DSL, and JSON share one document id', async ({ page }) => {
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await page.waitForFunction(() => window.__toolpaSuite !== undefined);
+  const result = await page.evaluate(() => window.__toolpaSuite.author());
+  expect(result.same).toBe(true);
+  expect(result.nodes).toBe(2);
+  expect(result.documentId).toMatch(/^[a-f0-9]{64}$/);
+});
+
 test('an IR const hash is stable and a cycle is rejected', async ({ page }) => {
   await page.goto(`http://127.0.0.1:${port}/`);
   await page.waitForFunction(() => window.__toolpaSuite !== undefined);
@@ -89,6 +98,7 @@ declare global {
       agent: () => Promise<{ hash: string; budget: string; provider: string }>;
       smf: () => { bytes: number; header: string };
       ir: () => { constHash: number; keyedStable: boolean; cycle: string };
+      author: () => Promise<{ same: boolean; nodes: number; documentId: string }>;
       webmidi: () => { names: string[]; ticks: number; quarters: number; hotplug: string };
     };
   }

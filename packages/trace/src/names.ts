@@ -80,6 +80,7 @@ export const TRACE_NAMES: ReadonlySet<string> = new Set([
   'midi.hotplug',
   'input.open',
   'model.call',
+  'ir.author',
 ]);
 
 export function assertTraceName(name: string): void {

@@ -23,6 +23,7 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 | 13 | done | 6.2 | Web MIDI access, a device list, hot-plug, and clock in/out. The fake port stays. |
 | 14 | done | 3.3 | Live audio input with latency compensation and a monitor toggle. The silent bus stays. |
 | 15 | done | 8.2 | OpenAI-compatible, Anthropic, and Ollama providers. Mock stays the default. |
+| 16 | done | 4 | JSX, DSL, and JSON author the same canonical IR document. |
 
 ## Slice 2 — Voices
 
@@ -136,9 +137,16 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 
 **Exit.** The same rack hash comes back from all three response shapes. A blocked provider does not call its transport. Two note tokens become two notes. Browsers run the injected provider and still report `NOT_CONFIGURED` for the unwired classes.
 
+## Slice 16 — Authoring parity
+
+**Goal.** A patch written as JSX, as a line DSL, or as JSON is one document.
+
+**Scope.** The JSX factory is `ir`. A graph has one output node, and children are inputs. The DSL is `graph`, node lines, and `out`. JSON is the same object. `parseIr` stamps the FNV graph hash and the SHA-256 document id. Parsing the stamped graph again keeps both.
+
+**Exit.** The tone patch (a 440 const into a cycle) has one document id and one graph hash from all three forms, and from the stamped round trip. Browsers report `same` and two nodes.
+
 ## Follow-ups that are not slices
 
-- The 40-patch cookbook. Slice 1 kept SHA-256 of the canonical chain document on purpose; the IR adds FNV beside it.
-- JSX, DSL, and JSON authoring parity. Agents and the playground emit data.
+- The 40-patch cookbook. Slice 1 kept SHA-256 of the canonical chain document on purpose; the IR adds FNV beside it. JSX, DSL, and JSON parity is slice 16.
 - Tone remains the slice 1 chain effect. The new effects are a separate document.
 - A physical MIDI port on the CI machine, and a package registry publish. Hosted models are slice 15 and stay off unless `TOOLPA_ALLOW_NETWORK=1`. Microphone capture is slice 14. `openMicrophone()` with no arguments still refuses so older tests do not prompt.
