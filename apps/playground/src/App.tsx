@@ -41,6 +41,7 @@ export default function App() {
   const [error, setError] = useState('');
   const [playing, setPlaying] = useState(false);
   const [rendering, setRendering] = useState(false);
+  const [renders, setRenders] = useState(0);
   const [level, setLevel] = useState(0);
   const [peak, setPeak] = useState(0);
   const [wavSha, setWavSha] = useState('');
@@ -176,6 +177,7 @@ export default function App() {
       const samples = loaded ? new Map<string, SampleBuffer>([[loaded.sha256, loaded]]) : undefined;
       const rendered = await renderChain({ chain, durationSeconds: 1, samples }, trace);
       setWavSha(rendered.wavSha256);
+      setRenders((count) => count + 1);
       const wav = new Uint8Array(rendered.wav.byteLength);
       wav.set(rendered.wav);
       const blob = new Blob([wav], { type: 'audio/wav' });
@@ -437,6 +439,9 @@ export default function App() {
 
           <p className="text-sm" data-testid="status">
             {status}
+          </p>
+          <p className="sr-only" data-testid="render-count">
+            {renders}
           </p>
           {error ? (
             <p className="text-sm text-destructive" data-testid="error">
