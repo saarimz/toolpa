@@ -91,6 +91,15 @@ importers:
         specifier: ^8.3.6
         version: 8.3.8(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)
 
+  packages/artifact:
+    dependencies:
+      '@toolpa/graph':
+        specifier: workspace:*
+        version: link:../graph
+      '@toolpa/trace':
+        specifier: workspace:*
+        version: link:../trace
+
   packages/audio:
     dependencies:
       '@elemaudio/core':
