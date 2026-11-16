@@ -22,7 +22,7 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 | 12 | done | 5.5, 6.6 | Multi-sample zones, velocity layers, loop points, and SFZ import. |
 | 13 | done | 6.2 | Web MIDI access, a device list, hot-plug, and clock in/out. The fake port stays. |
 | 14 | done | 3.3 | Live audio input with latency compensation and a monitor toggle. The silent bus stays. |
-| 15 | done | 8.2 | OpenAI-compatible, Anthropic, and Ollama providers. Mock stays the default. |
+| 15 | done | 8.2 | Vercel and Cloudflare AI gateways, with direct OpenAI-compatible and Ollama behind them. Mock stays the default. |
 | 16 | done | 4 | JSX, DSL, and JSON author the same canonical IR document. |
 | 17 | done | 1.5, 7.2 | Forty loadable patches, each rendered and pinned by one digest. |
 | 18 | done | 3.2, 6.5, 9.1 | Scenes, MIDI learn, quantized launch, and xrun telemetry. |
@@ -136,9 +136,9 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 
 **Goal.** A configured provider can complete a prompt. Tests and the default agent never open a socket.
 
-**Scope.** `createHostedModel` speaks OpenAI chat completions, Anthropic messages, and Ollama chat. Keys come from `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or the Ollama base URL. A call happens only when `allowNetwork` is true, which `TOOLPA_ALLOW_NETWORK=1` sets. Tests pass a transport and do not use `fetch`. `MockModel` remains the default. `RemoteModel` and `RemotePromptProvider` with no settings still throw `NOT_CONFIGURED`. The prompt path reads `midi:step:velocity` tokens. The agent path reads device ids from the same completion. The key stays in a header and out of the body, the trace, and the provenance.
+**Scope.** `TOOLPA_MODEL_PROVIDER` selects `mock`, `vercel-gateway`, `cloudflare-gateway`, `openai-compatible`, or `ollama`. Gateways are the primary hosted path. Vercel uses `AI_GATEWAY_API_KEY` and model ids such as `anthropic/claude-haiku`. Cloudflare uses `CF_AIG_TOKEN`, `CF_ACCOUNT_ID`, and `CF_GATEWAY_ID` on the universal `/compat/chat/completions` endpoint. Direct OpenAI-compatible chat and Ollama stay available. A direct Anthropic Messages call remains as well. A call happens only when `allowNetwork` is true, which `TOOLPA_ALLOW_NETWORK=1` sets. Tests stub `fetch` or pass a transport. `MockModel` remains the default. `RemoteModel` and `RemotePromptProvider` with no complete function still throw `NOT_CONFIGURED`. The prompt path reads `midi:step:velocity` tokens. The agent path reads device ids from the same completion. The key stays in a header and out of the body, the URL, the trace, and the provenance. Configuration is in `docs/hosted-models.md`.
 
-**Exit.** The same rack hash comes back from all three response shapes. A blocked provider does not call its transport. Two note tokens become two notes. Browsers run the injected provider and still report `NOT_CONFIGURED` for the unwired classes.
+**Exit.** The same rack hash comes back from the direct response shapes and from a Cloudflare gateway stub. A Vercel stub returns two note tokens. A blocked provider does not call `fetch`. Browsers report both gateway URLs and still report `NOT_CONFIGURED` for the unwired classes.
 
 ## Slice 16 — Authoring parity
 
@@ -176,4 +176,4 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 
 - Slice 1 kept SHA-256 of the canonical chain document on purpose; the IR adds FNV beside it. The upstream cookbook JSON was not in the docs bundle, so slice 17 ships forty canonical patches instead of byte copies.
 - Tone remains the slice 1 chain effect. The new effects are a separate document.
-- A physical MIDI port on the CI machine, and a package registry publish. Hosted models are slice 15 and stay off unless `TOOLPA_ALLOW_NETWORK=1`. Microphone capture is slice 14. `openMicrophone()` with no arguments still refuses so older tests do not prompt.
+- A physical MIDI port on the CI machine, and a package registry publish. Hosted models are slice 15. Gateways are the primary path and stay off unless `TOOLPA_ALLOW_NETWORK=1`. Microphone capture is slice 14. `openMicrophone()` with no arguments still refuses so older tests do not prompt.

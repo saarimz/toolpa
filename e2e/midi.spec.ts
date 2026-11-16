@@ -75,6 +75,11 @@ test('a configured model builds a rack and notes stay local', async ({ page }) =
   expect(prompt.notes).toBe(2);
   expect(prompt.midi).toBe(60);
   expect(prompt.remote).toBe('NOT_CONFIGURED');
+  const gateway = await page.evaluate(() => window.__toolpaSuite.gateway());
+  expect(gateway.vercel).toBe('https://ai-gateway.vercel.sh/v1/chat/completions');
+  expect(gateway.cloudflare).toBe('https://gateway.ai.cloudflare.com/v1/acct1/gw1/compat/chat/completions');
+  expect(gateway.model).toBe('anthropic/claude-haiku');
+  expect(gateway.notes).toBe(2);
 });
 
 test('a prompt generator agrees in the browser', async ({ page }) => {
@@ -93,6 +98,7 @@ declare global {
       midi: () => { events: number; transposed: number; key: number; channel: number };
       generate: () => { pulses: number; first: number; same: boolean; remote: string };
       hosted: () => Promise<{ provider: string; hash: string; called: boolean; blocked: string }>;
+      gateway: () => Promise<{ vercel: string; cloudflare: string; model: string; notes: number }>;
       prompt: () => Promise<{ notes: number; midi: number; remote: string }>;
       rack: () => Promise<{ effects: number; illegal: string; hash: string }>;
       agent: () => Promise<{ hash: string; budget: string; provider: string }>;

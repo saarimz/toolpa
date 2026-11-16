@@ -8,7 +8,7 @@ export interface PatternNote {
 }
 
 export interface PromptGenerator {
-  generate(prompt: string, trace?: Trace): PatternNote[];
+  generate(prompt: string, trace?: Trace): PatternNote[] | Promise<PatternNote[]>;
 }
 
 export class GenerateError extends Error {
@@ -76,8 +76,11 @@ export class LocalPromptProvider implements PromptGenerator {
 }
 
 export class RemotePromptProvider implements PromptGenerator {
-  generate(): PatternNote[] {
-    throw new GenerateError('NOT_CONFIGURED', 'NOT_CONFIGURED: a hosted prompt model is not wired');
+  constructor(private readonly complete?: (prompt: string) => string[] | Promise<string[]>) {}
+
+  generate(prompt: string, trace?: Trace): PatternNote[] | Promise<PatternNote[]> {
+    if (!this.complete) throw new GenerateError('NOT_CONFIGURED', 'NOT_CONFIGURED: a hosted prompt model is not wired');
+    return notesFromHosted(prompt, this.complete, trace);
   }
 }
 

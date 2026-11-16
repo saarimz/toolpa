@@ -1,4 +1,4 @@
-import { agentSelfCheck, hostedAgentSelfCheck } from '@toolpa/agent';
+import { agentSelfCheck, gatewaySelfCheck, hostedAgentSelfCheck } from '@toolpa/agent';
 import { authorSelfCheck, irSelfCheck } from '@toolpa/ir';
 import { smfSelfCheck } from '@toolpa/pack';
 import { rackSelfCheck } from '@toolpa/devices';
@@ -10,6 +10,7 @@ const api = {
   webmidi: () => webMidiSelfCheck(),
   generate: () => generateSelfCheck(),
   hosted: () => hostedAgentSelfCheck(),
+  gateway: () => gatewaySelfCheck(),
   prompt: () => hostedPromptSelfCheck(),
   rack: () => rackSelfCheck(),
   agent: () => agentSelfCheck(),

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createTrace } from '@toolpa/trace';
+import { RemotePromptProvider } from '../../generate/src/generate.ts';
 import { RemoteModel, runAgent } from './agent.ts';
-import { createHostedModel, hostedAgentSelfCheck, hostedFromEnv, textFromProvider } from './providers.ts';
+import { GatewayProvider, createHostedModel, gatewaySelfCheck, hostedAgentSelfCheck, hostedFromEnv, providerFromEnv, textFromProvider } from './providers.ts';
 
 const reply = (content: string, kind: 'openai' | 'anthropic' | 'ollama') => {
   if (kind === 'openai') return JSON.stringify({ choices: [{ message: { content } }] });
@@ -68,5 +69,90 @@ describe('hosted model providers', () => {
     expect(check.called).toBe(true);
     expect(check.blocked).toBe('NOT_CONFIGURED');
     expect(check.hash).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it('sends Vercel and Cloudflare gateway requests through a fetch stub', async () => {
+    const previous = process.env.TOOLPA_MODEL_PROVIDER;
+    delete process.env.TOOLPA_MODEL_PROVIDER;
+    const calls: { url: string; headers: Record<string, string>; body: string }[] = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const headers = (init?.headers ?? {}) as Record<string, string>;
+      calls.push({ url: String(input), headers, body: String(init?.body ?? '') });
+      const model = (JSON.parse(String(init?.body ?? '{}')) as { model?: string }).model ?? '';
+      const content = model.startsWith('anthropic/') ? '60:0:90 64:2:80' : 'keys sine lowpass';
+      return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 });
+    }) as typeof fetch;
+    try {
+      expect(providerFromEnv().provider).toBe('mock');
+      const vercel = new GatewayProvider({
+        kind: 'vercel-gateway',
+        apiKey: 'gw-key',
+        allowNetwork: true,
+        model: 'anthropic/claude-haiku',
+      });
+      const notes = await new RemotePromptProvider((prompt) => vercel.complete(prompt)).generate('bass line');
+      expect(notes).toEqual([
+        { midi: 60, step: 0, velocity: 90 },
+        { midi: 64, step: 2, velocity: 80 },
+      ]);
+      const cloudflare = new GatewayProvider({
+        kind: 'cloudflare-gateway',
+        apiKey: 'cf-token',
+        accountId: 'acct1',
+        gatewayId: 'gw1',
+        allowNetwork: true,
+        model: 'openai/gpt-4o-mini',
+      });
+      const built = await runAgent('make a bass', { maxAttempts: 1, model: cloudflare });
+      expect(built.provider).toBe('remote');
+      expect(built.hash).toMatch(/^[a-f0-9]{64}$/);
+      expect(JSON.stringify(built)).not.toContain('cf-token');
+      expect(calls.map((call) => call.url)).toEqual([
+        'https://ai-gateway.vercel.sh/v1/chat/completions',
+        'https://gateway.ai.cloudflare.com/v1/acct1/gw1/compat/chat/completions',
+      ]);
+      expect(calls[0]?.headers.authorization).toBe('Bearer gw-key');
+      expect(JSON.parse(calls[0]?.body ?? '{}')).toMatchObject({ model: 'anthropic/claude-haiku' });
+      expect(calls[0]?.body.includes('gw-key')).toBe(false);
+      expect(calls[0]?.url.includes('gw-key')).toBe(false);
+      expect(calls[1]?.headers['cf-aig-authorization']).toBe('Bearer cf-token');
+      expect(JSON.parse(calls[1]?.body ?? '{}')).toMatchObject({ model: 'openai/gpt-4o-mini' });
+      expect(calls[1]?.body.includes('cf-token')).toBe(false);
+      expect(calls[1]?.url.includes('cf-token')).toBe(false);
+      const sent = calls.length;
+      await expect(
+        new GatewayProvider({ kind: 'cloudflare-gateway', apiKey: 'cf-token', accountId: 'acct1', gatewayId: 'gw1', allowNetwork: false }).complete('bass'),
+      ).rejects.toThrow(/NOT_CONFIGURED/);
+      await expect(
+        new GatewayProvider({ kind: 'cloudflare-gateway', apiKey: 'cf-token', allowNetwork: true }).complete('bass'),
+      ).rejects.toThrow(/NOT_CONFIGURED/);
+      expect(calls.length).toBe(sent);
+      const direct = createHostedModel({
+        kind: 'openai-compatible',
+        apiKey: 'sk-test',
+        allowNetwork: true,
+        baseUrl: 'http://127.0.0.1:9/v1',
+        model: 'gpt-4o-mini',
+        transport: {
+          async post(url, headers, body) {
+            expect(url).toBe('http://127.0.0.1:9/v1/chat/completions');
+            expect(headers.authorization).toBe('Bearer sk-test');
+            expect(body.includes('sk-test')).toBe(false);
+            return JSON.stringify({ choices: [{ message: { content: 'keys sine lowpass' } }] });
+          },
+        },
+      });
+      expect(await direct.complete('keys sine lowpass')).toEqual(['keys', 'sine', 'lowpass']);
+      const check = await gatewaySelfCheck();
+      expect(check.vercel).toBe('https://ai-gateway.vercel.sh/v1/chat/completions');
+      expect(check.cloudflare).toBe('https://gateway.ai.cloudflare.com/v1/acct1/gw1/compat/chat/completions');
+      expect(check.model).toBe('anthropic/claude-haiku');
+      expect(check.notes).toBe(2);
+    } finally {
+      globalThis.fetch = original;
+      if (previous === undefined) delete process.env.TOOLPA_MODEL_PROVIDER;
+      else process.env.TOOLPA_MODEL_PROVIDER = previous;
+    }
   });
 });

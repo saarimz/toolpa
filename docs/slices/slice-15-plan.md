@@ -4,13 +4,13 @@ Depends on slices 4 and 6.
 
 ## Goal
 
-OpenAI-compatible, Anthropic, and Ollama providers sit behind the existing model and prompt interfaces. The default stays local.
+Vercel AI Gateway and Cloudflare AI Gateway are the primary hosted path. Direct OpenAI-compatible chat and Ollama stay secondary. The default stays `mock`.
 
 ## Steps
 
-1. Read keys and base URLs from the environment.
-2. Call only when `allowNetwork` is true.
-3. Tests inject a transport. They do not call `fetch`.
+1. Select `vercel-gateway`, `cloudflare-gateway`, `openai-compatible`, `ollama`, or `mock` from `TOOLPA_MODEL_PROVIDER`.
+2. Read gateway keys from `AI_GATEWAY_API_KEY` and `CF_AIG_TOKEN`.
+3. Call only when `allowNetwork` is true. Tests stub `fetch` and assert the URL, header, and model id.
 4. Parse note tokens for the prompt path and device words for the agent.
 5. Keep the API key out of the body, the trace, and the provenance.
 
