@@ -13,6 +13,7 @@ export interface LiveSnapshot {
   outputLatencyMs: number;
   underruns: number;
   peak: number;
+  level: number;
   rms: number;
   running: boolean;
 }
@@ -24,6 +25,7 @@ export class LiveSession {
   private watch: ReturnType<typeof setInterval> | null = null;
   private underruns = 0;
   private peak = 0;
+  private level = 0;
   private rms = 0;
   private lastAudio = 0;
   private lastWall = 0;
@@ -74,6 +76,7 @@ export class LiveSession {
     const data = new Float32Array(analyser.fftSize);
     analyser.getFloatTimeDomainData(data);
     const meter = measure(data);
+    this.level = meter.peak;
     this.peak = Math.max(this.peak, meter.peak);
     this.rms = meter.rms;
     const now = performance.now();
@@ -94,6 +97,7 @@ export class LiveSession {
       outputLatencyMs: output * 1000,
       underruns: this.underruns,
       peak: this.peak,
+      level: this.level,
       rms: this.rms,
       running: context?.state === 'running',
     };
@@ -116,6 +120,7 @@ export class LiveSession {
     this.trace?.metric('playback.underruns', snapshot.underruns, 'count', { hash: snapshot.hash });
     this.trace?.event('playback.stopped', { hash: snapshot.hash, underruns: snapshot.underruns });
     this.analyser?.disconnect();
+    void this.renderer;
     this.renderer = null;
     this.context = null;
     this.analyser = null;

@@ -20,6 +20,7 @@ if (pulse) process.env.PULSE_SERVER = pulse;
 const tracePort = process.env.TRACE_PROBE_PORT ?? '43119';
 const samplePort = process.env.SAMPLE_PROBE_PORT ?? '43118';
 const livePort = process.env.LIVE_PROBE_PORT ?? '43117';
+const playgroundPort = process.env.PLAYGROUND_PORT ?? '47291';
 
 export default defineConfig({
   testDir: './e2e',
@@ -49,6 +50,12 @@ export default defineConfig({
       url: `http://127.0.0.1:${livePort}/`,
       reuseExistingServer: true,
       timeout: 30_000,
+    },
+    {
+      command: 'pnpm --filter @toolpa/playground dev',
+      url: `http://127.0.0.1:${playgroundPort}/`,
+      reuseExistingServer: true,
+      timeout: 60_000,
     },
   ],
   projects: [
