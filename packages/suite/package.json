@@ -1,0 +1,10 @@
+{
+  "name": "@toolpa/suite",
+  "version": "0.0.0",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "dependencies": {
+    "@toolpa/midi": "workspace:*"
+  }
+}

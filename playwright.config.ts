@@ -22,6 +22,7 @@ const samplePort = process.env.SAMPLE_PROBE_PORT ?? '43118';
 const livePort = process.env.LIVE_PROBE_PORT ?? '43117';
 const playgroundPort = process.env.PLAYGROUND_PORT ?? '47291';
 const opfsPort = process.env.OPFS_PROBE_PORT ?? '43116';
+const suitePort = process.env.SUITE_PORT ?? '43120';
 
 export default defineConfig({
   testDir: './e2e',
@@ -55,6 +56,12 @@ export default defineConfig({
     {
       command: 'node packages/artifact/browser/serve.mjs',
       url: `http://127.0.0.1:${opfsPort}/`,
+      reuseExistingServer: true,
+      timeout: 30_000,
+    },
+    {
+      command: 'node packages/suite/browser/serve.mjs',
+      url: `http://127.0.0.1:${suitePort}/`,
       reuseExistingServer: true,
       timeout: 30_000,
     },

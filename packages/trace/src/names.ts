@@ -60,6 +60,8 @@ export const TRACE_NAMES: ReadonlySet<string> = new Set([
   'voice.allocate',
   'voice.steal',
   'instrument.render',
+  'midi.parse',
+  'midi.effect',
 ]);
 
 export function assertTraceName(name: string): void {
