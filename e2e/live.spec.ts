@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { mkdirSync, writeFileSync } from 'node:fs';
 
 declare global {
   interface Window {
@@ -16,7 +17,7 @@ declare global {
 
 const port = process.env.LIVE_PROBE_PORT ?? '43117';
 
-test('a sine chain plays live and hashes the same as offline', async ({ page }) => {
+test('a sine chain plays live and hashes the same as offline', async ({ page, browserName }) => {
   const external: string[] = [];
   page.on('request', (request) => {
     const url = request.url();
@@ -42,6 +43,16 @@ test('a sine chain plays live and hashes the same as offline', async ({ page }) 
   expect(heard.running).toBe(true);
   expect(heard.peak).toBeGreaterThan(0.05);
   expect(heard.underruns).toBe(0);
+  mkdirSync('tmp', { recursive: true });
+  writeFileSync(
+    `tmp/live-${browserName}.json`,
+    `${JSON.stringify({
+      baseLatencyMs: heard.baseLatencyMs,
+      outputLatencyMs: heard.outputLatencyMs,
+      underruns: heard.underruns,
+      peak: heard.peak,
+    })}\n`,
+  );
 
   const stopped = await page.evaluate(() => window.__toolpaLive.stop());
   expect(stopped.peak).toBeGreaterThan(0.05);

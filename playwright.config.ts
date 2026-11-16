@@ -28,7 +28,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: true,
   retries: 0,
-  reporter: 'list',
+  reporter: process.env.SLICE_GATE ? [['list'], ['json', { outputFile: 'tmp/playwright.json' }]] : 'list',
   timeout: 30_000,
   use: {
     trace: 'off',
