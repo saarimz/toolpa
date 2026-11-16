@@ -1,6 +1,7 @@
 import type { Trace } from '@toolpa/trace';
 import { sha256Hex } from '@toolpa/graph';
-import { ArtifactError, openArtifact, type ArtifactStore, type SealedArtifact } from './artifact.ts';
+import { ArtifactError, type ArtifactStore, type SealedArtifact } from './artifact.ts';
+import { isZipToolpa, openStoredArtifact, zipForEnvelope } from './stored.ts';
 
 function missing(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'NotFoundError';
@@ -19,15 +20,18 @@ export class OpfsStore implements ArtifactStore {
   }
 
   async save(sealed: SealedArtifact): Promise<void> {
-    await this.write('artifacts', `${sealed.id}.toolpa`, sealed.bytes);
-    this.trace?.event('artifact.saved', { id: sealed.id, bytes: sealed.bytes.byteLength, store: 'opfs' });
-    this.trace?.event('artifact.save', { id: sealed.id, bytes: sealed.bytes.byteLength, store: 'opfs' });
+    const bytes = isZipToolpa(sealed.bytes) ? sealed.bytes : await zipForEnvelope(sealed, this.trace);
+    const checked = await openStoredArtifact(bytes, this.trace);
+    if (checked.id !== sealed.id) throw new ArtifactError('id', 'stored bytes do not match the artifact id');
+    await this.write('artifacts', `${sealed.id}.toolpa`, bytes);
+    this.trace?.event('artifact.saved', { id: sealed.id, bytes: bytes.byteLength, store: 'opfs' });
+    this.trace?.event('artifact.save', { id: sealed.id, bytes: bytes.byteLength, store: 'opfs' });
   }
 
   async load(id: string): Promise<SealedArtifact | null> {
     const bytes = await this.read('artifacts', `${id}.toolpa`);
     if (!bytes) return null;
-    const opened = await openArtifact(bytes, this.trace);
+    const opened = await openStoredArtifact(bytes, this.trace);
     if (opened.id !== id) throw new ArtifactError('id', 'stored bytes do not match the artifact id');
     this.trace?.event('artifact.loaded', { id, store: 'opfs' });
     this.trace?.event('artifact.load', { id, store: 'opfs' });
