@@ -1,0 +1,20 @@
+{
+  "name": "@toolpa/audio",
+  "version": "0.0.0",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./live": "./src/live.ts"
+  },
+  "dependencies": {
+    "@elemaudio/core": "4.0.1",
+    "@elemaudio/offline-renderer": "4.0.3",
+    "@elemaudio/web-renderer": "4.0.3",
+    "@toolpa/graph": "workspace:*",
+    "@toolpa/ir": "workspace:*",
+    "@toolpa/samples": "workspace:*",
+    "@toolpa/trace": "workspace:*"
+  }
+}

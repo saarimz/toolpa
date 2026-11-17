@@ -1,0 +1,15 @@
+{
+  "name": "@toolpa/suite",
+  "version": "0.0.0",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "dependencies": {
+    "@toolpa/agent": "workspace:*",
+    "@toolpa/ir": "workspace:*",
+    "@toolpa/pack": "workspace:*",
+    "@toolpa/devices": "workspace:*",
+    "@toolpa/generate": "workspace:*",
+    "@toolpa/midi": "workspace:*"
+  }
+}
