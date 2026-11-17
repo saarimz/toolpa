@@ -1,8 +1,8 @@
 import type { PromptInstrument } from '@toolpa/agent';
 import type { Chain } from '@toolpa/graph';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { streamInstrument } from './prompt-client.ts';
+import { readAgentStatus, streamInstrument } from './prompt-client.ts';
 import { trace } from './telemetry.ts';
 
 export interface LoadedGeneration {
@@ -33,13 +33,25 @@ export function PromptBar({ onLoad, onSave }: { onLoad: (item: LoadedGeneration)
   const [prompt, setPrompt] = useState('');
   const [running, setRunning] = useState(false);
   const [stages, setStages] = useState<string[]>([]);
-  const [notice, setNotice] = useState('No gateway key is configured. Using the mock model.');
+  const [notice, setNotice] = useState('');
+  const started = useRef(false);
   const [error, setError] = useState('');
   const [current, setCurrent] = useState<LoadedGeneration | null>(null);
   const [history, setHistory] = useState<LoadedGeneration[]>([]);
 
   useEffect(() => {
     setHistory(readHistory());
+    let cancel = false;
+    void readAgentStatus()
+      .then((status) => {
+        if (!cancel && !started.current) setNotice(status.notice);
+      })
+      .catch((caught: unknown) => {
+        if (!cancel && !started.current) setNotice(caught instanceof Error ? caught.message : 'The model status could not be read.');
+      });
+    return () => {
+      cancel = true;
+    };
   }, []);
 
   function remember(item: LoadedGeneration) {
@@ -59,13 +71,23 @@ export function PromptBar({ onLoad, onSave }: { onLoad: (item: LoadedGeneration)
     const text = prompt.trim();
     if (!text || running) return;
     trace.event('ui.action', { action: 'generate' });
+    started.current = true;
     setRunning(true);
     setError('');
     setStages([]);
     try {
       const last = await streamInstrument(text, (stage) => {
         if (stage.stage === 'done') return;
-        setStages((currentStages) => [...currentStages, `${stage.stage}: ${stage.detail}`]);
+        if (stage.stage === 'plan' && stage.notice) setNotice(stage.notice);
+        setStages((currentStages) => {
+          const line = `${stage.stage}: ${stage.detail}`;
+          if (stage.stage !== 'wait') return [...currentStages, line];
+          const next = [...currentStages];
+          const previous = next[next.length - 1];
+          if (previous?.startsWith('wait:')) next[next.length - 1] = line;
+          else next.push(line);
+          return next;
+        });
         trace.event('agent.stage', { stage: stage.stage, attempt: 'attempt' in stage ? stage.attempt : 0, ok: stage.stage !== 'error' && stage.stage !== 'repair' });
       });
       if (last.stage === 'error') {

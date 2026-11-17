@@ -34,6 +34,6 @@ Workers AI uses the same token on both headers. The default model is `workers-ai
 
 Both bodies are OpenAI chat completions: `{ "model", "messages": [{ "role": "user", "content" }] }`. The reply uses `choices[0].message.content` only. A separate `reasoning` field is ignored. The instrument parser accepts JSON wrapped in prose or a code fence. The key stays in the header. It is not written into the body, the URL, the trace, or the agent provenance.
 
-The playground proxy is `POST /api/agent`. Put the variables in `apps/playground/.env.local`. The browser never sees them.
+The playground proxy is `POST /api/agent`. `GET /api/agent/status` returns the provider, model, and notice from the same resolver, and the prompt panel shows that notice on load. Put the variables in `apps/playground/.env.local`. The browser never sees them. The dev server logs each agent request, stage, and upstream status, and does not log the token.
 
 `GatewayProvider` implements `ModelProvider`. `RemotePromptProvider` takes that provider's `complete` function when a prompt should become `midi:step:velocity` notes. With no function, it still throws `NOT_CONFIGURED`.

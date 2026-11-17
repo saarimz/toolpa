@@ -3,9 +3,11 @@ import {
   MockInstrumentModel,
   WORKERS_AI_MODEL,
   chainFromPrompt,
+  explainModelHttp,
   remoteInstrumentModel,
   runInstrumentAgent,
   type ChatTransport,
+  type InstrumentModel,
   type InstrumentStage,
   type ProviderSettings,
 } from '@toolpa/agent';
@@ -33,6 +35,34 @@ export interface AgentEnv {
 export interface ResolvedAgent {
   notice: string;
   settings?: ProviderSettings;
+}
+
+export interface AgentStatus {
+  provider: string;
+  label: string;
+  model: string;
+  configured: boolean;
+  notice: string;
+}
+
+export interface AgentLog {
+  event: 'request' | 'stage' | 'upstream';
+  provider: string;
+  model: string;
+  stage?: string;
+  status?: number;
+  promptChars?: number;
+}
+
+export const AGENT_STREAM_HEADERS: Record<string, string> = {
+  'content-type': 'application/x-ndjson; charset=utf-8',
+  'cache-control': 'no-cache',
+  'x-accel-buffering': 'no',
+};
+
+export function writeStage(res: { write(chunk: string): unknown; flush?: () => void }, stage: InstrumentStage): void {
+  res.write(`${JSON.stringify(stage)}\n`);
+  res.flush?.();
 }
 
 function present(value: string | undefined): string | undefined {
@@ -117,12 +147,98 @@ export function resolveAgent(env: AgentEnv): ResolvedAgent {
   return { notice: 'No gateway key is configured. Using the mock model.' };
 }
 
-export async function streamAgent(body: unknown, env: AgentEnv, write: (stage: InstrumentStage) => void, transport?: ChatTransport): Promise<void> {
+export function agentStatus(env: AgentEnv): AgentStatus {
+  const resolved = resolveAgent(env);
+  if (!resolved.settings) {
+    return { provider: 'mock', label: 'mock', model: '', configured: false, notice: resolved.notice };
+  }
+  const model = resolved.settings.model ?? '';
+  return {
+    provider: resolved.settings.kind,
+    label: resolved.settings.kind,
+    model,
+    configured: true,
+    notice: resolved.notice,
+  };
+}
+
+function statusCode(error: unknown): number {
+  const message = error instanceof Error ? error.message : '';
+  const match = message.match(/MODEL_HTTP:\s*(\d{3})/);
+  return match ? Number(match[1]) : 0;
+}
+
+function observe(inner: ChatTransport, onStatus?: (status: number) => void): ChatTransport {
+  return {
+    async post(url, headers, body) {
+      try {
+        const payload = await inner.post(url, headers, body);
+        onStatus?.(200);
+        return payload;
+      } catch (error) {
+        onStatus?.(statusCode(error));
+        throw error;
+      }
+    },
+  };
+}
+
+async function fetchLogged(url: string, headers: Record<string, string>, body: string, onStatus?: (status: number) => void): Promise<string> {
+  const response = await fetch(url, { method: 'POST', headers, body });
+  onStatus?.(response.status);
+  if (!response.ok) throw new AgentError('MODEL_HTTP', explainModelHttp(response.status));
+  return response.text();
+}
+
+function withHeartbeat(model: InstrumentModel, write: (stage: InstrumentStage) => void, heartbeatMs: number): InstrumentModel {
+  return {
+    provider: model.provider,
+    label: model.label,
+    async complete(input) {
+      const started = Date.now();
+      let open = true;
+      const timer = setInterval(() => {
+        if (!open) return;
+        const seconds = Math.max(1, Math.round((Date.now() - started) / 1000));
+        write({ stage: 'wait', attempt: 1, detail: `waiting for model (${seconds}s)` });
+      }, heartbeatMs);
+      timer.unref?.();
+      try {
+        return await model.complete(input);
+      } finally {
+        open = false;
+        clearInterval(timer);
+      }
+    },
+  };
+}
+
+export async function streamAgent(
+  body: unknown,
+  env: AgentEnv,
+  write: (stage: InstrumentStage) => void,
+  transport?: ChatTransport,
+  options?: { heartbeatMs?: number; log?: (entry: AgentLog) => void },
+): Promise<void> {
   const prompt = body && typeof body === 'object' && typeof (body as { prompt?: unknown }).prompt === 'string' ? (body as { prompt: string }).prompt : '';
   const resolved = resolveAgent(env);
-  const model = resolved.settings ? remoteInstrumentModel({ ...resolved.settings, transport }) : new MockInstrumentModel();
+  const status = agentStatus(env);
+  const log = options?.log;
+  log?.({ event: 'request', provider: status.provider, model: status.model, promptChars: prompt.length });
+  const onStatus = (code: number) => log?.({ event: 'upstream', provider: status.provider, model: status.model, status: code });
+  const logged = transport ? observe(transport, onStatus) : { post: (url: string, headers: Record<string, string>, payload: string) => fetchLogged(url, headers, payload, onStatus) };
+  const model = resolved.settings ? remoteInstrumentModel({ ...resolved.settings, transport: logged }) : new MockInstrumentModel();
+  let announced = false;
+  const emit = (stage: InstrumentStage) => {
+    const next: InstrumentStage = stage.stage === 'plan' && !announced
+      ? { ...stage, detail: `${status.label}: ${stage.detail}`, label: status.label, notice: status.notice }
+      : stage;
+    if (stage.stage === 'plan') announced = true;
+    log?.({ event: 'stage', provider: status.provider, model: status.model, stage: next.stage });
+    write(next);
+  };
   try {
-    const result = await runInstrumentAgent(prompt, { maxAttempts: 3, model, onStage: write });
+    const result = await runInstrumentAgent(prompt, { maxAttempts: 3, model: withHeartbeat(model, emit, options?.heartbeatMs ?? 2000), onStage: emit });
     write({
       stage: 'done',
       provider: model.provider,
@@ -134,10 +250,12 @@ export async function streamAgent(body: unknown, env: AgentEnv, write: (stage: I
       dsl: result.dsl,
       chain: chainFromPrompt(result.document),
     });
+    log?.({ event: 'stage', provider: status.provider, model: status.model, stage: 'done' });
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'The agent failed.';
     const code = error instanceof AgentError ? error.code : 'error';
     write({ stage: 'error', code, detail });
+    log?.({ event: 'stage', provider: status.provider, model: status.model, stage: 'error' });
   }
 }
 

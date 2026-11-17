@@ -31,7 +31,9 @@ export interface InstrumentModel {
 }
 
 export type InstrumentStage =
-  | { stage: 'plan' | 'build' | 'repair'; attempt: number; detail: string }
+  | { stage: 'plan'; attempt: number; detail: string; label?: string; notice?: string }
+  | { stage: 'build' | 'repair'; attempt: number; detail: string }
+  | { stage: 'wait'; attempt: number; detail: string }
   | { stage: 'validate' | 'render'; attempt: number; ok: boolean; detail: string; peak?: number }
   | {
       stage: 'done';

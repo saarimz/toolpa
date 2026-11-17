@@ -378,7 +378,7 @@ test('a prompt generates a playable instrument', async ({ page }) => {
     source: { type: 'sine', frequencyHz: 262 },
     effect: { type: 'tone', cutoffHz: 4000, q: 0.8, gain: 0.35 },
   };
-  await page.route('**/api/agent', async (route) => {
+  await page.route(/\/api\/agent$/, async (route) => {
     const body = route.request().postDataJSON() as { prompt?: string };
     expect(body.prompt).toBe('bright lead');
     const lines = [
@@ -437,7 +437,7 @@ test('a prompt generates a playable instrument', async ({ page }) => {
 });
 
 test('a rejected Workers AI model is shown in the prompt panel', async ({ page }) => {
-  await page.route('**/api/agent', async (route) => {
+  await page.route(/\/api\/agent$/, async (route) => {
     const detail = 'MODEL_HTTP: 403 this Workers AI model is not on the current plan. @cf/moonshotai/kimi-k2.6 is paid-plan only. The default is workers-ai/@cf/openai/gpt-oss-120b.';
     await route.fulfill({
       status: 200,
@@ -451,4 +451,24 @@ test('a rejected Workers AI model is shown in the prompt panel', async ({ page }
   await expect(page.getByTestId('agent-error')).toContainText('403');
   await expect(page.getByTestId('agent-error')).toContainText('kimi-k2.6');
   await expect(page.getByTestId('agent-error')).toContainText('workers-ai/@cf/openai/gpt-oss-120b');
+});
+
+test('the prompt notice shows the configured provider', async ({ page }) => {
+  await page.route(/\/api\/agent\/status$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        provider: 'cloudflare-gateway',
+        label: 'cloudflare-gateway',
+        model: 'workers-ai/@cf/openai/gpt-oss-120b',
+        configured: true,
+        notice: 'Cloudflare AI Gateway · workers-ai/@cf/openai/gpt-oss-120b',
+      }),
+    });
+  });
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await expect(page.getByTestId('agent-provider')).toContainText('Cloudflare AI Gateway');
+  await expect(page.getByTestId('agent-provider')).toContainText('workers-ai/@cf/openai/gpt-oss-120b');
+  await expect(page.getByTestId('agent-provider')).not.toContainText('Using the mock model');
 });

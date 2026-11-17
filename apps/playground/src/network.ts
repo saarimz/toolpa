@@ -8,6 +8,6 @@ export function allowPlaygroundTarget(target: string, pageUrl: string): boolean 
   }
   const page = new URL(pageUrl);
   if (url.origin !== page.origin) return false;
-  if (url.pathname.startsWith('/api/')) return url.pathname === '/api/agent';
+  if (url.pathname.startsWith('/api/')) return url.pathname === '/api/agent' || url.pathname === '/api/agent/status';
   return true;
 }

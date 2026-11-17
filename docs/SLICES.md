@@ -29,6 +29,7 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 | 19 | done | 9.3 | IndexedDB index, OPFS blobs, and an IndexedDB blob fallback. |
 | 20 | done | 9 playground | Device browser, rack editor, piano roll, and an export dialog. |
 | 21 | done | 8.2, 9 playground | A prompt generates a playable instrument through the same-origin agent proxy. |
+| 21.1 | done | 8.2, 9 playground | The prompt panel shows the configured provider, and the agent stream stays alive while the model answers. |
 
 ## Slice 2 — Voices
 
@@ -189,6 +190,14 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 **Scope.** The browser posts only to `/api/agent` on its own origin. The Vite middleware and `apps/playground/api/agent.ts` read the gateway env and call `GatewayProvider`. Cloudflare sends `CF_AIG_TOKEN` on both `cf-aig-authorization` and `Authorization`. The default model is `workers-ai/@cf/openai/gpt-oss-120b`, overridable with `TOOLPA_MODEL`. Reply text uses `message.content` and ignores `reasoning`. JSON may be wrapped in prose or a code fence. A 403 or 410 from the model is shown on the page. With no gateway env, the proxy says so and uses `MockModel`. The agent builds a canonical prompt-instrument from oscillators, envelopes, filters, LFOs, effects, and the sampler, with the 40 cookbook names as few-shot examples. Validation or a silent, clipping, or NaN render repairs the document within `maxAttempts`. The result loads into the piano roll, plays from the computer keyboard or Web MIDI, and can be saved as `.toolpa`. Earlier generations stay in the page history.
 
 **Exit.** Repair tests cover silence, clipping, NaN, the attempt budget, and 403. The proxy test checks both Cloudflare headers and the default model id without a socket. Chromium, Firefox, and WebKit type a prompt against a stubbed proxy, hear the rack, and show a 403.
+
+## Slice 21.1 — Configured provider on the prompt panel
+
+**Goal.** A configured gateway is visible before Generate, and a slow model call does not look stuck on the first plan line.
+
+**Scope.** `GET /api/agent/status` uses the same resolver as the agent. The page shows that notice on load. The first `plan` stage carries the provider label. The response is `application/x-ndjson` with `Cache-Control: no-cache` and `X-Accel-Buffering: no`, and each line is flushed. A heartbeat every 2 seconds says `waiting for model (Ns)` while the model call is open. The browser stops the request after 90 seconds with a timeout error. The Vite server logs the request, each stage, and the upstream status, and does not log the token.
+
+**Exit.** The status for a Cloudflare env is `cloudflare-gateway` and configured. A delayed transport emits a wait line and an upstream 200. A thrown 403 is logged as upstream 403. Chromium, Firefox, and WebKit show a stubbed Cloudflare notice and do not show the mock fallback.
 
 ## Follow-ups that are not slices
 
