@@ -24,7 +24,13 @@ export interface ProviderSettings {
   accountId?: string;
   gatewayId?: string;
   allowNetwork?: boolean;
+  maxTokens?: number;
   transport?: ChatTransport;
+}
+
+export interface CompletionOptions {
+  system?: string;
+  jsonSchema?: Record<string, unknown>;
 }
 
 const DEFAULTS: Record<ProviderKind, { baseUrl: string; model: string }> = {
@@ -131,10 +137,56 @@ function endpoint(settings: ProviderSettings): { url: string; model: string } {
   return { url: base, model };
 }
 
-export function requestFor(settings: ProviderSettings, prompt: string): { url: string; headers: Record<string, string>; body: string } {
+export function completionBudget(explicit?: number): number {
+  const fromEnv = Number(env('TOOLPA_MAX_TOKENS'));
+  const chosen = explicit ?? (Number.isFinite(fromEnv) ? fromEnv : 4096);
+  const rounded = Math.floor(chosen);
+  if (!Number.isFinite(rounded)) return 4096;
+  return Math.min(32768, Math.max(4096, rounded));
+}
+
+export function completionMeta(payload: string): { finishReason: string; contentLength: number } {
+  try {
+    const json = JSON.parse(payload) as {
+      choices?: { finish_reason?: unknown; message?: { content?: unknown } }[];
+    };
+    const choice = json.choices?.[0];
+    const content = choice?.message?.content;
+    return {
+      finishReason: typeof choice?.finish_reason === 'string' ? choice.finish_reason : 'unknown',
+      contentLength: typeof content === 'string' ? content.length : 0,
+    };
+  } catch {
+    return { finishReason: 'unknown', contentLength: payload.length };
+  }
+}
+
+function chatMessages(prompt: string, options?: CompletionOptions): { role: string; content: string }[] {
+  const user = { role: 'user', content: prompt };
+  return options?.system ? [{ role: 'system', content: options.system }, user] : [user];
+}
+
+function openaiChat(model: string, prompt: string, options: CompletionOptions | undefined, budget: number): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    model,
+    messages: chatMessages(prompt, options),
+    max_tokens: budget,
+  };
+  if (model.includes('gpt-oss')) body.reasoning_effort = 'low';
+  if (options?.jsonSchema) {
+    const workers = model.startsWith('workers-ai/') || model.includes('@cf/');
+    body.response_format = workers
+      ? { type: 'json_object' }
+      : { type: 'json_schema', json_schema: { name: 'prompt_instrument', strict: false, schema: options.jsonSchema } };
+  }
+  return body;
+}
+
+export function requestFor(settings: ProviderSettings, prompt: string, options?: CompletionOptions): { url: string; headers: Record<string, string>; body: string } {
   const target = endpoint(settings);
   const headers: Record<string, string> = { 'content-type': 'application/json' };
-  const chat = JSON.stringify({ model: target.model, messages: [{ role: 'user', content: prompt }] });
+  const budget = completionBudget(settings.maxTokens);
+  const chat = JSON.stringify(openaiChat(target.model, prompt, options, budget));
   if (settings.kind === 'vercel-gateway' || settings.kind === 'openai' || settings.kind === 'openai-compatible') {
     if (!settings.apiKey) throw new AgentError('NOT_CONFIGURED', 'NOT_CONFIGURED: an API key is required');
     headers.authorization = `Bearer ${settings.apiKey}`;
@@ -151,16 +203,24 @@ export function requestFor(settings: ProviderSettings, prompt: string): { url: s
     if (!settings.apiKey) throw new AgentError('NOT_CONFIGURED', 'NOT_CONFIGURED: ANTHROPIC_API_KEY is required');
     headers['x-api-key'] = settings.apiKey;
     headers['anthropic-version'] = '2023-06-01';
+    const messages = options?.system
+      ? [{ role: 'user', content: `${options.system}\n\n${prompt}` }]
+      : [{ role: 'user', content: prompt }];
     return {
       url: `${target.url}/v1/messages`,
       headers,
-      body: JSON.stringify({ model: target.model, max_tokens: 256, messages: [{ role: 'user', content: prompt }] }),
+      body: JSON.stringify({ model: target.model, max_tokens: budget, messages }),
     };
   }
   return {
     url: `${target.url}/api/chat`,
     headers,
-    body: JSON.stringify({ model: target.model, stream: false, messages: [{ role: 'user', content: prompt }] }),
+    body: JSON.stringify({
+      model: target.model,
+      stream: false,
+      messages: chatMessages(prompt, options),
+      ...(options?.jsonSchema ? { format: 'json' } : {}),
+    }),
   };
 }
 
@@ -176,7 +236,7 @@ export function textFromProvider(kind: ProviderKind, payload: string): string {
     throw new AgentError('MODEL_RESPONSE', 'MODEL_RESPONSE: the provider did not return JSON');
   }
   const record = json as {
-    choices?: { message?: { content?: unknown; reasoning?: unknown } }[];
+    choices?: { finish_reason?: unknown; message?: { content?: unknown; reasoning?: unknown } }[];
     content?: { text?: unknown }[];
     message?: { content?: unknown };
   };
@@ -184,6 +244,9 @@ export function textFromProvider(kind: ProviderKind, payload: string): string {
     const message = record.choices?.[0]?.message;
     const content = message?.content;
     if (typeof content === 'string' && content.trim().length > 0) return content;
+    if (record.choices?.[0]?.finish_reason === 'length') {
+      throw new AgentError('MODEL_RESPONSE', 'MODEL_RESPONSE: finish_reason length with no message content. Raise TOOLPA_MAX_TOKENS above 4096.');
+    }
     if (typeof message?.reasoning === 'string' && message.reasoning.trim().length > 0) {
       throw new AgentError('MODEL_RESPONSE', 'MODEL_RESPONSE: the model returned reasoning without message content');
     }
@@ -210,13 +273,13 @@ function assertSecret(settings: ProviderSettings, request: { url: string; body: 
   }
 }
 
-export async function completeRaw(settings: ProviderSettings, prompt: string, trace?: Trace): Promise<string> {
+export async function completeRaw(settings: ProviderSettings, prompt: string, trace?: Trace, options?: CompletionOptions): Promise<string> {
   const text = prompt.trim();
   if (!text) throw new AgentError('AGENT_EMPTY', 'AGENT_EMPTY: the prompt is empty');
   if (settings.allowNetwork !== true) {
     throw new AgentError('NOT_CONFIGURED', 'NOT_CONFIGURED: set TOOLPA_ALLOW_NETWORK=1 to call a hosted model');
   }
-  const request = requestFor(settings, text);
+  const request = requestFor(settings, text, options);
   assertSecret(settings, request);
   const transport = settings.transport ?? { post: fetchTransport };
   try {

@@ -15,7 +15,7 @@ function logLine(entry: AgentLog): void {
     return;
   }
   if (entry.event === 'upstream') {
-    console.info(`[toolpa] upstream status=${entry.status ?? 0} provider=${entry.provider} model=${model}`);
+    console.info(`[toolpa] upstream status=${entry.status ?? 0} finish_reason=${entry.finishReason ?? 'unknown'} contentLength=${entry.contentLength ?? 0} provider=${entry.provider} model=${model}`);
     return;
   }
   console.info(`[toolpa] stage=${entry.stage ?? '-'} provider=${entry.provider} model=${model}`);

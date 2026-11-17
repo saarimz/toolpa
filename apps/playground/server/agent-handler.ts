@@ -3,6 +3,7 @@ import {
   MockInstrumentModel,
   WORKERS_AI_MODEL,
   chainFromPrompt,
+  completionMeta,
   explainModelHttp,
   remoteInstrumentModel,
   runInstrumentAgent,
@@ -52,6 +53,8 @@ export interface AgentLog {
   stage?: string;
   status?: number;
   promptChars?: number;
+  finishReason?: string;
+  contentLength?: number;
 }
 
 export const AGENT_STREAM_HEADERS: Record<string, string> = {
@@ -168,12 +171,13 @@ function statusCode(error: unknown): number {
   return match ? Number(match[1]) : 0;
 }
 
-function observe(inner: ChatTransport, onStatus?: (status: number) => void): ChatTransport {
+function observe(inner: ChatTransport, onStatus?: (status: number, finishReason?: string, contentLength?: number) => void): ChatTransport {
   return {
     async post(url, headers, body) {
       try {
         const payload = await inner.post(url, headers, body);
-        onStatus?.(200);
+        const meta = completionMeta(payload);
+        onStatus?.(200, meta.finishReason, meta.contentLength);
         return payload;
       } catch (error) {
         onStatus?.(statusCode(error));
@@ -183,11 +187,13 @@ function observe(inner: ChatTransport, onStatus?: (status: number) => void): Cha
   };
 }
 
-async function fetchLogged(url: string, headers: Record<string, string>, body: string, onStatus?: (status: number) => void): Promise<string> {
+async function fetchLogged(url: string, headers: Record<string, string>, body: string, onStatus?: (status: number, finishReason?: string, contentLength?: number) => void): Promise<string> {
   const response = await fetch(url, { method: 'POST', headers, body });
-  onStatus?.(response.status);
+  const payload = await response.text();
+  const meta = completionMeta(payload);
+  onStatus?.(response.status, meta.finishReason, meta.contentLength);
   if (!response.ok) throw new AgentError('MODEL_HTTP', explainModelHttp(response.status));
-  return response.text();
+  return payload;
 }
 
 function withHeartbeat(model: InstrumentModel, write: (stage: InstrumentStage) => void, heartbeatMs: number): InstrumentModel {
@@ -225,7 +231,14 @@ export async function streamAgent(
   const status = agentStatus(env);
   const log = options?.log;
   log?.({ event: 'request', provider: status.provider, model: status.model, promptChars: prompt.length });
-  const onStatus = (code: number) => log?.({ event: 'upstream', provider: status.provider, model: status.model, status: code });
+  const onStatus = (code: number, finishReason?: string, contentLength?: number) => log?.({
+    event: 'upstream',
+    provider: status.provider,
+    model: status.model,
+    status: code,
+    finishReason,
+    contentLength,
+  });
   const logged = transport ? observe(transport, onStatus) : { post: (url: string, headers: Record<string, string>, payload: string) => fetchLogged(url, headers, payload, onStatus) };
   const model = resolved.settings ? remoteInstrumentModel({ ...resolved.settings, transport: logged }) : new MockInstrumentModel();
   let announced = false;
@@ -249,6 +262,9 @@ export async function streamAgent(
       document: result.document,
       dsl: result.dsl,
       chain: chainFromPrompt(result.document),
+      attempt: result.attempts,
+      adjusted: result.adjusted,
+      description: result.document.description,
     });
     log?.({ event: 'stage', provider: status.provider, model: status.model, stage: 'done' });
   } catch (error) {

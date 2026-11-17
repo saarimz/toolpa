@@ -1,4 +1,4 @@
-import type { PromptInstrument } from '@toolpa/agent';
+import { applyMacro, chainFromPrompt, type PromptInstrument } from '@toolpa/agent';
 import type { Chain } from '@toolpa/graph';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,9 @@ export interface LoadedGeneration {
   document: PromptInstrument;
   dsl: string;
   chain: Chain;
+  attempt: number;
+  adjusted: boolean;
+  description: string;
 }
 
 const HISTORY_KEY = 'toolpa.prompt-history';
@@ -108,6 +111,9 @@ export function PromptBar({ onLoad, onSave }: { onLoad: (item: LoadedGeneration)
         document: last.document,
         dsl: last.dsl,
         chain: last.chain,
+        attempt: last.attempt,
+        adjusted: last.adjusted,
+        description: last.description,
       };
       apply(item);
       remember(item);
@@ -142,6 +148,43 @@ export function PromptBar({ onLoad, onSave }: { onLoad: (item: LoadedGeneration)
       <p className="text-sm" data-testid="agent-provider">
         {notice}
       </p>
+      {current ? (
+        <div className="flex flex-col gap-2">
+          <h2 className="text-lg font-medium" data-testid="agent-name">
+            {current.document.name}
+          </h2>
+          <p className="text-sm" data-testid="agent-description">
+            {current.description || current.document.description}
+          </p>
+          <p className="text-sm" data-testid="agent-attempt">
+            Attempt {current.attempt}
+          </p>
+          {current.adjusted ? (
+            <p className="text-sm" data-testid="agent-adjusted">
+              Auto-adjusted
+            </p>
+          ) : null}
+          <div className="flex flex-col gap-2">
+            {(current.document.macros ?? []).map((macro) => (
+              <label key={macro.name} className="flex items-center gap-3 text-sm">
+                {macro.name}
+                <input
+                  type="range"
+                  data-testid={`macro-${macro.name}`}
+                  min={macro.min}
+                  max={macro.max}
+                  step="1"
+                  value={macro.value}
+                  onChange={(event) => {
+                    const document = applyMacro(current.document, macro.name, Number(event.target.value));
+                    apply({ ...current, document, chain: chainFromPrompt(document) });
+                  }}
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <ol className="flex flex-col gap-1 text-sm text-muted-foreground" data-testid="agent-stages">
         {stages.map((stage, index) => (
           <li key={`${stage}-${index}`}>{stage}</li>

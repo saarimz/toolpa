@@ -30,6 +30,7 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 | 20 | done | 9 playground | Device browser, rack editor, piano roll, and an export dialog. |
 | 21 | done | 8.2, 9 playground | A prompt generates a playable instrument through the same-origin agent proxy. |
 | 21.1 | done | 8.2, 9 playground | The prompt panel shows the configured provider, and the agent stream stays alive while the model answers. |
+| 22 | done | 8.2, 5, 9 playground | A prompt becomes a rich instrument. A model failure stays a failure. |
 
 ## Slice 2 — Voices
 
@@ -198,6 +199,14 @@ A feature that needs a paid API or a hardware device is built behind an interfac
 **Scope.** `GET /api/agent/status` uses the same resolver as the agent. The page shows that notice on load. The first `plan` stage carries the provider label. The response is `application/x-ndjson` with `Cache-Control: no-cache` and `X-Accel-Buffering: no`, and each line is flushed. A heartbeat every 2 seconds says `waiting for model (Ns)` while the model call is open. The browser stops the request after 90 seconds with a timeout error. The Vite server logs the request, each stage, and the upstream status, and does not log the token.
 
 **Exit.** The status for a Cloudflare env is `cloudflare-gateway` and configured. A delayed transport emits a wait line and an upstream 200. A thrown 403 is logged as upstream 403. Chromium, Firefox, and WebKit show a stubbed Cloudflare notice and do not show the mock fallback.
+
+## Slice 22 — Real prompt to instrument
+
+**Goal.** The model’s JSON is the instrument. A failed model call is shown as a failure.
+
+**Scope.** Chat completions ask for at least 4096 tokens (`TOOLPA_MAX_TOKENS` can raise it). `gpt-oss` gets `reasoning_effort: low`. Workers AI uses `response_format: json_object`; other OpenAI-compatible calls can use `json_schema`. Extraction still accepts fenced or prose-wrapped JSON. The log records `finish_reason` and content length, not the token. Parse and model errors are sent back to the model. They never become a canned patch. If every attempt fails, the page shows the error and does not load an instrument. Silence, clipping, and NaN can still change levels, cutoff, and effect mix, and the page labels that Auto-adjusted. The document has voices, up to three oscillators, amp and filter envelopes, LFOs, glide, an ordered effect chain, and macros. It lowers through the slice 10 and 11 nodes. `pnpm toolpa eval-prompts` calls the configured model only when `TOOLPA_ALLOW_NETWORK=1` and writes `tmp/prompt-eval.json`.
+
+**Exit.** Two stubbed prompts hash differently. A model that never returns JSON ends in `AGENT_BUDGET` after real retries. A Cloudflare request for `gpt-oss` includes `max_tokens` of at least 4096 and `reasoning_effort: low`. Chromium, Firefox, and WebKit play a generated lead, show its name and description, and move a macro knob.
 
 ## Follow-ups that are not slices
 

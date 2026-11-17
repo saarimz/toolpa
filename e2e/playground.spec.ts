@@ -357,15 +357,25 @@ test('a prompt generates a playable instrument', async ({ page }) => {
   });
   const document = {
     kind: 'prompt-instrument',
-    version: 1,
+    version: 2,
     name: 'bright-lead',
-    oscillator: 'cycle',
-    voice: { attackSeconds: 0.01, decaySeconds: 0.1, sustain: 0.7, releaseSeconds: 0.08 },
-    filter: { mode: 'lowpass', cutoffHz: 4000, q: 0.8 },
-    lfoHz: 0,
-    lfoDepthHz: 0,
-    effect: 'dry',
-    sampler: false,
+    description: 'A bright two-note sine lead.',
+    voices: 4,
+    glideSeconds: 0,
+    oscillators: [{ wave: 'sine', detuneCents: 0, octave: 0, level: 0.5, unison: 1 }],
+    amp: { attackSeconds: 0.01, decaySeconds: 0.1, sustain: 0.7, releaseSeconds: 0.08 },
+    filter: {
+      type: 'svf',
+      mode: 'lowpass',
+      cutoffHz: 4000,
+      resonance: 0.8,
+      envelopeAmount: 0,
+      keytrack: 0,
+      adsr: { attackSeconds: 0.01, decaySeconds: 0.08, sustain: 0.4, releaseSeconds: 0.08 },
+    },
+    lfos: [],
+    effects: [],
+    macros: [{ name: 'cutoff', target: 'filter.cutoffHz', min: 200, max: 8000, value: 4000 }],
     notes: [
       { midi: 60, step: 0, velocity: 110 },
       { midi: 64, step: 2, velocity: 90 },
@@ -394,8 +404,11 @@ test('a prompt generates a playable instrument', async ({ page }) => {
         hash: 'ab'.repeat(32),
         rack: 'cd'.repeat(32),
         document,
-        dsl: 'prompt-instrument bright-lead\nosc cycle\nnote 60 0 110',
+        dsl: 'prompt-instrument bright-lead\nosc sine 0 0 0.5 1\nnote 60 0 110',
         chain,
+        attempt: 1,
+        adjusted: false,
+        description: 'A bright two-note sine lead.',
       },
     ];
     await route.fulfill({
@@ -416,7 +429,12 @@ test('a prompt generates a playable instrument', async ({ page }) => {
   await expect(page.getByTestId('agent-provider')).toContainText('mock');
   await expect(page.getByTestId('agent-provider')).toContainText('Using the mock model');
   await expect(page.getByTestId('agent-json')).toContainText('prompt-instrument');
-  await expect(page.getByTestId('agent-dsl')).toContainText('osc cycle');
+  await expect(page.getByTestId('agent-name')).toHaveText('bright-lead');
+  await expect(page.getByTestId('agent-description')).toContainText('bright two-note');
+  await expect(page.getByTestId('agent-attempt')).toContainText('Attempt 1');
+  await expect(page.getByTestId('agent-dsl')).toContainText('osc sine');
+  await page.getByTestId('macro-cutoff').fill('2200');
+  await expect(page.getByTestId('agent-json')).toContainText('2200');
   await expect(page.getByTestId('roll-count')).toHaveText('2 notes');
 
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
@@ -451,6 +469,8 @@ test('a rejected Workers AI model is shown in the prompt panel', async ({ page }
   await expect(page.getByTestId('agent-error')).toContainText('403');
   await expect(page.getByTestId('agent-error')).toContainText('kimi-k2.6');
   await expect(page.getByTestId('agent-error')).toContainText('workers-ai/@cf/openai/gpt-oss-120b');
+  await expect(page.getByTestId('agent-name')).toHaveCount(0);
+  await expect(page.getByTestId('roll-count')).toHaveText('1 notes');
 });
 
 test('the prompt notice shows the configured provider', async ({ page }) => {

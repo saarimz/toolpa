@@ -20,7 +20,7 @@ The playground listens on [http://127.0.0.1:47291](http://127.0.0.1:47291).
 
 Describe an instrument in the prompt box and press Generate. The page posts to `/api/agent` on this origin. The dev server reads the gateway settings and returns a rack. The piano roll, computer keyboard, Play, and Save generation work on that rack. Earlier generations stay in the page history. Web MIDI is off until you press Use Web MIDI.
 
-The prompt panel reads `GET /api/agent/status` on load and shows that provider. With no gateway settings, Generate says so and uses the local mock model. A model call sends a heartbeat every few seconds. The page stops waiting after 90 seconds. To call Workers AI through Cloudflare, copy `apps/playground/.env.example` to `apps/playground/.env.local` and set:
+The prompt panel reads `GET /api/agent/status` on load and shows that provider. With no gateway settings, Generate says so and uses the local mock model. A model call sends a heartbeat every few seconds. The page stops waiting after 90 seconds. If the model returns nothing usable, the page shows the error and does not load a substitute instrument. `pnpm toolpa eval-prompts` calls the configured model only when `TOOLPA_ALLOW_NETWORK=1` and writes `tmp/prompt-eval.json`. To call Workers AI through Cloudflare, copy `apps/playground/.env.example` to `apps/playground/.env.local` and set:
 
 - `TOOLPA_MODEL_PROVIDER=cloudflare-gateway`
 - `TOOLPA_ALLOW_NETWORK=1`

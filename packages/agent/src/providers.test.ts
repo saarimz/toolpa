@@ -157,9 +157,21 @@ describe('hosted model providers', () => {
       expect(workers.headers.authorization).toBe('Bearer cf-token');
       expect(workers.headers['cf-aig-authorization']).toBe('Bearer cf-token');
       expect(JSON.parse(workers.body).model).toBe(WORKERS_AI_MODEL);
+      expect(JSON.parse(workers.body).max_tokens).toBeGreaterThanOrEqual(4096);
+      expect(JSON.parse(workers.body).reasoning_effort).toBe('low');
+      const shaped = requestFor(
+        { kind: 'cloudflare-gateway', apiKey: 'cf-token', accountId: 'acct1', gatewayId: 'gw1', model: WORKERS_AI_MODEL },
+        'bass',
+        { system: 'Return JSON.', jsonSchema: { type: 'object' } },
+      );
+      const shapedBody = JSON.parse(shaped.body) as { max_tokens: number; response_format: { type: string }; messages: { role: string }[] };
+      expect(shapedBody.max_tokens).toBeGreaterThanOrEqual(4096);
+      expect(shapedBody.response_format.type).toBe('json_object');
+      expect(shapedBody.messages[0]?.role).toBe('system');
       expect(workers.body.includes('cf-token')).toBe(false);
       expect(textFromProvider('cloudflare-gateway', JSON.stringify({ choices: [{ message: { reasoning: 'think', content: '{"ok":true}' } }] }))).toBe('{"ok":true}');
       expect(() => textFromProvider('cloudflare-gateway', JSON.stringify({ choices: [{ message: { reasoning: 'only thoughts' } }] }))).toThrow(/reasoning without message content/);
+      expect(() => textFromProvider('cloudflare-gateway', JSON.stringify({ choices: [{ finish_reason: 'length', message: { content: '' } }] }))).toThrow(/TOOLPA_MAX_TOKENS/);
       expect(explainModelHttp(403)).toMatch(/kimi-k2.6/);
       expect(explainModelHttp(410)).toMatch(/llama-3.1-8b-instruct/);
     } finally {

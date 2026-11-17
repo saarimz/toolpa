@@ -2,8 +2,13 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { renderChain } from '../packages/audio/src/index.ts';
 
 const [command, inputPath, outputPath] = process.argv.slice(2);
+if (command === 'eval-prompts') {
+  const { evalPrompts } = await import('./eval-prompts.ts');
+  await evalPrompts();
+  process.exit(0);
+}
 if (command !== 'render' || !inputPath || !outputPath) {
-  process.stderr.write('usage: toolpa render <chain.json> <out.wav>\n');
+  process.stderr.write('usage: toolpa render <chain.json> <out.wav>\n       toolpa eval-prompts\n');
   process.exit(1);
 }
 
